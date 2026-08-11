@@ -3,7 +3,7 @@ name: Luna Implementer
 description: Default bounded implementation worker using GPT-5.6 Luna.
 user-invocable: false
 model: ['GPT-5.6 Luna', 'MAI-Code-1-Flash']
-tools: ['read', 'search', 'edit', 'execute', 'vscode', 'todo']
+tools: ['read', 'search', 'edit', 'shell', 'vscode', 'todo']
 agents: []
 ---
 # Luna Implementer
