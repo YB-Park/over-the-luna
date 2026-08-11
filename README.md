@@ -4,9 +4,7 @@
 
 > The moon got cheap enough to change the architecture.
 
-Over the Luna packages a small set of VS Code custom agents that route work by *role* instead of sending every token to the biggest model.
-
-It was designed for developers who like VS Code, want to keep human decisions in the loop, and used to think multi-agent harnesses were too automated and too token-hungry.
+Over the Luna routes work by *role* instead of sending every token to the biggest model. It is designed for developers who want to stay in VS Code, keep human decisions visible, and use a harness only when the extra orchestration earns its cost.
 
 This is deliberately **not** an autonomous swarm.
 
@@ -15,13 +13,55 @@ This is deliberately **not** an autonomous swarm.
 - **Kimi takes long, bounded jobs.**
 - **MAI handles mechanical repetition.**
 - **Opus is a human-gated escalation, not an automatic tax.**
-- **Haiku is only a fallback.**
+- **Haiku is fallback only.**
 
-No MCP server. No daemon. No hook that runs code. No giant system prompt. Just a small Copilot agent plugin.
+No MCP server. No daemon. No hooks that execute code. No giant system prompt. Just a small Copilot agent plugin.
 
 ## Install
 
-### VS Code — easiest
+> [!IMPORTANT]
+> **Testing the current Draft PR?** The plugin is still on `agent/over-the-luna-vscode-harness`, not `main`. The normal repository-source install will only work after the PR is merged. Use the **pre-merge tester install** below for now.
+
+### Pre-merge tester install — current Draft PR
+
+Clone the working branch:
+
+```bash
+git clone --branch agent/over-the-luna-vscode-harness --single-branch https://github.com/YB-Park/over-the-luna.git
+cd over-the-luna
+```
+
+Then use either option.
+
+#### Option A — Copilot CLI
+
+If Copilot CLI is available:
+
+```bash
+copilot plugin install .
+```
+
+VS Code automatically discovers plugins installed by Copilot CLI.
+
+#### Option B — VS Code only
+
+Register the cloned directory as a local plugin in your **user** `settings.json`:
+
+```json
+{
+  "chat.pluginLocations": {
+    "/absolute/path/to/over-the-luna": true
+  }
+}
+```
+
+Use an absolute path. Run **Developer: Reload Window** if the agents do not appear immediately.
+
+VS Code officially supports local plugin directories through `chat.pluginLocations`, so this is the recommended way to test an unmerged branch without changing the repository default branch.
+
+### After merge — VS Code source install
+
+Once the plugin is on `main`:
 
 1. Use a current VS Code with GitHub Copilot enabled.
 2. Open the Command Palette.
@@ -30,23 +70,19 @@ No MCP server. No daemon. No hook that runs code. No giant system prompt. Just a
 
    `https://github.com/YB-Park/over-the-luna`
 
-5. Open Copilot Chat and choose either **Luna Solo** or **Over the Luna**.
+5. Open Copilot Chat and choose **Luna Solo** or **Over the Luna**.
 
-Agent Plugins are currently a VS Code preview feature and can be disabled by organization policy through `chat.plugins.enabled`.
+Agent Plugins can be disabled by organization policy through `chat.plugins.enabled`.
 
-### Copilot CLI
+### After merge — Copilot CLI
 
 ```bash
 copilot plugin install YB-Park/over-the-luna
 ```
 
-VS Code discovers plugins installed by Copilot CLI automatically.
-
 ### If your organization blocks Agent Plugins
 
-Custom agents themselves can still be installed as files.
-
-Clone this repository, then copy `agents/*.agent.md` to one of:
+Custom agents can still be installed as plain files. Clone the repository and copy `agents/*.agent.md` to either:
 
 - User-wide: `~/.copilot/agents`
 - Workspace-only: `.github/agents`
@@ -72,7 +108,7 @@ Copy-Item ".\agents\*.agent.md" $dest
 
 Use this for normal day-to-day coding.
 
-It is intentionally **not a harness**. It does not delegate. It uses GPT-5.6 Luna directly with a concise "inspect only what you need, edit, validate, stop" workflow.
+It is intentionally **not a harness**. It does not delegate. It uses GPT-5.6 Luna directly with a concise inspect → edit → validate → stop workflow.
 
 If the task is straightforward, stay here.
 
@@ -83,10 +119,10 @@ Use this when decomposition actually helps:
 - multi-file features
 - unfamiliar repositories
 - independent research that can run in parallel
-- a change that benefits from an independent review
-- a bounded long-horizon task
+- changes that benefit from independent review
+- bounded long-horizon work
 
-The coordinator uses **Claude Sonnet 5** and may delegate to cheap/specialized workers. Initial fan-out is capped by prompt policy; it is not supposed to spawn a swarm just because it can.
+The coordinator uses **Claude Sonnet 5** and may delegate to cheap or specialized workers. The prompt policy caps initial fan-out and explicitly tells the coordinator not to spawn workers merely because it can.
 
 ## Routing map
 
@@ -124,7 +160,7 @@ The coordinator uses **Claude Sonnet 5** and may delegate to cheap/specialized w
 
 ## Agent set
 
-| Agent | Default model | Visible to user | Purpose |
+| Agent | Default model | Visible | Purpose |
 |---|---|---:|---|
 | **Over the Luna** | Claude Sonnet 5 | ✅ | Thin coordinator; delegates only when useful |
 | **Luna Solo** | GPT-5.6 Luna | ✅ | Direct everyday coding, no subagents |
@@ -138,45 +174,37 @@ The coordinator uses **Claude Sonnet 5** and may delegate to cheap/specialized w
 
 ## Why Opus is a handoff
 
-VS Code subagents cannot request a model above the parent model's cost tier. More importantly, this project intentionally keeps expensive/high-stakes escalation **visible to the human**.
+VS Code subagents cannot request a model above the parent model's cost tier. More importantly, this project intentionally keeps expensive and high-stakes escalation **visible to the human**.
 
-The coordinator never silently calls Opus.
-
-At the end of a meaningful change, the **Critical review with Opus** handoff lets you explicitly choose when the premium review is worth it.
-
-This is a feature, not a workaround.
+The coordinator never silently calls Opus. At the end of a meaningful change, the **Critical review with Opus** handoff lets you explicitly decide when premium review is worth it.
 
 ## Recommended model settings
 
-VS Code currently lets supported models use configurable Thinking Effort, but custom-agent frontmatter does not expose a per-agent reasoning-effort field. The selected effort is remembered per model, so one Luna setting applies across Luna roles.
-
-Recommended starting point:
+Custom-agent frontmatter can select a model, but VS Code currently does not expose a documented per-agent reasoning-effort field. Start with:
 
 | Model | Start with | Notes |
 |---|---|---|
-| GPT-5.6 Luna | **Medium** | Best general harness default; raise to High for hard direct work |
-| Claude Sonnet 5 | **Low / Medium** | Coordinator should spend tokens on routing quality, not endless thinking |
-| Claude Opus 4.8 | **High** | Only when you deliberately hand off |
+| GPT-5.6 Luna | **Medium** | General harness default; use High for hard direct work |
+| Claude Sonnet 5 | **Low / Medium** | Spend tokens on routing quality, not endless thinking |
+| Claude Opus 4.8 | **High** | Only when deliberately handed off |
 | Kimi K2.7 Code | Default | Give it clear acceptance criteria |
-| MAI-Code-1-Flash | Default | Use only after design decisions are already made |
+| MAI-Code-1-Flash | Default | Best after design decisions are already made |
 
 Do not blindly maximize reasoning. The goal is the **minimum sufficient intelligence at each stage**.
 
 ## Human-in-the-loop rules
 
-Over the Luna is intentionally conservative:
-
-1. It does not delegate trivial work just to look agentic.
+1. Do not delegate trivial work just to look agentic.
 2. Initial parallel fan-out is limited to three workers.
 3. Broad architecture, auth/security, payments, migrations, destructive changes, and major behavior changes require a visible plan before implementation.
-4. Opus escalation is always a user-visible handoff.
-5. Workers are given narrow tools and narrow scope.
-6. Review agents report findings; they do not silently rewrite the implementation.
-7. The coordinator should return decisions to the human instead of hiding them inside a long autonomous loop.
+4. Opus escalation is always user-visible.
+5. Workers get narrow tools and narrow scope.
+6. Review agents report findings; they do not silently rewrite implementations.
+7. The coordinator returns important decisions to the human instead of hiding them inside a long autonomous loop.
 
 ## Model availability
 
-This plugin assumes the models are available in your GitHub Copilot plan or enabled by your organization:
+The plugin assumes these models are available in your GitHub Copilot plan or enabled by your organization:
 
 - GPT-5.6 Luna
 - Claude Sonnet 5
@@ -185,37 +213,35 @@ This plugin assumes the models are available in your GitHub Copilot plan or enab
 - MAI-Code-1-Flash
 - Claude Haiku 4.5 (fallback only)
 
-The agent files include conservative fallback lists where appropriate. If your organization disables a model, Copilot can try the next available model in the configured list.
-
-As of August 2026, GitHub lists GPT-5.6 Luna as requiring VS Code 1.128.0 or newer. Keep VS Code and the Copilot extension current.
+Agent files include conservative fallback lists where appropriate.
 
 ## Design philosophy
 
-The project is based on four ideas:
-
 **1. Harness overhead must earn its keep.**  
-A subagent call is not free just because Luna is cheap. Delegate only when context isolation, parallelism, or independent review is worth the extra loop.
+A subagent call is not free just because Luna is cheap.
 
 **2. Cheap intelligence belongs in the wide part of the funnel.**  
 Discovery and routine implementation happen often. Put Luna there.
 
 **3. Premium intelligence belongs at leverage points.**  
-Planning quality and critical review can prevent many downstream mistakes. Use Sonnet and Opus there, but sparingly.
+Use Sonnet and Opus for decisions and review where one good judgment prevents many bad downstream steps.
 
 **4. The human is still the architect.**  
 The harness should compress mechanical work and context management, not make product or architecture decisions invisible.
 
-See [`docs/DESIGN.md`](docs/DESIGN.md) for the routing rationale and current limitations.
+See [`docs/DESIGN.md`](docs/DESIGN.md) for routing rationale and limitations.
 
 ## Updating
 
-If installed from source in VS Code, use the Agent Plugins UI to check for updates. VS Code checks plugin sources for updates periodically.
+After merge, source-installed plugins can be updated through the Agent Plugins UI. VS Code periodically checks plugin sources for updates.
 
-If installed with Copilot CLI:
+For the current pre-merge local clone, update manually:
 
 ```bash
-copilot plugin update over-the-luna
+git pull
 ```
+
+If you installed the local clone through Copilot CLI, reinstall/update it as needed after pulling changes.
 
 ## Uninstall
 
@@ -227,9 +253,9 @@ From Copilot CLI:
 copilot plugin uninstall over-the-luna
 ```
 
-## References
+If you used `chat.pluginLocations`, remove the local path from that setting.
 
-This project is intentionally built on public VS Code/GitHub Copilot primitives rather than a custom runtime:
+## References
 
 - VS Code custom agents: https://code.visualstudio.com/docs/agent-customization/custom-agents
 - VS Code subagents: https://code.visualstudio.com/docs/agents/subagents
