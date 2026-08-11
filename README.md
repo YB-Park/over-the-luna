@@ -19,49 +19,7 @@ No MCP server. No daemon. No hooks that execute code. No giant system prompt. Ju
 
 ## Install
 
-> [!IMPORTANT]
-> **Testing the current Draft PR?** The plugin is still on `agent/over-the-luna-vscode-harness`, not `main`. The normal repository-source install will only work after the PR is merged. Use the **pre-merge tester install** below for now.
-
-### Pre-merge tester install — current Draft PR
-
-Clone the working branch:
-
-```bash
-git clone --branch agent/over-the-luna-vscode-harness --single-branch https://github.com/YB-Park/over-the-luna.git
-```
-
-Then register that cloned directory directly in VS Code.
-
-Open your **user** `settings.json` and add:
-
-```json
-{
-  "chat.pluginLocations": {
-    "/absolute/path/to/over-the-luna": true
-  }
-}
-```
-
-Use the absolute path of the cloned repository. On Windows, for example:
-
-```json
-{
-  "chat.pluginLocations": {
-    "C:\\Users\\you\\src\\over-the-luna": true
-  }
-}
-```
-
-Run **Developer: Reload Window** if the agents do not appear immediately.
-
-This is the recommended pre-merge test path. VS Code officially supports local plugin directories through `chat.pluginLocations`, and it does not depend on Copilot CLI plugin-install syntax or the repository default branch.
-
-> [!NOTE]
-> Current GitHub Copilot CLI documentation lists local plugin paths such as `./my-plugin` as supported. Some released CLI builds still reject local paths with `Invalid plugin spec`. If your CLI does this, use `chat.pluginLocations` above. Updating Copilot CLI may also add the newer parser behavior, but the CLI is not required to test Over the Luna in VS Code.
-
-### After merge — VS Code source install
-
-Once the plugin is on `main`:
+### VS Code — recommended
 
 1. Use a current VS Code with GitHub Copilot enabled.
 2. Open the Command Palette.
@@ -74,7 +32,7 @@ Once the plugin is on `main`:
 
 Agent Plugins can be disabled by organization policy through `chat.plugins.enabled`.
 
-### After merge — Copilot CLI
+### Copilot CLI
 
 ```bash
 copilot plugin install YB-Park/over-the-luna
@@ -82,7 +40,7 @@ copilot plugin install YB-Park/over-the-luna
 
 ### If your organization blocks Agent Plugins
 
-Custom agents can still be installed as plain files. Clone the repository and copy `agents/*.agent.md` to either:
+Custom agents can still be installed as plain files. Clone this repository and copy `agents/*.agent.md` to either:
 
 - User-wide: `~/.copilot/agents`
 - Workspace-only: `.github/agents`
@@ -231,18 +189,25 @@ The harness should compress mechanical work and context management, not make pro
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for routing rationale and limitations.
 
+## Versioning
+
+Over the Luna follows semantic versioning. The current plugin version is **v0.1.0**.
+
+- Patch (`0.1.x`): prompt fixes, routing tweaks, compatibility fixes.
+- Minor (`0.x.0`): new agents, routing behavior, or notable harness features.
+- Major (`x.0.0`): breaking installation/configuration or behavioral changes.
+
+See [`CHANGELOG.md`](CHANGELOG.md) for release notes.
+
 ## Updating
 
-After merge, source-installed plugins can be updated through the Agent Plugins UI. VS Code periodically checks plugin sources for updates.
+Source-installed plugins can be updated through the Agent Plugins UI. VS Code periodically checks plugin sources for updates.
 
-For the current pre-merge local clone, update manually:
+Copilot CLI users can update with:
 
 ```bash
-cd /absolute/path/to/over-the-luna
-git pull
+copilot plugin update over-the-luna
 ```
-
-Because `chat.pluginLocations` points at the working directory, a reload is enough after pulling changes; you do not need to reinstall the plugin.
 
 ## Uninstall
 
@@ -253,8 +218,6 @@ From Copilot CLI:
 ```bash
 copilot plugin uninstall over-the-luna
 ```
-
-If you used `chat.pluginLocations`, remove the local path from that setting.
 
 ## References
 
