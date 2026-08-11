@@ -2,8 +2,9 @@
 name: Opus Critical Reviewer
 description: Human-invoked high-stakes review with Claude Opus 4.8.
 argument-hint: Use after sensitive or expensive changes when a premium independent review is worth it.
+target: vscode
 model: ['Claude Opus 4.8', 'Claude Sonnet 5']
-tools: ['read', 'search', 'shell', 'web']
+tools: ['read', 'search', 'execute', 'web']
 agents: []
 handoffs:
   - label: Fix accepted findings with Luna
@@ -27,6 +28,8 @@ Prioritize:
 - distributed failure modes and partial success
 - error handling and observability gaps
 - tests that pass while missing the real bug
+
+Use terminal execution only for focused validation commands. Do not intentionally modify source files.
 
 Distinguish clearly between:
 1. **MUST FIX** — credible correctness/safety issue
