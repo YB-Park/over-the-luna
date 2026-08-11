@@ -18,6 +18,14 @@ Opus human-gated critical review
 
 GPT-5.6 Luna is the center of gravity because it is fast and inexpensive enough to make selective subagent use practical. The harness does **not** assume Luna is the best model at every task.
 
+## Why there is no Luna Solo agent
+
+Direct single-model coding is already a first-class VS Code workflow: use the built-in **Agent** and choose **GPT-5.6 Luna** in the model picker.
+
+A custom Luna Solo profile could narrow tools, forbid subagents, and add a short behavior prompt, but those differences are not unique harness functionality. Keeping that wrapper in this plugin would duplicate VS Code's native UI, add another visible agent to maintain, and blur the product boundary.
+
+Therefore Over the Luna owns only the orchestration layer. The native Agent + Luna path is the no-harness baseline and the manual recovery path when orchestration fails.
+
 ## Coordinator boundary
 
 The Over the Luna coordinator is fixed to **Claude Sonnet 5** and intentionally has only `agent` and `todo`.
@@ -30,15 +38,11 @@ The user-facing coordinator is also `disable-model-invocation: true`; it is an e
 
 ## Parent tools are not worker tools
 
-This distinction was the key lesson from v0.2 testing.
-
 A parent coordinator showing edit/terminal tools as unavailable is **expected** when its tool list is intentionally narrow. That observation does not prove the delegated implementation worker lacks those tools.
 
 VS Code custom subagents can provide their own model, tools, and instructions, overriding the defaults inherited from the parent session.
 
 The meaningful runtime test is therefore whether the expanded implementation subagent — Luna Implementer, Kimi Deep Worker, or MAI Mechanical — receives its own declared `edit` and `execute` capabilities.
-
-v0.2.1 temporarily widened the coordinator after these two layers were conflated. v0.3 restores the strict coordinator boundary.
 
 ## Failure and recovery
 
@@ -48,9 +52,7 @@ If a subagent cannot start, its required model/tooling is unavailable, or it oth
 
 `HARNESS_FAILURE: <reason>`
 
-It does not silently become the implementation agent.
-
-A **Continue directly with Luna** handoff gives the developer an explicit recovery path. Luna Solo is also `disable-model-invocation: true`, so this transition is user-chosen rather than an automatic hidden fallback.
+It does not silently become the implementation agent. The developer can recover by switching to VS Code's built-in **Agent** and selecting **GPT-5.6 Luna**. Recovery is therefore manual and native to the host IDE rather than implemented as another plugin agent.
 
 ## Luna roles
 
@@ -101,7 +103,7 @@ A requested subagent model cannot exceed the parent model's cost tier; if it doe
 
 GitHub documents primary aliases including `execute`, `read`, `edit`, `search`, `agent`, `web`, and `todo`.
 
-Compatible aliases such as `shell` for `execute` are valid, but v0.3 uses primary aliases only. Unknown tool names can be silently ignored, so a narrow documented vocabulary makes configuration drift easier to detect.
+Compatible aliases such as `shell` for `execute` are valid, but this project uses primary aliases only. Unknown tool names can be silently ignored, so a narrow documented vocabulary makes configuration drift easier to detect.
 
 ## VS Code-only target
 
@@ -119,7 +121,7 @@ VS Code supports configurable thinking/reasoning effort for supported models, bu
 
 ## Deliberate exclusions
 
-Over the Luna currently does not provide recursive/nested swarms, background daemons, autonomous issue picking, automatic commits/pushes, hidden premium escalation, MCP servers, lifecycle hooks, a custom VS Code extension, or a second editor UI.
+Over the Luna currently does not provide a duplicate direct-coding agent, recursive/nested swarms, background daemons, autonomous issue picking, automatic commits/pushes, hidden premium escalation, MCP servers, lifecycle hooks, a custom VS Code extension, or a second editor UI.
 
 Those features should be added only if measured use shows a real need.
 
@@ -133,12 +135,13 @@ Those features should be added only if measured use shows a real need.
 - `target: vscode`;
 - allowed model names and primary tool aliases;
 - valid subagent/handoff references;
-- manual-only user entry agents;
+- manual-only user-facing harness agents;
 - Sonnet-only coordinator model;
 - router-only coordinator tools and exact worker allow-list;
 - implementation-worker read/search/edit/execute access;
 - reviewers having neither edit nor execute;
-- no recursive worker delegation.
+- no recursive worker delegation;
+- no reintroduction of the redundant `Luna Solo` wrapper.
 
 ### Runtime smoke test
 
@@ -148,7 +151,7 @@ Useful metrics:
 
 1. Luna completion rate.
 2. Kimi/Sonnet/Opus escalation rate.
-3. Wall-clock time versus Luna Solo.
+3. Wall-clock time versus native Agent + Luna.
 4. Review defect rate.
 5. Agent count per task.
 6. Harness failure rate.
