@@ -28,24 +28,11 @@ Clone the working branch:
 
 ```bash
 git clone --branch agent/over-the-luna-vscode-harness --single-branch https://github.com/YB-Park/over-the-luna.git
-cd over-the-luna
 ```
 
-Then use either option.
+Then register that cloned directory directly in VS Code.
 
-#### Option A — Copilot CLI
-
-If Copilot CLI is available:
-
-```bash
-copilot plugin install .
-```
-
-VS Code automatically discovers plugins installed by Copilot CLI.
-
-#### Option B — VS Code only
-
-Register the cloned directory as a local plugin in your **user** `settings.json`:
+Open your **user** `settings.json` and add:
 
 ```json
 {
@@ -55,9 +42,22 @@ Register the cloned directory as a local plugin in your **user** `settings.json`
 }
 ```
 
-Use an absolute path. Run **Developer: Reload Window** if the agents do not appear immediately.
+Use the absolute path of the cloned repository. On Windows, for example:
 
-VS Code officially supports local plugin directories through `chat.pluginLocations`, so this is the recommended way to test an unmerged branch without changing the repository default branch.
+```json
+{
+  "chat.pluginLocations": {
+    "C:\\Users\\you\\src\\over-the-luna": true
+  }
+}
+```
+
+Run **Developer: Reload Window** if the agents do not appear immediately.
+
+This is the recommended pre-merge test path. VS Code officially supports local plugin directories through `chat.pluginLocations`, and it does not depend on Copilot CLI plugin-install syntax or the repository default branch.
+
+> [!NOTE]
+> Current GitHub Copilot CLI documentation lists local plugin paths such as `./my-plugin` as supported. Some released CLI builds still reject local paths with `Invalid plugin spec`. If your CLI does this, use `chat.pluginLocations` above. Updating Copilot CLI may also add the newer parser behavior, but the CLI is not required to test Over the Luna in VS Code.
 
 ### After merge — VS Code source install
 
@@ -238,10 +238,11 @@ After merge, source-installed plugins can be updated through the Agent Plugins U
 For the current pre-merge local clone, update manually:
 
 ```bash
+cd /absolute/path/to/over-the-luna
 git pull
 ```
 
-If you installed the local clone through Copilot CLI, reinstall/update it as needed after pulling changes.
+Because `chat.pluginLocations` points at the working directory, a reload is enough after pulling changes; you do not need to reinstall the plugin.
 
 ## Uninstall
 
