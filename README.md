@@ -8,7 +8,7 @@ Over the Luna routes work by *role* instead of sending every token to the bigges
 
 This is deliberately **not** an autonomous swarm.
 
-- **Sonnet routes. It does not do repository work.**
+- **Sonnet routes first; direct repository work is an explicit fallback only.**
 - **Luna does most discovery, implementation, and first-line review.**
 - **Kimi takes coherent long, bounded jobs.**
 - **MAI handles mechanical repetition.**
@@ -57,13 +57,19 @@ It intentionally does **not** delegate. Luna inspects, edits, validates, and sto
 
 Use this when you explicitly want a harness.
 
-Starting with **v0.2.0**, the Sonnet coordinator is **router-only**. It has no repository read/search/execute/edit tools. Every substantive repository task must be delegated to a worker.
+Starting with **v0.2.1**, the Sonnet coordinator is **worker-first, not tool-disabled**. Normal repository work should be delegated to workers, but VS Code's built-in read/search/edit/shell/web tool surface stays enabled so the custom agent does not cripple the editor or dead-end when a worker path fails.
 
-Even a small clear fix routes to **Luna Implementer**. If you do not want that extra agent boundary, use **Luna Solo** instead.
+Even a small clear fix normally routes to **Luna Implementer**. If you do not want that extra agent boundary, use **Luna Solo** instead.
 
 The coordinator prints a short route before delegation, for example:
 
 `Route: Luna Explorer → Luna Implementer → Luna Reviewer`
+
+If subagent invocation or worker tooling fails, the coordinator may recover with direct built-in tools, but it must make that visible:
+
+`Fallback: Sonnet direct execution — <reason>`
+
+That fallback is a harness failure signal, not the normal route.
 
 ## Routing map
 
@@ -74,7 +80,7 @@ The coordinator prints a short route before delegation, for example:
                  │                           │
             Luna Solo                 Over the Luna
            GPT-5.6 Luna               Claude Sonnet 5
-          direct/no harness              ROUTER ONLY
+          direct/no harness             ROUTER FIRST
                                              │
                ┌─────────────────────────────┼────────────────────────────┐
                │                             │                            │
@@ -105,7 +111,7 @@ The coordinator prints a short route before delegation, for example:
 
 | Agent | Primary model | Visible | Purpose |
 |---|---|---:|---|
-| **Over the Luna** | Claude Sonnet 5 | ✅ | Router/synthesizer only; cannot do repository work directly |
+| **Over the Luna** | Claude Sonnet 5 | ✅ | Worker-first router/synthesizer; built-in tools retained for visible emergency fallback |
 | **Luna Solo** | GPT-5.6 Luna | ✅ | Direct everyday coding, no subagents |
 | Luna Explorer | GPT-5.6 Luna | ❌ | Read-only codebase discovery |
 | Luna Researcher | GPT-5.6 Luna | ❌ | Read-only external/documentation research |
@@ -135,6 +141,14 @@ The coordinator prints a short route before delegation, for example:
 
 **Critical review → Opus handoff.** The coordinator never silently invokes Opus.
 
+## Tool-boundary rule
+
+Model routing policy and VS Code tool availability are separate concerns.
+
+The active **Over the Luna** custom agent keeps the standard built-in `read`, `search`, `edit`, `shell`, `web`, and `vscode` tool sets available. Workers still define narrower role-specific tool lists.
+
+The coordinator is instructed not to use direct repository tools during a healthy harness run. This avoids the v0.2.0 failure mode where removing the tools at the custom-agent level caused built-in editing capabilities such as `replace_string_in_file` to appear disabled and made recovery impossible.
+
 ## Why not give every model a role?
 
 Model diversity is useful only when a role earns it. Luna is currently the best default for the wide/high-frequency part of this harness, so **Haiku is deliberately not given a primary job just to make the model diagram look more diverse**. It remains a fallback.
@@ -144,7 +158,7 @@ The project can add new model-specific roles when real testing shows a repeatabl
 ## Human-in-the-loop rules
 
 1. Choosing **Luna Solo** means no harness.
-2. Choosing **Over the Luna** means repository work is delegated; Sonnet cannot silently take over implementation.
+2. Choosing **Over the Luna** means repository work is worker-first; Sonnet direct execution must be an explicit fallback with a reason.
 3. Maximum initial parallel fan-out is three workers.
 4. Parallelize independent discovery/research, not overlapping implementations.
 5. Broad architecture/product decisions remain visible to the developer.
@@ -162,7 +176,7 @@ The full intended routing set is:
 - Claude Opus 4.8
 - Claude Haiku 4.5 (fallback)
 
-Your Copilot plan or organization must enable the relevant models. Custom subagents use the model configured in their own agent definition; VS Code falls back when that model is unavailable or cannot be requested from the parent cost tier.
+Your Copilot plan or organization must enable the relevant models. Custom subagents use the model configured in their own agent definition. VS Code does not run a subagent if the requested model exceeds the parent model's cost tier.
 
 ## Recommended model settings
 
@@ -174,9 +188,18 @@ Your Copilot plan or organization must enable the relevant models. Custom subage
 | MAI-Code-1-Flash | Default | Deterministic work after decisions are made |
 | Claude Opus 4.8 | **High** | Human-gated review only |
 
+## Troubleshooting tool availability
+
+If **Over the Luna** says an edit tool such as `replace_string_in_file` is disabled:
+
+1. Confirm the installed plugin is **v0.2.1 or newer**.
+2. Update/reinstall the source plugin and run **Developer: Reload Window**.
+3. Open the chat tool picker and verify the standard edit tools are available for the active custom agent.
+4. If a worker still reports that its own edit tools are unavailable, capture the subagent name/model and the expanded tool call. That indicates a VS Code subagent/custom-agent tool-resolution issue rather than the intended Over the Luna policy.
+
 ## Versioning
 
-Over the Luna follows semantic versioning. The current plugin version is **v0.2.0**.
+Over the Luna follows semantic versioning. The current plugin version is **v0.2.1**.
 
 - Patch (`0.2.x`): prompt fixes, routing tuning, compatibility fixes.
 - Minor (`0.x.0`): new agents, routing behavior, or notable harness features.
