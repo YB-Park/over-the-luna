@@ -21,12 +21,6 @@ ALLOWED_MODELS = {
     "MAI-Code-1-Flash",
     "Claude Haiku 4.5",
 }
-
-# VS Code resolves an explicit custom-agent tools list against registered tool
-# and tool-set reference names. This project intentionally does NOT use a global
-# "*" tool wildcard: current VS Code runtime does not treat it as an all-tools
-# selector for custom subagents. Ambient inheritance is represented by omitting
-# `tools` on the coordinator and ambient workers.
 ALLOWED_EXPLICIT_TOOLS = {"agent", "todo", "read", "search", "edit", "execute", "web"}
 
 EXPECTED_AGENT_IDS = {
@@ -37,24 +31,20 @@ EXPECTED_AGENT_IDS = {
     "luna-implementer",
     "luna-reviewer",
     "kimi-deep-worker",
-    "mai-mechanical",
     "sonnet-reviewer",
     "opus-critical-reviewer",
 }
 
 VISIBLE_AGENT_IDS = {"over-the-luna", "opus-critical-reviewer"}
 MANUAL_ONLY_AGENT_IDS = VISIBLE_AGENT_IDS
-FORBIDDEN_AGENT_IDS = {"luna-solo"}
+FORBIDDEN_AGENT_IDS = {"luna-solo", "mai-mechanical"}
 
-# These roles intentionally omit `tools`. The coordinator receives VS Code's
-# active selected-tool map; named custom subagents that also omit `tools` inherit
-# that map. This is what preserves arbitrary user MCP/extension tools.
+# Current VS Code selected-tool inheritance requires these roles to omit tools.
 INHERITED_TOOL_AGENT_IDS = {
     "over-the-luna",
     "luna-tool-worker",
     "luna-implementer",
     "kimi-deep-worker",
-    "mai-mechanical",
 }
 
 STRICT_TOOLSETS = {
@@ -74,7 +64,6 @@ EXPECTED_COORDINATOR_WORKERS = {
     "Luna Implementer",
     "Luna Reviewer",
     "Kimi Deep Worker",
-    "MAI Mechanical",
     "Sonnet Reviewer",
 }
 
@@ -133,7 +122,7 @@ def main() -> int:
 
     for key in ("mcpServers", "mcp-servers"):
         if key in plugin:
-            fail(errors, f"plugin.json: do not bundle MCP servers via {key}; user/workspace VS Code configuration owns integrations")
+            fail(errors, f"plugin.json: do not bundle MCP servers via {key}; VS Code user/workspace configuration owns integrations")
     if (ROOT / ".mcp.json").exists():
         fail(errors, ".mcp.json: this plugin must not bundle MCP servers")
 
@@ -156,7 +145,8 @@ def main() -> int:
     for path in files:
         agent_id = path.name.removesuffix(".agent.md")
         if agent_id in FORBIDDEN_AGENT_IDS:
-            fail(errors, f"{path}: direct-mode wrappers belong to VS Code's built-in Agent, not this harness plugin")
+            reason = "native Agent owns direct Luna mode" if agent_id == "luna-solo" else "MAI is a Luna availability fallback, not a dedicated routing role"
+            fail(errors, f"{path}: forbidden agent; {reason}")
 
         try:
             frontmatter, body = parse_frontmatter(path)
@@ -195,7 +185,7 @@ def main() -> int:
                 tools = []
             for tool in tools:
                 if tool == "*":
-                    fail(errors, f"{path}: do not use global tools '*'; current VS Code subagent runtime resolves explicit tool names/toolsets rather than treating '*' as all tools")
+                    fail(errors, f"{path}: do not use global tools '*'; current VS Code inheritance uses tools omission for ambient roles")
                 elif tool not in ALLOWED_EXPLICIT_TOOLS:
                     fail(errors, f"{path}: unsupported explicit tool declaration {tool!r}")
 
@@ -258,19 +248,21 @@ def main() -> int:
         if fm.get("model") != "Claude Sonnet 5":
             fail(errors, f"{path}: full harness coordinator must be Claude Sonnet 5")
         if "tools" in fm:
-            fail(errors, f"{path}: coordinator must omit tools so VS Code's active selected-tool map can be inherited by ambient custom subagents")
+            fail(errors, f"{path}: coordinator must omit tools so active selected tools can flow to ambient children")
         if set(fm.get("agents", [])) != EXPECTED_COORDINATOR_WORKERS:
             fail(errors, f"{path}: coordinator worker allow-list drifted")
-        for marker in ("HARNESS_VIOLATION", "Never infer an external side effect", "AMBIENT_TOOL_UNAVAILABLE", "selected-tool"):
+        for marker in ("HARNESS_VIOLATION", "Never infer an external side effect", "AMBIENT_TOOL_UNAVAILABLE", "selected-tool", "ESCALATE_KIMI", "ESCALATION ONLY"):
             if marker not in body:
-                fail(errors, f"{path}: coordinator inheritance/routing contract missing marker {marker!r}")
+                fail(errors, f"{path}: coordinator routing/inheritance contract missing marker {marker!r}")
+        if "MAI Mechanical" in body:
+            fail(errors, f"{path}: dedicated MAI routing must not return; MAI is fallback-only")
 
     for agent_id in INHERITED_TOOL_AGENT_IDS:
         if agent_id not in parsed:
             continue
         path, fm, body = parsed[agent_id]
         if "tools" in fm:
-            fail(errors, f"{path}: inherited-tool role must OMIT tools; explicit tool lists replace parent selected-tool inheritance in VS Code")
+            fail(errors, f"{path}: inherited-tool role must OMIT tools")
         if agent_id != "over-the-luna" and fm.get("agents", []) != []:
             fail(errors, f"{path}: inherited-tool worker must remain a leaf with agents: []")
         if agent_id != "over-the-luna":
@@ -288,6 +280,24 @@ def main() -> int:
         actual_tools = set(fm.get("tools", []))
         if actual_tools != expected_tools:
             fail(errors, f"{path}: strict tool boundary drifted; expected {sorted(expected_tools)}, got {sorted(actual_tools)}")
+
+    implementer = parsed.get("luna-implementer")
+    if implementer:
+        path, fm, body = implementer
+        if fm.get("model") != ["GPT-5.6 Luna", "MAI-Code-1-Flash"]:
+            fail(errors, f"{path}: Luna must remain primary; MAI is availability fallback only")
+        for marker in ("ESCALATE_KIMI", "repetitive", "Multi-file scope alone"):
+            if marker not in body:
+                fail(errors, f"{path}: Luna-first implementation contract missing marker {marker!r}")
+
+    kimi = parsed.get("kimi-deep-worker")
+    if kimi:
+        path, fm, body = kimi
+        if fm.get("model") != "Kimi K2.7 Code":
+            fail(errors, f"{path}: Kimi escalation must target Kimi K2.7 Code directly")
+        for marker in ("escalation-only", "ESCALATE_KIMI"):
+            if marker not in body:
+                fail(errors, f"{path}: Kimi escalation contract missing marker {marker!r}")
 
     for agent_id in REVIEWER_AGENT_IDS:
         if agent_id not in parsed:

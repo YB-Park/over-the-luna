@@ -4,6 +4,32 @@ All notable changes to **Over the Luna** are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.7.0 — 2026-08-11
+
+Luna-first routing simplification after re-evaluating whether MAI and Kimi dedicated routes still justified their complexity and cost.
+
+### Removed
+
+- Removed the dedicated **MAI Mechanical** agent and its coordinator route.
+- Reduced the distributed architecture from 10 agents to **9 agents**.
+
+### Changed
+
+- **Luna Implementer** now owns ordinary features, deterministic repetition, boilerplate/test replication, mechanical edits, and coherent multi-file implementation by default.
+- **MAI-Code-1-Flash** remains only as Luna Implementer's availability fallback. This preserves resilience without maintaining a redundant routing role.
+- **Kimi Deep Worker** is now **escalation-only**. Sonnet may invoke it only when the developer explicitly requests Kimi or Luna Implementer returns `ESCALATE_KIMI: <specific reason>`.
+- Multi-file scope, task length, repetition, unfamiliarity, or expected validation cycles are no longer sufficient reasons to select Kimi initially.
+- Luna Implementer now defines a concrete Kimi escalation contract for non-converging validation/fix loops or implementation-continuity problems.
+- Kimi Deep Worker now targets **Kimi K2.7 Code** directly instead of carrying a Luna fallback list, keeping the escalation route semantically distinct.
+- Static validation now forbids reintroducing MAI Mechanical, requires Luna primary + MAI fallback on Luna Implementer, and enforces the Kimi escalation contract.
+- Smoke tests now verify that mechanical and multi-file work start with Luna, while Kimi remains available through explicit/natural escalation.
+
+### Why
+
+Over the Luna should not manufacture jobs for every model in the organization's catalog. A specialist routing branch must demonstrate a measurable advantage over Luna in correctness, wall-clock time, total tokens/credits, context continuity, or capability isolation.
+
+The current Luna cost/capability profile makes the dedicated MAI mechanical route especially hard to justify, while the original Kimi long-task specialization remains a hypothesis rather than a proven default advantage. v0.7 therefore keeps model diversity only where it has a clear purpose: **Kimi as observable escalation, MAI as availability fallback, Sonnet/Opus as judgment layers.**
+
 ## v0.6.0 — 2026-08-11
 
 VS Code runtime compatibility correction after the v0.5 MCP hard gate failed in a real environment.

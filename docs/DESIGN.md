@@ -1,51 +1,111 @@
 # Design notes
 
-Over the Luna is a **thin, human-guided harness** for GitHub Copilot in VS Code. It intentionally does less than orchestration-heavy systems.
+Over the Luna is a **thin, human-guided harness** for GitHub Copilot in VS Code.
 
-The goal is to preserve VS Code's editor, diagnostics, source control, terminal, testing, navigation, Copilot UI, and the developer's existing MCP/extension tools while adding enough model routing to make inexpensive subagents useful.
+The goal is not to use every available model. The goal is to preserve VS Code's native environment, separate useful contexts/capabilities, and route to the **cheapest reliable path** with visible escalation.
 
-## The funnel
+## v0.7 principle: model diversity must earn its cost
+
+Luna is the default implementation model because current use shows it is cheap enough and capable enough to cover ordinary coding, deterministic repetition, and coherent multi-file work.
+
+A dedicated worker exists only when it adds a measurable advantage in at least one dimension:
+
+- correctness or success rate;
+- wall-clock time;
+- total tokens/credits;
+- context continuity;
+- capability isolation;
+- independent review value.
+
+A model being available in the organization's Copilot catalog is not sufficient reason to create a routing branch for it.
+
+This leads to two simplifications in v0.7:
+
+1. **MAI Mechanical is removed.** Mechanical work routes to Luna Implementer. MAI-Code-1-Flash remains only as Luna Implementer's availability fallback.
+2. **Kimi Deep Worker becomes escalation-only.** Multi-file or long work starts with Luna. Kimi is invoked only after a concrete `ESCALATE_KIMI` signal or an explicit developer request.
+
+## Current funnel
 
 ```text
-cheap + wide                         expensive + narrow
-─────────────────────────────────────────────────────────
-Luna discovery / tool bridge / routine implementation / first review
-MAI deterministic repetition
-Kimi long bounded execution
-Sonnet coordination / second-line review
+wide/default                                         narrow/escalated
+────────────────────────────────────────────────────────────────────
+Luna discovery / tool bridge / implementation / first review
+                                │
+                                └─ implementation non-convergence → Kimi
+Sonnet coordination / high-risk second-line review
 Opus human-gated critical review
 ```
 
+## Why multiple Luna roles still matter
+
+A harness does not need different models at every stage to provide value.
+
+The Luna roles have different context and capability boundaries:
+
+- **Luna Explorer** — strict local read/search discovery;
+- **Luna Researcher** — strict public/current web research;
+- **Luna Tool Worker** — inherited user MCP/extension tools for bounded external work;
+- **Luna Implementer** — inherited implementation/tool surface and one coherent coding thread;
+- **Luna Reviewer** — strict independent read-only review.
+
+Using the same inexpensive model in separate stateless subagent invocations still provides useful separation between discovery, implementation, external evidence, and independent review.
+
+## Luna Implementer ownership
+
+Luna Implementer owns by default:
+
+- ordinary fixes/features;
+- deterministic repetition;
+- unit-test pattern replication;
+- DTO/schema/mapper/mock/boilerplate work;
+- mechanical renames and obvious lint/type fixes;
+- coherent multi-file implementation;
+- repeated validation/fix cycles while progress is converging.
+
+Task size, repetition, unfamiliarity, or file count alone are not escalation signals.
+
+If the blocker is an unresolved product/architecture/security/API decision, Luna returns the decision to the parent; another implementation model is not a substitute for human judgment.
+
+## Kimi escalation
+
+Kimi is a bounded continuation model, not an initial task classifier.
+
+Luna may return:
+
+`ESCALATE_KIMI: <specific reason>`
+
+only when a concrete implementation-continuity problem exists, such as:
+
+- necessary coupled cross-file state is no longer being held reliably;
+- repeated validation/fix cycles are demonstrably not converging;
+- the same bounded implementation would benefit from handing its thread to another implementation owner.
+
+Sonnet passes Kimi the original acceptance criteria, current implementation state, changed areas, failed validation, and minimal continuation context. Kimi should not restart broad discovery or widen the task.
+
+The developer can also explicitly request Kimi for a bounded task.
+
+## MAI as fallback, not role
+
+MAI-Code-1-Flash remains in Luna Implementer's model preference list after Luna.
+
+That is a **resilience decision**, not a specialization claim. If Luna is unavailable or the runtime chooses the configured fallback, the implementation role can still operate. There is no separate MAI routing branch, prompt surface, or worker lifecycle to maintain.
+
 ## Product boundary
 
-Over the Luna owns **orchestration**, not the developer's environment.
+Over the Luna owns orchestration, not the developer's environment.
 
 It does not bundle MCP servers, credentials, OAuth, a daemon, or a custom VS Code runtime. Direct single-model coding stays in native **Agent + GPT-5.6 Luna**. MCP servers and extension tools remain configured through normal VS Code mechanisms.
 
-## The v0.5 lesson: cross-product spec is not enough
+## Selected-tool inheritance
 
-v0.5.0 used `tools: ['*']` on ambient workers because GitHub's cross-product custom-agent reference documents `*` as enabling all tools.
-
-Real VS Code testing failed: the server was running and its configuration was visible, but Luna Tool Worker could not call the MCP.
-
-Current VS Code source explains why:
-
-1. A named custom subagent that declares `tools` replaces the inherited parent tool selection with an enablement map built from the declared tool/tool-set reference names.
-2. Current VS Code tool resolution exact-matches registered tool/tool-set names and aliases; Over the Luna cannot rely on a global `*` entry as an all-tools selector.
-3. A named custom subagent that **omits `tools`** keeps the parent invocation's selected-tool map.
-4. A main custom agent that **omits `tools`** falls back to the user's active/global selected-tool state.
-
-Therefore v0.6.0 uses **tool omission as inheritance**, not a wildcard.
-
-## Tool inheritance architecture
+v0.6 established the current runtime-compatible inheritance model and v0.7 keeps it unchanged.
 
 Roles that intentionally omit `tools`:
 
-- **Over the Luna** — parent selected-tool carrier + router
-- **Luna Tool Worker** — user MCP/extension bridge
-- **Luna Implementer** — default implementation
-- **MAI Mechanical** — deterministic implementation
-- **Kimi Deep Worker** — long bounded implementation
+- Over the Luna
+- Luna Tool Worker
+- Luna Implementer
+- Kimi Deep Worker
 
 Strict roles that intentionally override inheritance:
 
@@ -57,68 +117,28 @@ Strict roles that intentionally override inheritance:
 
 All workers remain leaf nodes with `agents: []`.
 
-## Coordinator boundary: capability tradeoff
+## Coordinator boundary
 
-The ideal design would express both:
+Current static VS Code `.agent.md` cannot simultaneously hard-limit Sonnet to delegation/todo and automatically pass every unknown user MCP into children.
 
-- Sonnet can execute only delegation/todo; and
-- every unknown current/future user MCP tool flows automatically into children.
-
-Current static VS Code `.agent.md` configuration cannot express both simultaneously.
-
-If the coordinator declares `tools: ['agent', 'todo']`, ambient children that omit `tools` inherit only that restricted selection. If children declare MCP tools explicitly, the plugin must know each user's server/tool names.
-
-So v0.6 chooses **ambient compatibility**. The coordinator omits `tools` to carry the developer's active selected-tool map into children.
-
-This weakens the coordinator boundary from capability-level to behavioral-level: Sonnet technically sees the tools, but must not execute environment-facing ones.
+So the coordinator omits `tools` as a selected-tool carrier, while router-only behavior is an explicit contract.
 
 Healthy Sonnet direct calls:
 
 - subagent delegation;
 - optional todo/task coordination.
 
-Unhealthy direct calls:
+Any direct repository/web/MCP/extension/environment call is:
 
-- repository read/search/edit/execute;
-- web/browser;
-- MCP/extension tools;
-- database/cloud/source-control/environment actions.
+`HARNESS_VIOLATION: coordinator executed <tool>`
 
-Any such call is a `HARNESS_VIOLATION` and a smoke-test failure.
-
-This tradeoff is explicit rather than hidden. If VS Code later provides stable additive tool inheritance, per-agent deny tools, or stable always-on agent hooks that can preserve child ambient tools, the coordinator should return to a hard capability boundary.
-
-## Why hooks are not a core dependency
-
-VS Code Preview `PreToolUse` hooks can deny direct tool execution and agent-scoped hooks are a promising future hardening mechanism. However custom-agent hooks currently depend on preview support/settings and can be disabled by organization policy.
-
-A one-install harness should not silently fail open or lose MCP support because an optional preview hook is unavailable. v0.6 therefore keeps hooks out of the core compatibility contract.
-
-## Luna Tool Worker
-
-Tool Worker isolates bounded external work when that isolation is useful:
-
-- read Jira/Linear acceptance criteria;
-- retrieve internal docs;
-- query a database/service for current state;
-- collect fresh external evidence for a strict reviewer;
-- perform a specific external action only when explicitly requested.
-
-It inherits the user's active tools but normally returns context rather than owning repository implementation.
-
-## Ambient implementation workers
-
-Luna Implementer, MAI Mechanical, and Kimi Deep Worker inherit the same active tool selection so existing browser/API/DB/cloud/internal tools remain usable during implementation and validation.
-
-The coordinator should not add Tool Worker hops when the implementation worker can naturally use the required tool itself.
+Strict exploration/review boundaries remain capability-level restrictions.
 
 ## External side-effect boundary
 
 Tool visibility is not authorization.
 
-External reads may be inferred when clearly necessary for the requested outcome. External mutation is never inferred.
-
-A coding task does not automatically authorize ticket updates, messages, DB writes, deploys, cloud changes, pushes, PR creation, or other remote effects. Those require an explicit developer request.
+External reads may be inferred when clearly necessary for the requested outcome. External mutation is never inferred. Ticket updates, messages, DB writes, deploys, pushes, PR creation, cloud changes, and similar effects require an explicit developer request.
 
 Unavailable/denied integration:
 
@@ -126,34 +146,15 @@ Unavailable/denied integration:
 
 Workers must not bypass it through shell, direct HTTP, alternate credentials, or another integration.
 
-## External content is untrusted
-
-Files, web pages, MCP responses, issue text, DB values, and extension-tool output are data, not instructions. They cannot override developer scope, routing policy, or side-effect constraints.
-
-VS Code trust, approvals, Configure Tools state, sandboxing, and organization policy remain authoritative.
-
-## Strict review and external evidence
+## External evidence and review
 
 Reviewers stay non-mutating and non-ambient.
 
-When a verdict requires current private/external state, return:
+When a verdict requires current private/external state:
 
 `NEEDS_EXTERNAL_VERIFICATION: <specific fact or invariant>`
 
-Then use a fresh Luna Tool Worker in read-only mode and pass evidence back to review.
-
-## Role summary
-
-- **Luna Explorer** — strict local discovery
-- **Luna Researcher** — strict public/current web research
-- **Luna Tool Worker** — inherited external tools/evidence
-- **Luna Implementer** — inherited normal implementation tools
-- **Luna Reviewer** — strict first-line review
-- **MAI Mechanical** — inherited deterministic repetition
-- **Kimi Deep Worker** — inherited long bounded implementation
-- **Sonnet** — routing/synthesis; direct environment execution forbidden
-- **Sonnet Reviewer** — strict high-risk second line
-- **Opus** — manual strict critical review
+The coordinator invokes a fresh Luna Tool Worker in read-only mode and passes evidence back to review.
 
 ## Fan-out budget
 
@@ -171,26 +172,27 @@ None of these grants Sonnet permission to silently become the implementer. Direc
 
 Static CI enforces:
 
-- exact agent set;
-- `target: vscode`;
-- allowed models;
-- coordinator/ambient roles **omit** `tools`;
-- strict roles keep exact explicit tool allow-lists;
-- global `tools: ['*']` is rejected;
+- exact 9-agent architecture;
+- no Luna Solo or MAI Mechanical worker;
+- Luna Implementer with Luna primary + MAI availability fallback;
+- Kimi as K2.7-only escalation worker;
+- `ESCALATE_KIMI` contract in Luna and coordinator;
+- coordinator/ambient roles omit `tools`;
+- strict roles keep exact explicit allow-lists;
+- no global `tools: ['*']` assumption;
 - no bundled/per-agent MCP configuration;
-- ambient side-effect/untrusted-data/unavailable-tool markers;
 - strict reviewer boundaries and `NEEDS_EXTERNAL_VERIFICATION`;
-- exact coordinator worker allow-list;
 - no recursive worker delegation.
 
-Runtime smoke tests verify what static CI cannot:
+Runtime smoke tests verify:
 
-1. native-Agent MCP is inherited by Luna Tool Worker;
-2. user-disabled tools remain unavailable;
-3. implementation workers retain local edit/execute plus relevant MCP/extension tools;
-4. strict reviewers stay strict;
-5. Sonnet direct environment-tool calls remain **zero**;
-6. no external side effect is inferred;
-7. intended models actually run.
+1. existing MCP tools reach Luna Tool Worker;
+2. user-disabled tools stay disabled;
+3. Luna handles ordinary, mechanical, and multi-file implementation first;
+4. Kimi is **not** selected merely because a task is long/multi-file;
+5. explicit Kimi escalation can run and remains bounded;
+6. strict reviewers stay strict;
+7. Sonnet direct environment-tool calls remain zero;
+8. no external side effect is inferred.
 
-The target is **maximum useful work per token and per minute without replacing the developer's VS Code environment or hiding orchestration behavior**.
+The target is **maximum useful work per token and per minute, with the fewest routing branches that can justify themselves**.
