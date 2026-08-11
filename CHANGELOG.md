@@ -4,6 +4,22 @@ All notable changes to **Over the Luna** are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.4.0 — 2026-08-11
+
+Close-beta simplification: the plugin now owns only behavior that is unique to the harness.
+
+### Changed
+
+- Removed the user-facing **Luna Solo** custom agent. Direct single-model Luna coding is already available through VS Code's built-in **Agent** plus the model picker.
+- Removed plugin-specific direct-Luna recovery handoffs from **Over the Luna** and **Opus Critical Reviewer**.
+- Harness failures now stay visible and point the developer to native **Agent + GPT-5.6 Luna** for manual direct recovery.
+- Updated README, design notes, and smoke tests so native Agent + Luna is the no-harness baseline.
+- Updated static validation to prevent accidental reintroduction of the redundant direct-mode wrapper.
+
+### Why
+
+`Luna Solo` did have small configuration differences from the built-in Agent: narrower tools, `agents: []`, and a concise behavior prompt. Those differences did not justify another visible product surface. Over the Luna should add orchestration, not duplicate VS Code's native direct-agent workflow.
+
 ## v0.3.0 — 2026-08-11
 
 Pre-production hardening after a full review against the current VS Code and GitHub Copilot custom-agent/subagent specifications.

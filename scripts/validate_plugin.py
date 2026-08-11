@@ -26,10 +26,11 @@ ALLOWED_MODELS = {
 # primary aliases make silent tool-resolution drift easier to detect.
 ALLOWED_TOOLS = {"agent", "todo", "read", "search", "edit", "execute", "web"}
 
-VISIBLE_AGENT_IDS = {"over-the-luna", "luna-solo", "opus-critical-reviewer"}
+VISIBLE_AGENT_IDS = {"over-the-luna", "opus-critical-reviewer"}
 MANUAL_ONLY_AGENT_IDS = VISIBLE_AGENT_IDS
-EDITOR_AGENT_IDS = {"luna-solo", "luna-implementer", "kimi-deep-worker", "mai-mechanical"}
+EDITOR_AGENT_IDS = {"luna-implementer", "kimi-deep-worker", "mai-mechanical"}
 REVIEWER_AGENT_IDS = {"luna-reviewer", "sonnet-reviewer", "opus-critical-reviewer"}
+FORBIDDEN_AGENT_IDS = {"luna-solo"}
 
 EXPECTED_COORDINATOR_WORKERS = {
     "Luna Explorer",
@@ -97,6 +98,9 @@ def main() -> int:
 
     for path in files:
         agent_id = path.name.removesuffix(".agent.md")
+        if agent_id in FORBIDDEN_AGENT_IDS:
+            fail(errors, f"{path}: direct-mode wrappers belong to VS Code's built-in Agent, not this harness plugin")
+
         try:
             frontmatter, body = parse_frontmatter(path)
         except Exception as exc:  # noqa: BLE001
