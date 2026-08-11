@@ -11,17 +11,22 @@ Pre-production hardening after a full review against the current VS Code and Git
 ### Changed
 
 - Restored **Over the Luna** to a strict router/synthesizer boundary with only `agent` and `todo` tools.
+- Fixed the full harness coordinator to **Claude Sonnet 5** so worker model routing is not silently distorted by a cheaper parent-model fallback.
+- Added `disable-model-invocation: true` to user-facing entry/handoff agents so they are selected deliberately rather than nested automatically.
 - Added a human-visible **Continue directly with Luna** handoff instead of allowing silent Sonnet direct-execution fallback.
+- Routed Opus's **Fix accepted findings with Luna** handoff to the visible **Luna Solo** entry point rather than a hidden worker.
+- Made all review agents structurally non-mutating by removing both `edit` and `execute`; implementation workers own validation execution and report results for review.
 - Added `target: vscode` to every distributed agent so the compatibility promise matches the product this project actually tests.
-- Normalized tool declarations to GitHub's documented primary aliases (`execute`, `read`, `edit`, `search`, `agent`, `web`, `todo`). Compatible aliases remain valid in Copilot, but primary aliases are easier to audit.
+- Normalized tool declarations to GitHub's documented primary aliases (`execute`, `read`, `edit`, `search`, `agent`, `web`, `todo`). Compatible aliases remain valid, but primary aliases are easier to audit.
 - Clarified the distinction between a parent coordinator's intentionally disabled repository tools and a worker subagent's own tool configuration.
 - Corrected model cost-tier documentation: when a requested subagent model is above the parent model's cost tier, VS Code falls back to the parent model.
 - Tightened routing instructions so the first repository-facing action in harness mode is a worker delegation.
 - Added explicit `HARNESS_FAILURE` reporting instead of hiding delegation/runtime problems behind Sonnet implementation.
+- Updated validation workflow actions to current Node 24-based major versions.
 
 ### Added
 
-- `scripts/validate_plugin.py` static validation for plugin/agent architecture.
+- `scripts/validate_plugin.py` static validation for plugin/agent architecture, including handoff visibility and manual-only entry-agent checks.
 - GitHub Actions validation on pushes and pull requests.
 - `docs/SMOKE_TEST.md` with runtime release gates for model routing, worker tool availability, review escalation, manual Opus use, and failure recovery.
 
