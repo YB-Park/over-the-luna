@@ -29,13 +29,37 @@ A cheap coordinator that creates unnecessary work can cost more than a better co
 
 The coordinator prompt is kept short and has a hard initial fan-out budget.
 
-## Why Luna has three worker roles
+## Tool availability is not routing policy
 
-All three use the same model but intentionally expose different tools and output contracts.
+This distinction became important during v0.2 testing.
+
+VS Code custom agents use the `tools` frontmatter field as an actual tool boundary for the active custom-agent session. Restricting the coordinator to only `agent` and `todo` made normal built-in editor tools appear disabled and could dead-end a workflow when a worker path failed.
+
+Starting in v0.2.1, **Over the Luna keeps the normal VS Code `read`, `search`, `edit`, `shell`, `web`, and `vscode` tool sets available**. The prompt, rather than a hard tool disable, enforces worker-first routing.
+
+Normal flow:
+
+1. Sonnet chooses a route.
+2. A Luna/MAI/Kimi worker performs repository work with its own role-specific tools.
+3. A reviewer checks the result when useful.
+4. Sonnet synthesizes the result.
+
+Emergency flow:
+
+If subagent invocation or worker tooling fails, Sonnet may use built-in tools only after visibly reporting:
+
+`Fallback: Sonnet direct execution — <reason>`
+
+This keeps the editor functional without allowing silent regression back to "Sonnet does everything."
+
+## Why Luna has focused worker roles
+
+The Luna workers intentionally expose different tools and output contracts.
 
 - **Explorer**: local codebase facts only. No edits, no terminal.
 - **Researcher**: external/current documentation plus repository context. No edits.
 - **Implementer**: edits and focused validation.
+- **Reviewer**: independent read-only validation and defect review.
 
 Separating them reduces tool choice, isolates noisy context, and makes returned results smaller.
 
@@ -62,7 +86,7 @@ If a mechanical task reveals an architectural decision, the agent is instructed 
 
 There are two reasons.
 
-First, VS Code currently prevents subagents from requesting a model above the parent model's cost tier.
+First, VS Code does not run a subagent when the requested model exceeds the parent conversation's model cost tier.
 
 Second, and more important, automatic premium escalation works against this project's human-in-the-loop philosophy.
 
@@ -91,7 +115,7 @@ For that reason, **Luna Medium** is the recommended global starting point.
 
 ## Model cost-tier limitation
 
-A subagent's requested model cannot exceed the parent conversation's model cost tier. If it does, VS Code falls back to the parent model.
+A subagent's requested model cannot exceed the parent conversation's model cost tier. If it does, VS Code does not run that subagent and reports the models that are available.
 
 This is why the Opus role is not in the coordinator's subagent allow-list.
 
@@ -120,5 +144,6 @@ If you test this harness, useful metrics are:
 3. **Wall-clock time** — harness speed versus a direct agent.
 4. **Review defect rate** — serious issues found after Luna/Kimi implementation.
 5. **Agent count per task** — a simple signal for orchestration bloat.
+6. **Fallback rate** — how often Sonnet direct execution is needed because the worker path failed.
 
 The ideal outcome is not "maximum subagents." It is **maximum useful work per token and per minute while keeping the developer in control**.
