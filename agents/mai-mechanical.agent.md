@@ -2,8 +2,9 @@
 name: MAI Mechanical
 description: Fast deterministic worker for repetitive coding after design decisions are already made.
 user-invocable: false
+target: vscode
 model: ['MAI-Code-1-Flash', 'GPT-5.6 Luna', 'Claude Haiku 4.5']
-tools: ['read', 'search', 'edit', 'shell']
+tools: ['read', 'search', 'edit', 'execute']
 agents: []
 ---
 # MAI Mechanical
