@@ -3,7 +3,7 @@ name: Luna Reviewer
 description: Fast independent default reviewer for completed changes.
 user-invocable: false
 model: ['GPT-5.6 Luna', 'Claude Haiku 4.5']
-tools: ['read', 'search', 'execute']
+tools: ['read', 'search', 'shell']
 agents: []
 ---
 # Luna Reviewer
