@@ -4,6 +4,34 @@ All notable changes to **Over the Luna** are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.5.0 — 2026-08-11
+
+Close-beta compatibility release: Over the Luna now preserves the developer's existing VS Code MCP and extension-tool ecosystem instead of replacing it with built-in-only worker allow-lists.
+
+### Added
+
+- Added **Luna Tool Worker**, a hidden Luna-first bridge for user-configured MCP/extension context, external verification, and explicitly requested external actions.
+- Added `docs/MCP.md` documenting the ambient-tool compatibility boundary, side-effect policy, prompt-injection handling, large tool catalogs, organization policy, routing examples, and troubleshooting.
+- Added runtime smoke tests for existing MCP visibility, MCP-assisted implementation, reviewer external verification, missing/denied tools, non-inferred external side effects, and large tool catalogs.
+- Added `NEEDS_EXTERNAL_VERIFICATION` behavior to Luna, Sonnet, and Opus reviewers when a verdict depends on current private/external state outside their strict tool boundaries.
+
+### Changed
+
+- **Luna Implementer**, **MAI Mechanical**, and **Kimi Deep Worker** now declare `tools: ['*']` so arbitrary MCP and extension tools already available to the developer remain usable during implementation/validation.
+- Ambient-capable workers treat external/tool output as untrusted data and report `AMBIENT_TOOL_UNAVAILABLE` rather than bypassing denied integrations.
+- External side effects are now explicitly separated from external reads: a coding request may justify reading required context, but ticket updates, messages, remote data writes, deploys, cloud mutations, pushes, and similar effects require an explicit developer request.
+- **Over the Luna** routing now distinguishes local repository exploration, public web research, user-configured ambient tools, implementation, and strict review.
+- Strict roles remain narrow: coordinator, explorer, public researcher, and all reviewers do not receive wildcard ambient tools.
+- Static validation now treats ambient compatibility as an architecture contract: designated ambient roles must use exactly `tools: ['*']`; strict roles must retain exact narrow tool sets.
+- Static validation prevents bundled `.mcp.json`, plugin MCP declarations, and per-agent MCP server configuration so server ownership remains with the developer/organization.
+- Static validation now fixes the exact ten-agent architecture and requires ambient safety / external-evidence failure markers.
+
+### Why
+
+A VS Code harness that disconnects users from MCP servers and extension tools they already rely on is not a thin harness; it is a replacement environment. v0.5.0 moves the boundary back to the intended place: **VS Code owns tools and trust, the developer owns integrations, and Over the Luna owns model routing.**
+
+Generic support for unknown MCP servers also creates a real least-privilege tradeoff. The plugin cannot know which future user tools are read-only. Therefore only execution-capable workers receive the wildcard; strict reviewers and routing/research roles remain capability-limited and use a separate Tool Worker when private/current external evidence is needed.
+
 ## v0.4.0 — 2026-08-11
 
 Close-beta simplification: the plugin now owns only behavior that is unique to the harness.
