@@ -4,49 +4,64 @@ Contributions are welcome, especially evidence from real VS Code/Copilot usage.
 
 ## Principles
 
-Please preserve the project's core constraints:
+Preserve the project's core constraints:
 
 - human-guided, not swarm-by-default
 - concise agent prompts
 - no hidden premium-model escalation
-- **strict roles stay narrow; designated execution roles preserve ambient user tools**
-- do not bundle or take ownership of user MCP servers, credentials, or trust policy
-- arbitrary MCP/extension compatibility is an architecture contract for ambient-capable workers
+- preserve the developer's existing VS Code tool selection for execution workers
+- keep exploration/review roles structurally narrow
+- do not bundle or own user MCP servers, credentials, OAuth, or trust policy
 - external side effects are never inferred from a coding task
 - routing changes should have a measurable reason
-- GitHub Copilot models and VS Code behavior change quickly, so cite current official docs when changing compatibility claims
+- current VS Code runtime behavior outranks cross-product assumptions; cite current official docs/source for compatibility changes
 
 ## Useful contributions
 
 - model-routing experiments
 - MCP/extension-tool compatibility reports from real VS Code environments
-- better output contracts for workers
+- better worker output contracts
 - compatibility fixes after VS Code changes
-- alternative profiles for organizations with a smaller model allow-list
-- telemetry/evaluation recipes that do not collect source code, prompts, secrets, or MCP payloads
+- alternative profiles for smaller organization model allow-lists
+- telemetry/evaluation recipes that do not collect source, prompts, secrets, or MCP payloads
 
-## Ambient-tool changes
+## Tool-boundary changes
 
-Before changing `tools` on an agent, classify the role:
+Before changing an agent's `tools` field, classify the role.
 
-- **strict role**: coordinator, explorer, public researcher, reviewer → keep the exact narrow tool boundary
-- **ambient role**: Luna Tool Worker, Luna Implementer, MAI Mechanical, Kimi Deep Worker → keep exactly `tools: ['*']`
+**Inherited-tool roles** intentionally OMIT `tools`:
 
-Do not replace the wildcard with a list of built-in tools or a few known MCP server names. That silently breaks users whose MCP/extension tools have different names.
+- Over the Luna
+- Luna Tool Worker
+- Luna Implementer
+- MAI Mechanical
+- Kimi Deep Worker
 
-Do not add `.mcp.json`, `mcpServers`, or per-agent MCP server configuration to make a local setup convenient. This project intentionally consumes the developer's existing VS Code tool environment rather than owning it.
+This is required by the current VS Code subagent inheritance path. Do not replace omission with `tools: ['*']` or a built-in-only list.
 
-When reporting an ambient-tool bug, include VS Code version, Copilot version, plugin version, worker/model, MCP or extension source, exact tool name, whether it works in native Agent mode, permission level, and the exact error.
+**Strict roles** must keep explicit allow-lists:
+
+- Luna Explorer
+- Luna Researcher
+- Luna Reviewer
+- Sonnet Reviewer
+- Opus Critical Reviewer
+
+Do not add `.mcp.json`, plugin `mcpServers`, or per-agent MCP server configuration for convenience. The harness consumes the developer's existing VS Code environment rather than owning integrations.
+
+The coordinator's inherited tool visibility is an explicit tradeoff. Direct Sonnet environment-tool execution is a `HARNESS_VIOLATION`; ambient inheritance is not permission for Sonnet to implement directly.
+
+When reporting an ambient-tool bug, include VS Code version, Copilot version, plugin version, worker/model, MCP or extension source, exact tool name, whether it works in native Agent, Configure Tools state, server/trust state, and exact error.
 
 ## Changing an agent
 
-When modifying an agent, explain:
+Explain:
 
 1. What failure mode you observed.
-2. Why the change belongs in the harness rather than in project-specific instructions.
-3. Whether it increases prompt size or expected tool calls.
+2. Why the change belongs in the harness rather than project-specific instructions.
+3. Whether it changes prompt size or expected tool calls.
 4. What model(s) and tool environment you tested.
-5. Whether it changes external side-effect or trust boundaries.
+5. Whether it changes inheritance, external side effects, or trust boundaries.
 6. What improved and what regressed.
 
-Avoid adding long examples unless they fix a demonstrated behavior. Prompt tokens are part of the product.
+Avoid long examples unless they fix demonstrated behavior. Prompt tokens are part of the product.
