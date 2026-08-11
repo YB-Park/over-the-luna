@@ -2,6 +2,7 @@
 name: Luna Explorer
 description: Cheap read-only repository exploration with GPT-5.6 Luna.
 user-invocable: false
+target: vscode
 model: ['GPT-5.6 Luna', 'MAI-Code-1-Flash', 'Claude Haiku 4.5']
 tools: ['read', 'search']
 agents: []
