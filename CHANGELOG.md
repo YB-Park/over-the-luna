@@ -4,129 +4,92 @@ All notable changes to **Over the Luna** are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
-## v0.5.0 — 2026-08-11
+## v0.6.0 — 2026-08-11
 
-Close-beta compatibility release: Over the Luna now preserves the developer's existing VS Code MCP and extension-tool ecosystem instead of replacing it with built-in-only worker allow-lists.
+VS Code runtime compatibility correction after the v0.5 MCP hard gate failed in a real environment.
 
-### Added
+### Fixed
 
-- Added **Luna Tool Worker**, a hidden Luna-first bridge for user-configured MCP/extension context, external verification, and explicitly requested external actions.
-- Added `docs/MCP.md` documenting the ambient-tool compatibility boundary, side-effect policy, prompt-injection handling, large tool catalogs, organization policy, routing examples, and troubleshooting.
-- Added runtime smoke tests for existing MCP visibility, MCP-assisted implementation, reviewer external verification, missing/denied tools, non-inferred external side effects, and large tool catalogs.
-- Added `NEEDS_EXTERNAL_VERIFICATION` behavior to Luna, Sonnet, and Opus reviewers when a verdict depends on current private/external state outside their strict tool boundaries.
+- Removed `tools: ['*']` from Luna Tool Worker, Luna Implementer, MAI Mechanical, and Kimi Deep Worker. Current VS Code named-custom-subagent runtime resolves explicit tool lists against registered tool/tool-set names and did not provide the global wildcard behavior v0.5 assumed.
+- Removed the explicit `tools` list from **Over the Luna** as well. Current VS Code uses the active selected-tool state when a main custom agent omits `tools`, and named custom subagents that also omit `tools` inherit the parent invocation's selected-tool map.
+- Arbitrary user MCP/extension compatibility now follows that native inheritance path instead of relying on a cross-product `*` assumption.
+- Static validation now rejects global `tools: ['*']`, requires coordinator/ambient roles to omit `tools`, and keeps strict roles on exact explicit allow-lists.
 
 ### Changed
 
-- **Luna Implementer**, **MAI Mechanical**, and **Kimi Deep Worker** now declare `tools: ['*']` so arbitrary MCP and extension tools already available to the developer remain usable during implementation/validation.
-- Ambient-capable workers treat external/tool output as untrusted data and report `AMBIENT_TOOL_UNAVAILABLE` rather than bypassing denied integrations.
-- External side effects are now explicitly separated from external reads: a coding request may justify reading required context, but ticket updates, messages, remote data writes, deploys, cloud mutations, pushes, and similar effects require an explicit developer request.
-- **Over the Luna** routing now distinguishes local repository exploration, public web research, user-configured ambient tools, implementation, and strict review.
-- Strict roles remain narrow: coordinator, explorer, public researcher, and all reviewers do not receive wildcard ambient tools.
-- Static validation now treats ambient compatibility as an architecture contract: designated ambient roles must use exactly `tools: ['*']`; strict roles must retain exact narrow tool sets.
-- Static validation prevents bundled `.mcp.json`, plugin MCP declarations, and per-agent MCP server configuration so server ownership remains with the developer/organization.
-- Static validation now fixes the exact ten-agent architecture and requires ambient safety / external-evidence failure markers.
+- The Sonnet coordinator is no longer capability-limited to `agent + todo` at frontmatter level. It technically sees the active selected-tool surface so that unknown user MCP/extension tools can flow into ambient children.
+- Router-only Sonnet is now an explicit behavioral contract: healthy runs allow only delegation and optional todo/task coordination directly from Sonnet. Any direct repository/web/MCP/extension/environment call is a `HARNESS_VIOLATION`.
+- Strict roles remain capability-limited: Explorer, Researcher, Luna Reviewer, Sonnet Reviewer, and Opus Critical Reviewer keep their explicit tool lists.
+- MCP docs and smoke tests now distinguish server-running/config-discovered state from actual subagent tool selection.
+- Added release gates for user-disabled tool preservation and zero direct Sonnet environment-tool calls.
 
 ### Why
 
-A VS Code harness that disconnects users from MCP servers and extension tools they already rely on is not a thin harness; it is a replacement environment. v0.5.0 moves the boundary back to the intended place: **VS Code owns tools and trust, the developer owns integrations, and Over the Luna owns model routing.**
+The real failure was informative: **Luna Tool Worker was routed correctly and could see that MCP configuration existed, but could not call the MCP even though the server was running.**
 
-Generic support for unknown MCP servers also creates a real least-privilege tradeoff. The plugin cannot know which future user tools are read-only. Therefore only execution-capable workers receive the wildcard; strict reviewers and routing/research roles remain capability-limited and use a separate Tool Worker when private/current external evidence is needed.
+A source-level review of current VS Code showed that v0.5 conflated GitHub's cross-product custom-agent tool semantics with the VS Code implementation. The native VS Code inheritance path is based on omitting `tools`, not a generic `*` entry.
+
+There is also a real current platform tradeoff: static `.agent.md` configuration cannot simultaneously hard-limit the parent to `agent + todo` and automatically pass every unknown current/future user MCP tool to children. v0.6 chooses user tool compatibility and makes the coordinator limitation observable/tested rather than pretending both guarantees exist.
+
+Preview agent-scoped hooks could harden this further, but they are not a core dependency because preview hook support/settings can be disabled by the user or organization.
+
+## v0.5.0 — 2026-08-11
+
+Attempted ambient-tool compatibility release. **Superseded by v0.6.0 before close-beta distribution.**
+
+### Added
+
+- Added **Luna Tool Worker** as a hidden Luna-first bridge for user-configured MCP/extension context, external verification, and explicitly requested external actions.
+- Added `docs/MCP.md`, MCP runtime smoke tests, `AMBIENT_TOOL_UNAVAILABLE`, external-side-effect rules, prompt-injection handling, and `NEEDS_EXTERNAL_VERIFICATION` review behavior.
+
+### Incorrect assumption corrected in v0.6
+
+v0.5 configured ambient workers with `tools: ['*']` based on the cross-product GitHub custom-agent reference. A real VS Code test showed that the MCP remained unavailable inside the named custom subagent. v0.6 replaces that mechanism with actual VS Code selected-tool inheritance.
 
 ## v0.4.0 — 2026-08-11
 
-Close-beta simplification: the plugin now owns only behavior that is unique to the harness.
+Close-beta simplification: the plugin owns only behavior unique to the harness.
 
-### Changed
-
-- Removed the user-facing **Luna Solo** custom agent. Direct single-model Luna coding is already available through VS Code's built-in **Agent** plus the model picker.
-- Removed plugin-specific direct-Luna recovery handoffs from **Over the Luna** and **Opus Critical Reviewer**.
-- Harness failures now stay visible and point the developer to native **Agent + GPT-5.6 Luna** for manual direct recovery.
-- Updated README, design notes, and smoke tests so native Agent + Luna is the no-harness baseline.
-- Updated static validation to prevent accidental reintroduction of the redundant direct-mode wrapper.
-
-### Why
-
-`Luna Solo` did have small configuration differences from the built-in Agent: narrower tools, `agents: []`, and a concise behavior prompt. Those differences did not justify another visible product surface. Over the Luna should add orchestration, not duplicate VS Code's native direct-agent workflow.
+- Removed the user-facing **Luna Solo** wrapper; direct Luna coding uses native Agent + model picker.
+- Harness failures point to native **Agent + GPT-5.6 Luna** for manual direct recovery.
+- Updated validation to prevent reintroducing the redundant direct-mode wrapper.
 
 ## v0.3.0 — 2026-08-11
 
-Pre-production hardening after a full review against the current VS Code and GitHub Copilot custom-agent/subagent specifications.
+Pre-production hardening against the then-current VS Code/GitHub custom-agent and subagent behavior.
 
-### Changed
-
-- Restored **Over the Luna** to a strict router/synthesizer boundary with only `agent` and `todo` tools.
-- Fixed the full harness coordinator to **Claude Sonnet 5** so worker model routing is not silently distorted by a cheaper parent-model fallback.
-- Added `disable-model-invocation: true` to user-facing entry/handoff agents so they are selected deliberately rather than nested automatically.
-- Added a human-visible **Continue directly with Luna** handoff instead of allowing silent Sonnet direct-execution fallback.
-- Routed Opus's **Fix accepted findings with Luna** handoff to the visible **Luna Solo** entry point rather than a hidden worker.
-- Made all review agents structurally non-mutating by removing both `edit` and `execute`; implementation workers own validation execution and report results for review.
-- Added `target: vscode` to every distributed agent so the compatibility promise matches the product this project actually tests.
-- Normalized tool declarations to GitHub's documented primary aliases (`execute`, `read`, `edit`, `search`, `agent`, `web`, `todo`). Compatible aliases remain valid, but primary aliases are easier to audit.
-- Clarified the distinction between a parent coordinator's intentionally disabled repository tools and a worker subagent's own tool configuration.
-- Corrected model cost-tier documentation: when a requested subagent model is above the parent model's cost tier, VS Code falls back to the parent model.
-- Tightened routing instructions so the first repository-facing action in harness mode is a worker delegation.
-- Added explicit `HARNESS_FAILURE` reporting instead of hiding delegation/runtime problems behind Sonnet implementation.
-- Updated validation workflow actions to current Node 24-based major versions.
-
-### Added
-
-- `scripts/validate_plugin.py` static validation for plugin/agent architecture, including handoff visibility and manual-only entry-agent checks.
-- GitHub Actions validation on pushes and pull requests.
-- `docs/SMOKE_TEST.md` with runtime release gates for model routing, worker tool availability, review escalation, manual Opus use, and failure recovery.
-
-### Review finding that changed the design
-
-The v0.2 live-test symptom — parent edit tools appearing disabled — was initially interpreted as evidence that restricting coordinator tools also disabled worker tools. A deeper review of the current VS Code subagent specification showed that this conflated two different tool surfaces.
-
-A coordinator with only the `agent` tool is a supported orchestration pattern, while a custom subagent uses its own configured model/tools/instructions. Therefore v0.3 treats parent edit/terminal unavailability as **expected** and tests the implementation worker's own edit/execute capabilities separately.
+- Restored Sonnet as a router/synthesizer after v0.2.1's broad direct-execution fallback.
+- Fixed coordinator model to Claude Sonnet 5.
+- Added `disable-model-invocation: true` to user-facing entry/handoff agents.
+- Made review agents non-mutating.
+- Added `target: vscode` to all agents.
+- Added visible `HARNESS_FAILURE` behavior.
+- Added static validator, GitHub Actions, and runtime smoke tests.
 
 ## v0.2.1 — 2026-08-11
 
 Interim hotfix made during live investigation.
 
-### Changed
-
-- Temporarily restored broad repository tools to the Sonnet coordinator and allowed visible direct-execution fallback after observing disabled parent editor tools.
-- Switched several tool declarations to compatible aliases while investigating tool resolution.
-
-### Superseded by v0.3.0
-
-The broader coordinator capability solved the immediate dead-end but reintroduced the original risk: Sonnet could become the implementation agent instead of the router. The later specification review showed that the parent and custom-subagent tool surfaces should be evaluated separately. v0.3.0 restores the strict harness boundary and adds a manual Luna recovery path.
+- Temporarily restored broad repository tools to Sonnet after parent editor tools appeared disabled.
+- Later superseded when parent and named-subagent tool surfaces were distinguished more carefully.
 
 ## v0.2.0 — 2026-08-11
 
-First routing-focused revision based on real VS Code testing.
+First routing-focused revision based on live VS Code testing.
 
-### Changed
-
-- Made **Over the Luna** router-only so substantive repository work went through workers.
-- Routed small tasks to **Luna Implementer** instead of Sonnet.
-- Added **Luna Reviewer** as the default independent review path.
-- Reserved **Sonnet Reviewer** for architecture/security/concurrency/data-integrity/contracts or uncertain Luna reviews.
-- Explicitly preferred **MAI Mechanical** for deterministic repetition and **Kimi Deep Worker** for coherent long-horizon work.
-- Added a one-line route summary for model-routing visibility.
-
-### Why
-
-v0.1 behaved too much like "Sonnet with optional helpers" because delegation was advisory.
+- Small implementation → Luna Implementer.
+- Deterministic repetition → MAI Mechanical.
+- Long coherent bounded work → Kimi Deep Worker.
+- Default independent review → Luna Reviewer.
+- High-risk second-line review → Sonnet Reviewer.
+- Added visible one-line route reporting.
 
 ## v0.1.0 — 2026-08-11
 
 Initial public test release.
 
-### Added
-
-- VS Code / GitHub Copilot Agent Plugin packaging.
-- **Luna Solo** for direct, no-harness everyday work.
-- **Over the Luna** Sonnet coordinator for selective orchestration.
-- Luna-based Explorer, Researcher, and Implementer workers.
-- Kimi K2.7 Deep Worker for long bounded tasks.
-- MAI-Code-1-Flash Mechanical worker for deterministic repetition.
-- Sonnet Reviewer for independent review.
-- Human-gated Opus 4.8 Critical Reviewer handoff.
-- Conservative fan-out and human-in-the-loop routing rules.
-- Installation, design, and contribution documentation.
-
-### Release philosophy
-
-v0.x releases are expected to evolve quickly based on real VS Code usage and tester feedback.
+- Agent Plugin packaging.
+- Luna/MAI/Kimi worker set.
+- Sonnet coordinator.
+- Human-gated Opus critical review.
+- Conservative fan-out and human-in-the-loop routing.
