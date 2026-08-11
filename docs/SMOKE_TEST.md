@@ -5,7 +5,7 @@ This checklist verifies behavior that static validation cannot prove: VS Code ag
 ## Preflight
 
 - Use VS Code **1.128.0 or newer** so GPT-5.6 Luna is supported.
-- Confirm the installed plugin reports **v0.3.0**.
+- Confirm the installed plugin reports **v0.4.0**.
 - Confirm **Claude Sonnet 5** is available; the full harness intentionally fixes the coordinator to Sonnet 5.
 - Confirm the other models you intend to test are enabled by your Copilot plan/organization.
 - Reload VS Code after updating the plugin.
@@ -62,7 +62,7 @@ Check:
 
 ## Test 3 — Mechanical repetition
 
-Request an already-designed repetitive change: DTOs/mappers/mocks, pattern replication, boilerplate, or a mechanical rename.
+Request an already-designed repetitive change: DTOs/mappers/mocks, pattern replication, boilerplate, repeated unit-test patterns, or a mechanical rename.
 
 Expected implementation worker: **MAI Mechanical**.
 
@@ -101,7 +101,7 @@ Expected:
 - Opus was never automatically invoked;
 - handoff preserves conversation context;
 - Opus has read/search/web but no edit/execute;
-- **Fix accepted findings with Luna** handoff is available afterward.
+- the developer chooses the next action after the review rather than being auto-routed to an implementation agent.
 
 ## Test 7 — Harness failure path
 
@@ -111,13 +111,15 @@ Expected:
 
 `HARNESS_FAILURE: <reason>`
 
-The response should name the failing worker and visible missing model/tool when known, then offer **Continue directly with Luna**.
+The response should name the failing worker and visible missing model/tool when known, then tell the developer that direct recovery is available through VS Code's built-in **Agent** with **GPT-5.6 Luna** selected.
 
-Clicking that handoff is a human decision and begins direct Luna work. If Sonnet edits the repository before that choice, fail this test.
+If Sonnet edits the repository instead, fail this test.
 
-## Test 8 — Luna Solo baseline
+## Test 8 — Native direct-Luna baseline
 
-Run comparable small/medium work with **Luna Solo** and compare with harness mode on:
+Run comparable small/medium work with VS Code's built-in **Agent** and select **GPT-5.6 Luna** in the model picker.
+
+Compare with Over the Luna on:
 
 - elapsed time;
 - AI credits/tokens when visible;
@@ -144,6 +146,7 @@ Do not use the exact same already-completed change for both modes; prior context
 - [ ] Harness failures are visible and do not silently fall back to Sonnet coding.
 - [ ] No duplicate implementation workers attack the same coherent task without an explicit request.
 - [ ] Expanded subagent model names match the intended route or any fallback is recorded.
+- [ ] Direct baseline testing uses native Agent + Luna, not a plugin-provided direct-mode wrapper.
 
 ## Capture on failure
 
