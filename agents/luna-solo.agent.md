@@ -3,7 +3,7 @@ name: Luna Solo
 description: Fast direct coding with GPT-5.6 Luna. No subagents, no harness overhead.
 argument-hint: Ask for a normal coding task and stay in direct mode.
 model: ['GPT-5.6 Luna', 'MAI-Code-1-Flash', 'Claude Haiku 4.5']
-tools: ['read', 'search', 'edit', 'execute', 'vscode', 'todo']
+tools: ['read', 'search', 'edit', 'shell', 'vscode', 'todo']
 agents: []
 ---
 # Luna Solo
