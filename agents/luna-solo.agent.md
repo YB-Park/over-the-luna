@@ -4,6 +4,7 @@ description: Fast direct coding with GPT-5.6 Luna. No subagents, no harness over
 argument-hint: Ask for a normal coding task and stay in direct mode.
 target: vscode
 model: ['GPT-5.6 Luna', 'MAI-Code-1-Flash', 'Claude Haiku 4.5']
+disable-model-invocation: true
 tools: ['read', 'search', 'edit', 'execute', 'todo']
 agents: []
 ---
