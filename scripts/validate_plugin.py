@@ -22,9 +22,12 @@ ALLOWED_MODELS = {
     "Claude Haiku 4.5",
 }
 
-# Strict roles use documented primary aliases. Ambient-capable roles deliberately
-# use only "*" so arbitrary user-configured MCP and extension tools remain usable.
-ALLOWED_TOOLS = {"*", "agent", "todo", "read", "search", "edit", "execute", "web"}
+# VS Code resolves an explicit custom-agent tools list against registered tool
+# and tool-set reference names. This project intentionally does NOT use a global
+# "*" tool wildcard: current VS Code runtime does not treat it as an all-tools
+# selector for custom subagents. Ambient inheritance is represented by omitting
+# `tools` on the coordinator and ambient workers.
+ALLOWED_EXPLICIT_TOOLS = {"agent", "todo", "read", "search", "edit", "execute", "web"}
 
 EXPECTED_AGENT_IDS = {
     "over-the-luna",
@@ -43,7 +46,11 @@ VISIBLE_AGENT_IDS = {"over-the-luna", "opus-critical-reviewer"}
 MANUAL_ONLY_AGENT_IDS = VISIBLE_AGENT_IDS
 FORBIDDEN_AGENT_IDS = {"luna-solo"}
 
-AMBIENT_TOOL_AGENT_IDS = {
+# These roles intentionally omit `tools`. The coordinator receives VS Code's
+# active selected-tool map; named custom subagents that also omit `tools` inherit
+# that map. This is what preserves arbitrary user MCP/extension tools.
+INHERITED_TOOL_AGENT_IDS = {
+    "over-the-luna",
     "luna-tool-worker",
     "luna-implementer",
     "kimi-deep-worker",
@@ -51,7 +58,6 @@ AMBIENT_TOOL_AGENT_IDS = {
 }
 
 STRICT_TOOLSETS = {
-    "over-the-luna": {"agent", "todo"},
     "luna-explorer": {"read", "search"},
     "luna-researcher": {"read", "search", "web"},
     "luna-reviewer": {"read", "search"},
@@ -125,13 +131,11 @@ def main() -> int:
     if plugin.get("agents", "agents/") != "agents/":
         fail(errors, "plugin.json: agents path must remain agents/")
 
-    # Product boundary: use the developer's existing VS Code MCP configuration.
-    # Do not silently acquire ownership of servers, credentials, or trust policy.
     for key in ("mcpServers", "mcp-servers"):
         if key in plugin:
-            fail(errors, f"plugin.json: do not bundle MCP servers via {key}; ambient user tools are the compatibility boundary")
+            fail(errors, f"plugin.json: do not bundle MCP servers via {key}; user/workspace VS Code configuration owns integrations")
     if (ROOT / ".mcp.json").exists():
-        fail(errors, ".mcp.json: this plugin must not bundle MCP servers; use ambient user/workspace MCP configuration")
+        fail(errors, ".mcp.json: this plugin must not bundle MCP servers")
 
     files = sorted(AGENTS_DIR.glob("*.agent.md"))
     if not files:
@@ -184,18 +188,17 @@ def main() -> int:
             if model not in ALLOWED_MODELS:
                 fail(errors, f"{path}: unsupported project model {model!r}")
 
-        # Require an explicit declaration for auditability. Ambient roles use ["*"]
-        # instead of omitting tools, even though both mean all available tools.
-        tools = frontmatter.get("tools")
-        if not isinstance(tools, list) or not tools or not all(isinstance(tool, str) for tool in tools):
-            fail(errors, f"{path}: tools must be a non-empty YAML string list")
-            tools = []
-        for tool in tools:
-            if tool not in ALLOWED_TOOLS:
-                fail(errors, f"{path}: unsupported tool declaration {tool!r}")
+        if "tools" in frontmatter:
+            tools = frontmatter["tools"]
+            if not isinstance(tools, list) or not all(isinstance(tool, str) for tool in tools):
+                fail(errors, f"{path}: tools must be a YAML string list when present")
+                tools = []
+            for tool in tools:
+                if tool == "*":
+                    fail(errors, f"{path}: do not use global tools '*'; current VS Code subagent runtime resolves explicit tool names/toolsets rather than treating '*' as all tools")
+                elif tool not in ALLOWED_EXPLICIT_TOOLS:
+                    fail(errors, f"{path}: unsupported explicit tool declaration {tool!r}")
 
-        # Per-agent MCP configuration is not the VS Code compatibility strategy.
-        # Arbitrary user/workspace MCPs are inherited through ambient wildcard tools.
         for key in ("mcp-servers", "mcpServers"):
             if key in frontmatter:
                 fail(errors, f"{path}: do not configure MCP servers in agent frontmatter via {key}")
@@ -204,8 +207,6 @@ def main() -> int:
         if not isinstance(agents, list) or not all(isinstance(agent, str) for agent in agents):
             fail(errors, f"{path}: agents must be a YAML string list")
             agents = []
-        if agents and "agent" not in tools and "*" not in tools:
-            fail(errors, f"{path}: non-empty agents list requires the 'agent' tool")
 
         expected_user_invocable = agent_id in VISIBLE_AGENT_IDS
         actual_user_invocable = frontmatter.get("user-invocable", True)
@@ -222,7 +223,6 @@ def main() -> int:
 
     agent_ids = set(parsed)
 
-    # Validate references after all names and IDs are known.
     for _, (path, frontmatter, _) in parsed.items():
         for worker_name in frontmatter.get("agents", []):
             if worker_name not in names:
@@ -252,58 +252,53 @@ def main() -> int:
                 elif base_handoff_model(handoff_model) not in ALLOWED_MODELS:
                     fail(errors, f"{path}: unsupported handoff model {handoff_model!r}")
 
-    # Architecture contracts.
     coordinator = parsed.get("over-the-luna")
     if coordinator:
         path, fm, body = coordinator
         if fm.get("model") != "Claude Sonnet 5":
-            fail(errors, f"{path}: full harness coordinator must be Claude Sonnet 5 for deterministic routing/cost tier")
-        if set(fm.get("tools", [])) != STRICT_TOOLSETS["over-the-luna"]:
-            fail(errors, f"{path}: coordinator must remain router-only with agent + todo")
+            fail(errors, f"{path}: full harness coordinator must be Claude Sonnet 5")
+        if "tools" in fm:
+            fail(errors, f"{path}: coordinator must omit tools so VS Code's active selected-tool map can be inherited by ambient custom subagents")
         if set(fm.get("agents", [])) != EXPECTED_COORDINATOR_WORKERS:
             fail(errors, f"{path}: coordinator worker allow-list drifted")
-        if "Never infer an external side effect" not in body:
-            fail(errors, f"{path}: coordinator must keep the explicit external-mutation boundary")
-        if "AMBIENT_TOOL_UNAVAILABLE" not in body:
-            fail(errors, f"{path}: coordinator must preserve ambient-tool failure visibility")
+        for marker in ("HARNESS_VIOLATION", "Never infer an external side effect", "AMBIENT_TOOL_UNAVAILABLE", "selected-tool"):
+            if marker not in body:
+                fail(errors, f"{path}: coordinator inheritance/routing contract missing marker {marker!r}")
 
-    # Ambient roles must preserve arbitrary MCP/extension compatibility. Do not
-    # replace "*" with a built-in allow-list, or existing user tools disappear.
-    for agent_id in AMBIENT_TOOL_AGENT_IDS:
+    for agent_id in INHERITED_TOOL_AGENT_IDS:
         if agent_id not in parsed:
             continue
         path, fm, body = parsed[agent_id]
-        if fm.get("tools") != ["*"]:
-            fail(errors, f"{path}: ambient-capable role must declare exactly tools: ['*']")
-        if fm.get("agents", []) != []:
-            fail(errors, f"{path}: ambient worker must not delegate recursively")
-        for marker in AMBIENT_POLICY_MARKERS:
-            if marker not in body:
-                fail(errors, f"{path}: ambient safety policy missing marker {marker!r}")
+        if "tools" in fm:
+            fail(errors, f"{path}: inherited-tool role must OMIT tools; explicit tool lists replace parent selected-tool inheritance in VS Code")
+        if agent_id != "over-the-luna" and fm.get("agents", []) != []:
+            fail(errors, f"{path}: inherited-tool worker must remain a leaf with agents: []")
+        if agent_id != "over-the-luna":
+            for marker in AMBIENT_POLICY_MARKERS:
+                if marker not in body:
+                    fail(errors, f"{path}: ambient safety policy missing marker {marker!r}")
 
-    # Strict roles deliberately do not inherit arbitrary MCP/extension tools.
     for agent_id, expected_tools in STRICT_TOOLSETS.items():
         if agent_id not in parsed:
             continue
         path, fm, _ = parsed[agent_id]
+        if "tools" not in fm:
+            fail(errors, f"{path}: strict role must declare an explicit tool allow-list")
+            continue
         actual_tools = set(fm.get("tools", []))
         if actual_tools != expected_tools:
             fail(errors, f"{path}: strict tool boundary drifted; expected {sorted(expected_tools)}, got {sorted(actual_tools)}")
-        if "*" in actual_tools:
-            fail(errors, f"{path}: strict role must never receive ambient wildcard tools")
 
     for agent_id in REVIEWER_AGENT_IDS:
         if agent_id not in parsed:
             continue
         path, fm, body = parsed[agent_id]
         tools = set(fm.get("tools", []))
-        if "edit" in tools or "execute" in tools or "*" in tools:
-            fail(errors, f"{path}: reviewer must remain structurally non-mutating and non-ambient")
+        if "edit" in tools or "execute" in tools:
+            fail(errors, f"{path}: reviewer must remain structurally non-mutating")
         if "NEEDS_EXTERNAL_VERIFICATION" not in body:
             fail(errors, f"{path}: reviewer must explicitly surface unverifiable ambient external state")
 
-    # Only the coordinator may invoke subagents. All workers and handoff agents
-    # remain leaf nodes even when ambient wildcard tools include the agent toolset.
     for agent_id, (path, fm, _) in parsed.items():
         if agent_id != "over-the-luna" and fm.get("agents", []) != []:
             fail(errors, f"{path}: workers/entry agents must not delegate recursively")
