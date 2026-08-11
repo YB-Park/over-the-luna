@@ -3,7 +3,7 @@ name: Opus Critical Reviewer
 description: Human-invoked high-stakes review with Claude Opus 4.8.
 argument-hint: Use after sensitive or expensive changes when a premium independent review is worth it.
 model: ['Claude Opus 4.8', 'Claude Sonnet 5']
-tools: ['read', 'search', 'execute', 'web']
+tools: ['read', 'search', 'shell', 'web']
 agents: []
 handoffs:
   - label: Fix accepted findings with Luna
