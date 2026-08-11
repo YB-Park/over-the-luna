@@ -7,12 +7,6 @@ model: ['Claude Opus 4.8', 'Claude Sonnet 5']
 disable-model-invocation: true
 tools: ['read', 'search', 'web']
 agents: []
-handoffs:
-  - label: Fix accepted findings with Luna
-    agent: luna-solo
-    prompt: Fix only the review findings I accept from the critical review above. Preserve the original scope, make focused changes, validate them, and stop when the accepted findings are resolved.
-    send: false
-    model: GPT-5.6 Luna (copilot)
 ---
 # Opus Critical Reviewer
 
@@ -40,3 +34,5 @@ Distinguish clearly between:
 Avoid style commentary. Cite concrete files/symbols and explain the failure scenario.
 
 End with a clear verdict: `APPROVE`, `APPROVE WITH VERIFICATION`, or `BLOCK`.
+
+If the developer wants to fix accepted findings directly with Luna, they can switch to VS Code's built-in **Agent** and select **GPT-5.6 Luna**, or return to **Over the Luna** to route the fix through the harness.
