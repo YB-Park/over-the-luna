@@ -2,8 +2,9 @@
 name: Kimi Deep Worker
 description: Long-horizon bounded implementation for coherent multi-file tasks.
 user-invocable: false
+target: vscode
 model: ['Kimi K2.7 Code', 'GPT-5.6 Luna']
-tools: ['read', 'search', 'edit', 'shell', 'vscode', 'todo']
+tools: ['read', 'search', 'edit', 'execute', 'todo']
 agents: []
 ---
 # Kimi Deep Worker
