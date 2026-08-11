@@ -4,27 +4,42 @@ All notable changes to **Over the Luna** will be documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.2.1 — 2026-08-11
+
+Hotfix for VS Code built-in tool availability discovered during live testing.
+
+### Fixed
+
+- Restored the normal VS Code `read`, `search`, `edit`, `shell`, `web`, and `vscode` tool sets on the **Over the Luna** coordinator. v0.2.0 restricted the coordinator to `agent`/`todo`, which also made built-in editing tools such as `replace_string_in_file` appear disabled in the active custom-agent session and could leave the workflow unable to recover when a worker path failed.
+- Kept Luna-first delegation as a behavioral routing rule instead of enforcing it by crippling the active VS Code tool surface.
+- Added an explicit, visible emergency fallback: if subagent invocation or worker tooling fails, Sonnet may use built-in tools only after reporting `Fallback: Sonnet direct execution — <reason>`.
+- Replaced the non-standard `execute` alias with the current custom-agent `shell` alias across implementation and review agents.
+
+### Why
+
+Tool availability and model-routing policy are different concerns. The harness should prefer workers by instruction and routing, while preserving the editor's normal built-in capabilities so a tool-boundary mistake cannot dead-end a coding session.
+
 ## v0.2.0 — 2026-08-11
 
 First routing-focused revision based on real VS Code testing.
 
 ### Changed
 
-- **Over the Luna is now router-only.** The Sonnet coordinator no longer has repository read/search/execute/edit tools; substantive repository work must go through a worker.
-- Small tasks now route directly to **Luna Implementer** instead of being solved by the Sonnet coordinator.
+- **Over the Luna became router-only.** The Sonnet coordinator removed repository read/search/execute/edit tools; substantive repository work had to go through a worker.
+- Small tasks routed directly to **Luna Implementer** instead of being solved by the Sonnet coordinator.
 - Added **Luna Reviewer** as the default independent review path.
-- **Sonnet Reviewer** is now reserved for second-line review of architecture, security/auth, concurrency, persistence/data integrity, migrations, contracts, or uncertain Luna reviews.
-- Routing rules now explicitly prefer **MAI Mechanical** for deterministic repetition and **Kimi Deep Worker** for coherent long-horizon bounded implementation.
-- The coordinator emits a one-line route summary so model routing is visible to the developer.
+- **Sonnet Reviewer** became second-line review for architecture, security/auth, concurrency, persistence/data integrity, migrations, contracts, or uncertain Luna reviews.
+- Routing rules explicitly preferred **MAI Mechanical** for deterministic repetition and **Kimi Deep Worker** for coherent long-horizon bounded implementation.
+- The coordinator emitted a one-line route summary so model routing was visible to the developer.
 
 ### Why
 
-v0.1 behaved too much like "Sonnet with optional helpers" because delegation was advisory. v0.2 separates the two product modes:
+v0.1 behaved too much like "Sonnet with optional helpers" because delegation was advisory. v0.2 separated the two product modes:
 
 - **Luna Solo** = direct single-model work.
-- **Over the Luna** = actual multi-model harness; coordinator routes and synthesizes, workers inspect and change the repository.
+- **Over the Luna** = multi-model harness with worker-first routing.
 
-Haiku remains a fallback rather than receiving an artificial primary role. Opus remains a human-gated critical-review handoff.
+The hard tool restriction introduced here was corrected in v0.2.1 after real VS Code testing showed that it degraded the active tool surface.
 
 ## v0.1.0 — 2026-08-11
 
