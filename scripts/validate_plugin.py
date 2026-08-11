@@ -22,11 +22,12 @@ ALLOWED_MODELS = {
     "Claude Haiku 4.5",
 }
 
-# Use GitHub's documented primary aliases only. Compatible aliases such as
-# shell/Bash/PowerShell work, but primary aliases make behavior easier to audit.
+# Use GitHub's documented primary aliases only. Compatible aliases work, but
+# primary aliases make silent tool-resolution drift easier to detect.
 ALLOWED_TOOLS = {"agent", "todo", "read", "search", "edit", "execute", "web"}
 
 VISIBLE_AGENT_IDS = {"over-the-luna", "luna-solo", "opus-critical-reviewer"}
+MANUAL_ONLY_AGENT_IDS = VISIBLE_AGENT_IDS
 EDITOR_AGENT_IDS = {"luna-solo", "luna-implementer", "kimi-deep-worker", "mai-mechanical"}
 REVIEWER_AGENT_IDS = {"luna-reviewer", "sonnet-reviewer", "opus-critical-reviewer"}
 
@@ -61,7 +62,7 @@ def parse_frontmatter(path: Path) -> tuple[dict, str]:
 def model_names(value: object) -> list[str]:
     if isinstance(value, str):
         return [value]
-    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+    if isinstance(value, list) and value and all(isinstance(item, str) for item in value):
         return value
     return []
 
@@ -144,10 +145,12 @@ def main() -> int:
         expected_user_invocable = agent_id in VISIBLE_AGENT_IDS
         actual_user_invocable = frontmatter.get("user-invocable", True)
         if bool(actual_user_invocable) != expected_user_invocable:
-            fail(
-                errors,
-                f"{path}: user-invocable should be {str(expected_user_invocable).lower()} for this role",
-            )
+            fail(errors, f"{path}: user-invocable should be {str(expected_user_invocable).lower()} for this role")
+
+        if agent_id in MANUAL_ONLY_AGENT_IDS and frontmatter.get("disable-model-invocation") is not True:
+            fail(errors, f"{path}: user-facing entry/handoff agents must set disable-model-invocation: true")
+        if agent_id not in MANUAL_ONLY_AGENT_IDS and frontmatter.get("disable-model-invocation") is True:
+            fail(errors, f"{path}: worker must remain available for model/subagent invocation")
 
         if not body:
             fail(errors, f"{path}: instruction body must not be empty")
@@ -155,18 +158,26 @@ def main() -> int:
     agent_ids = set(parsed)
 
     # Validate references after all names and IDs are known.
-    for agent_id, (path, frontmatter, _) in parsed.items():
+    for _, (path, frontmatter, _) in parsed.items():
         for worker_name in frontmatter.get("agents", []):
             if worker_name not in names:
                 fail(errors, f"{path}: unknown subagent display name {worker_name!r}")
 
-        for handoff in frontmatter.get("handoffs", []) or []:
+        handoffs = frontmatter.get("handoffs", []) or []
+        if not isinstance(handoffs, list):
+            fail(errors, f"{path}: handoffs must be a list")
+            continue
+        for handoff in handoffs:
             if not isinstance(handoff, dict):
                 fail(errors, f"{path}: each handoff must be a mapping")
                 continue
             target = handoff.get("agent")
             if target not in agent_ids:
                 fail(errors, f"{path}: handoff references unknown agent id {target!r}")
+            if not isinstance(handoff.get("label"), str) or not handoff.get("label", "").strip():
+                fail(errors, f"{path}: each handoff needs a non-empty label")
+            if not isinstance(handoff.get("prompt"), str) or not handoff.get("prompt", "").strip():
+                fail(errors, f"{path}: each handoff needs a non-empty prompt")
             handoff_model = handoff.get("model")
             if handoff_model is not None:
                 if not isinstance(handoff_model, str):
@@ -174,10 +185,12 @@ def main() -> int:
                 elif base_handoff_model(handoff_model) not in ALLOWED_MODELS:
                     fail(errors, f"{path}: unsupported handoff model {handoff_model!r}")
 
-    # Role contracts: these are deliberate architecture constraints, not generic VS Code rules.
+    # Architecture contracts: deliberate Over the Luna design constraints.
     coordinator = parsed.get("over-the-luna")
     if coordinator:
         path, fm, _ = coordinator
+        if fm.get("model") != "Claude Sonnet 5":
+            fail(errors, f"{path}: full harness coordinator must be Claude Sonnet 5 for deterministic routing/cost tier")
         if set(fm.get("tools", [])) != {"agent", "todo"}:
             fail(errors, f"{path}: coordinator must remain router-only with agent + todo")
         if set(fm.get("agents", [])) != EXPECTED_COORDINATOR_WORKERS:
@@ -193,12 +206,13 @@ def main() -> int:
     for agent_id in REVIEWER_AGENT_IDS:
         if agent_id in parsed:
             path, fm, _ = parsed[agent_id]
-            if "edit" in set(fm.get("tools", [])):
-                fail(errors, f"{path}: reviewer must not have edit capability")
+            tools = set(fm.get("tools", []))
+            if "edit" in tools or "execute" in tools:
+                fail(errors, f"{path}: reviewer must remain non-mutating (no edit or execute)")
 
     for agent_id, (path, fm, _) in parsed.items():
         if agent_id != "over-the-luna" and fm.get("agents", []):
-            fail(errors, f"{path}: workers must not delegate recursively")
+            fail(errors, f"{path}: workers/entry agents must not delegate recursively")
 
     if errors:
         print("Over the Luna validation FAILED:\n")
