@@ -174,6 +174,8 @@ def main() -> int:
             target = handoff.get("agent")
             if target not in agent_ids:
                 fail(errors, f"{path}: handoff references unknown agent id {target!r}")
+            elif target not in VISIBLE_AGENT_IDS:
+                fail(errors, f"{path}: handoff target {target!r} must be user-visible")
             if not isinstance(handoff.get("label"), str) or not handoff.get("label", "").strip():
                 fail(errors, f"{path}: each handoff needs a non-empty label")
             if not isinstance(handoff.get("prompt"), str) or not handoff.get("prompt", "").strip():
