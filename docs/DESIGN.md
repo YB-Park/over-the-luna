@@ -20,181 +20,139 @@ GPT-5.6 Luna is the center of gravity because it is fast and inexpensive enough 
 
 ## Coordinator boundary
 
-The **Over the Luna** coordinator is Claude Sonnet 5 and intentionally has only:
+The Over the Luna coordinator is fixed to **Claude Sonnet 5** and intentionally has only `agent` and `todo`.
 
-- `agent`
-- `todo`
+That is a real capability boundary. The coordinator decides which worker should act, passes a bounded task, and synthesizes returned results. It should make zero repository read/edit/execute calls during a healthy harness run.
 
-That is a real capability boundary, not merely a prompt preference.
+Fixing the coordinator to Sonnet also keeps child model routing predictable. If the parent itself were allowed to fall back to a much cheaper model, a requested Kimi or Sonnet worker could exceed the parent cost tier and be replaced by the parent model.
 
-The coordinator decides which worker should act, passes a bounded task, and synthesizes the returned result. It should not inspect/edit/execute against the repository itself during a healthy harness run.
+The user-facing coordinator is also `disable-model-invocation: true`; it is an entry point, not a worker another agent should silently nest.
 
-This follows VS Code's coordinator/subagent model: a custom subagent can define its own model, tools, and instructions, and those settings override the defaults inherited from the parent conversation.
+## Parent tools are not worker tools
 
-### Important lesson from v0.2 testing
+This distinction was the key lesson from v0.2 testing.
 
-A parent coordinator showing edit/terminal tools as unavailable is **expected** when its tool list is intentionally narrow. That observation alone does not prove that the delegated implementation worker lacks those tools.
+A parent coordinator showing edit/terminal tools as unavailable is **expected** when its tool list is intentionally narrow. That observation does not prove the delegated implementation worker lacks those tools.
 
-The meaningful runtime test is whether the expanded implementation subagent — Luna Implementer, Kimi Deep Worker, or MAI Mechanical — receives its own declared `edit` and `execute` capabilities.
+VS Code custom subagents can provide their own model, tools, and instructions, overriding the defaults inherited from the parent session.
 
-v0.2.1 temporarily widened the coordinator tools after these two layers were conflated. v0.3 restores the strict coordinator boundary and makes harness failure explicit instead of hiding it behind Sonnet direct execution.
+The meaningful runtime test is therefore whether the expanded implementation subagent — Luna Implementer, Kimi Deep Worker, or MAI Mechanical — receives its own declared `edit` and `execute` capabilities.
+
+v0.2.1 temporarily widened the coordinator after these two layers were conflated. v0.3 restores the strict coordinator boundary.
 
 ## Failure and recovery
 
-A failed delegation must remain visible.
+A failed delegation remains visible.
 
-If the subagent cannot start, its model/tooling is unavailable, or it otherwise cannot perform the delegated repository task, the coordinator reports:
+If a subagent cannot start, its required model/tooling is unavailable, or it otherwise cannot perform its task, the coordinator reports:
 
 `HARNESS_FAILURE: <reason>`
 
-It must not silently become the implementation agent.
+It does not silently become the implementation agent.
 
-A **Continue directly with Luna** handoff provides a deliberate recovery path. This keeps the developer in control and gives us a measurable harness-failure rate instead of masking failures.
+A **Continue directly with Luna** handoff gives the developer an explicit recovery path. Luna Solo is also `disable-model-invocation: true`, so this transition is user-chosen rather than an automatic hidden fallback.
 
-## Why Luna has focused roles
+## Luna roles
 
-The Luna workers intentionally expose different tool surfaces and output contracts.
+- **Explorer** — `read`, `search`; compact repository facts only.
+- **Researcher** — `read`, `search`, `web`; current external/documentation facts only.
+- **Implementer** — `read`, `search`, `edit`, `execute`, `todo`; default coding owner.
+- **Reviewer** — `read`, `search`; independent first-line review without mutation capability.
 
-- **Explorer**: repository discovery only; `read` + `search`.
-- **Researcher**: current external/documentation research; `read` + `search` + `web`.
-- **Implementer**: normal coding; `read` + `search` + `edit` + `execute` + `todo`.
-- **Reviewer**: independent first-line review; no `edit` tool.
+Separating these roles reduces unnecessary tool choice and keeps exploratory context out of the parent conversation.
 
-The separation reduces unnecessary tool choices, isolates noisy context, and keeps the parent context smaller.
+## Kimi Deep Worker
 
-## Why Kimi is bounded
+Kimi K2.7 Code owns one coherent, long-horizon task with clear boundaries and acceptance criteria. It is an implementation worker, not an orchestrator.
 
-Kimi K2.7 Code is reserved for a coherent long-horizon task with clear boundaries and acceptance criteria. It is an implementation owner, not another orchestrator.
+Prefer one Kimi owner for a subsystem-sized multi-file change that needs a sustained thread and repeated validation rather than several overlapping implementers.
 
-Prefer one Kimi worker for a subsystem-sized multi-file change that needs a sustained thread and repeated validation rather than several overlapping implementation agents.
+## MAI Mechanical
 
-## Why MAI is mechanical
+MAI-Code-1-Flash is reserved for work whose design is already decided: DTOs/schemas, mappers, mocks, repeated tests, boilerplate, mechanical renames, obvious lint/type fixes, and pattern replication.
 
-MAI-Code-1-Flash is used after design is already decided:
+If the work exposes a real architecture/product/API decision, MAI stops with `REROUTE: decision required`.
 
-- DTOs and schemas
-- mappers
-- repetitive tests/mocks
-- mechanical renames
-- boilerplate
-- obvious type/lint corrections
-- straightforward pattern replication
-
-If the work reveals a real design decision, MAI stops and returns `REROUTE: decision required` instead of inventing architecture.
-
-## Why review is layered
+## Layered review
 
 **Luna Reviewer** is the default because review is frequent and Luna is cheap enough to use routinely.
 
 **Sonnet Reviewer** is second-line judgment for architecture, auth/security, concurrency, persistence/data integrity, migrations, public contracts, or explicit Luna uncertainty.
 
-Reviewers deliberately do not receive the `edit` alias. They may receive `execute` for focused validation; instructions prohibit intentionally mutating source files through terminal commands.
+**Opus Critical Reviewer** is a manual, user-facing handoff for the highest-stakes review. It is marked `disable-model-invocation: true` so it cannot be silently selected as a subagent.
 
-## Why Opus is manual
+All reviewers are structurally non-mutating: they receive neither `edit` nor `execute`. Implementation workers own test execution and report the validation they performed; reviewers assess those claims against repository evidence.
 
-Opus is a handoff, not a subagent.
+## Why Opus is a handoff
 
-This serves two purposes:
+Premium escalation should be visible and chosen by the developer. There is also a model-routing reason: VS Code falls back to the parent model when a requested subagent model exceeds the parent's cost tier. A handoff avoids pretending an Opus role ran when the runtime actually substituted Sonnet.
 
-1. premium escalation remains visible and chosen by the developer;
-2. VS Code will fall back to the parent model when a requested subagent model exceeds the parent model's cost tier, which could otherwise blur whether the intended premium model actually ran.
+## Model selection
 
-The handoff preserves conversation context while making the escalation explicit.
+For custom subagents, VS Code prioritizes:
 
-## Model fallback behavior
-
-For a custom subagent, VS Code chooses the model in this order:
-
-1. explicit model requested for the subagent;
+1. an explicitly requested subagent model;
 2. the custom agent's configured model/list;
 3. the parent conversation model.
 
-A requested model may not exceed the parent model's cost tier; when it does, VS Code falls back to the parent model. Therefore model identity should be checked in the expanded subagent UI during runtime validation.
+A requested subagent model cannot exceed the parent model's cost tier; if it does, VS Code falls back to the parent model. Runtime smoke tests therefore record the model displayed on each expanded subagent.
 
-## Tool naming policy
+## Tool naming
 
-GitHub documents primary custom-agent aliases including:
+GitHub documents primary aliases including `execute`, `read`, `edit`, `search`, `agent`, `web`, and `todo`.
 
-- `execute`
-- `read`
-- `edit`
-- `search`
-- `agent`
-- `web`
-- `todo`
-
-Compatible aliases exist, for example `shell` for `execute`, but v0.3 uses primary aliases only. Unknown tools can be silently ignored by the product, so keeping a narrow documented vocabulary reduces configuration ambiguity.
+Compatible aliases such as `shell` for `execute` are valid, but v0.3 uses primary aliases only. Unknown tool names can be silently ignored, so a narrow documented vocabulary makes configuration drift easier to detect.
 
 ## VS Code-only target
 
-Every distributed agent uses `target: vscode`.
-
-The project is intentionally designed and tested around VS Code behavior. Leaving `target` unset would make the agent definition applicable to both VS Code and GitHub Copilot contexts, which is broader than the project's current compatibility promise.
+Every distributed agent sets `target: vscode` because this project is designed and tested as a VS Code harness. Copilot CLI can still be used as an installation transport, but CLI runtime behavior is not part of the compatibility promise.
 
 ## Fan-out budget
 
-Initial parallel fan-out is capped at **three** workers.
+Initial parallel fan-out is capped at **three** workers. Parallelism is mainly for independent discovery/research. A coherent implementation normally has one owner.
 
-Parallelism is mainly for independent discovery/research. A coherent implementation normally gets one owner.
-
-More agents are not automatically better:
-
-- each subagent duplicates some prompt/tool context;
-- overlapping investigation wastes credits;
-- synthesis cost grows with outputs;
-- broad swarms reduce human visibility.
+More agents are not automatically better: each duplicates prompt/tool context, overlapping investigation wastes credits, synthesis cost grows with outputs, and wide swarms reduce human visibility.
 
 ## Reasoning-effort limitation
 
-VS Code supports configurable thinking/reasoning effort for supported models, but `.agent.md` currently does not expose a documented per-agent reasoning-effort field.
+VS Code supports configurable thinking/reasoning effort for supported models, but `.agent.md` does not currently expose a documented per-agent reasoning-effort field. Several roles share Luna, so **Luna Medium** is the recommended global starting point.
 
-Because several roles share Luna, **Luna Medium** is the recommended global starting point. Raise it deliberately for hard direct Luna Solo work rather than maximizing every worker by default.
+## Deliberate exclusions
 
-## What this project does not do
+Over the Luna currently does not provide recursive/nested swarms, background daemons, autonomous issue picking, automatic commits/pushes, hidden premium escalation, MCP servers, lifecycle hooks, a custom VS Code extension, or a second editor UI.
 
-It intentionally does not provide:
-
-- recursive/nested swarms
-- background daemons
-- autonomous issue picking
-- automatic commits/pushes
-- hidden premium escalation
-- MCP servers
-- lifecycle hooks
-- a custom VS Code extension
-- a second editor UI
-
-These should be added only if a measured problem justifies them.
+Those features should be added only if measured use shows a real need.
 
 ## Validation strategy
 
-There are two layers.
-
 ### Static CI
 
-`scripts/validate_plugin.py` checks the plugin and agent definitions for architectural drift, including:
+`scripts/validate_plugin.py` checks:
 
 - frontmatter parseability;
 - `target: vscode`;
-- allowed models and primary tool aliases;
+- allowed model names and primary tool aliases;
 - valid subagent/handoff references;
-- router-only coordinator capability;
-- implementation-worker edit/execute access;
-- reviewers lacking `edit`;
+- manual-only user entry agents;
+- Sonnet-only coordinator model;
+- router-only coordinator tools and exact worker allow-list;
+- implementation-worker read/search/edit/execute access;
+- reviewers having neither edit nor execute;
 - no recursive worker delegation.
 
 ### Runtime smoke test
 
 Static configuration cannot prove how a particular VS Code/Copilot release resolves tools and models. [`SMOKE_TEST.md`](SMOKE_TEST.md) verifies the actual runtime path.
 
-Important runtime metrics:
+Useful metrics:
 
-1. **Luna completion rate** — ordinary tasks resolved by Luna workers.
-2. **Escalation rate** — Kimi/Sonnet/Opus usage.
-3. **Wall-clock time** — harness versus direct Luna Solo.
-4. **Review defect rate** — serious findings after implementation.
-5. **Agent count per task** — orchestration bloat signal.
-6. **Harness failure rate** — failed worker invocation/tool/model resolution.
-7. **Sonnet repository-tool calls** — should be zero in healthy Over the Luna runs.
+1. Luna completion rate.
+2. Kimi/Sonnet/Opus escalation rate.
+3. Wall-clock time versus Luna Solo.
+4. Review defect rate.
+5. Agent count per task.
+6. Harness failure rate.
+7. Sonnet repository-tool calls — expected to be zero in healthy harness runs.
+8. Intended model versus displayed subagent model.
 
-The ideal outcome is **maximum useful work per token and per minute while keeping the developer in control**.
+The target is **maximum useful work per token and per minute while keeping the developer in control**.
