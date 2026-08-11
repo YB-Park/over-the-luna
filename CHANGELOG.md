@@ -1,23 +1,48 @@
 # Changelog
 
-All notable changes to **Over the Luna** will be documented here.
+All notable changes to **Over the Luna** are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.3.0 — 2026-08-11
+
+Pre-production hardening after a full review against the current VS Code and GitHub Copilot custom-agent/subagent specifications.
+
+### Changed
+
+- Restored **Over the Luna** to a strict router/synthesizer boundary with only `agent` and `todo` tools.
+- Added a human-visible **Continue directly with Luna** handoff instead of allowing silent Sonnet direct-execution fallback.
+- Added `target: vscode` to every distributed agent so the compatibility promise matches the product this project actually tests.
+- Normalized tool declarations to GitHub's documented primary aliases (`execute`, `read`, `edit`, `search`, `agent`, `web`, `todo`). Compatible aliases remain valid in Copilot, but primary aliases are easier to audit.
+- Clarified the distinction between a parent coordinator's intentionally disabled repository tools and a worker subagent's own tool configuration.
+- Corrected model cost-tier documentation: when a requested subagent model is above the parent model's cost tier, VS Code falls back to the parent model.
+- Tightened routing instructions so the first repository-facing action in harness mode is a worker delegation.
+- Added explicit `HARNESS_FAILURE` reporting instead of hiding delegation/runtime problems behind Sonnet implementation.
+
+### Added
+
+- `scripts/validate_plugin.py` static validation for plugin/agent architecture.
+- GitHub Actions validation on pushes and pull requests.
+- `docs/SMOKE_TEST.md` with runtime release gates for model routing, worker tool availability, review escalation, manual Opus use, and failure recovery.
+
+### Review finding that changed the design
+
+The v0.2 live-test symptom — parent edit tools appearing disabled — was initially interpreted as evidence that restricting coordinator tools also disabled worker tools. A deeper review of the current VS Code subagent specification showed that this conflated two different tool surfaces.
+
+A coordinator with only the `agent` tool is a supported orchestration pattern, while a custom subagent uses its own configured model/tools/instructions. Therefore v0.3 treats parent edit/terminal unavailability as **expected** and tests the implementation worker's own edit/execute capabilities separately.
+
 ## v0.2.1 — 2026-08-11
 
-Hotfix for VS Code built-in tool availability discovered during live testing.
+Interim hotfix made during live investigation.
 
-### Fixed
+### Changed
 
-- Restored the normal VS Code `read`, `search`, `edit`, `shell`, `web`, and `vscode` tool sets on the **Over the Luna** coordinator. v0.2.0 restricted the coordinator to `agent`/`todo`, which also made built-in editing tools such as `replace_string_in_file` appear disabled in the active custom-agent session and could leave the workflow unable to recover when a worker path failed.
-- Kept Luna-first delegation as a behavioral routing rule instead of enforcing it by crippling the active VS Code tool surface.
-- Added an explicit, visible emergency fallback: if subagent invocation or worker tooling fails, Sonnet may use built-in tools only after reporting `Fallback: Sonnet direct execution — <reason>`.
-- Replaced the non-standard `execute` alias with the current custom-agent `shell` alias across implementation and review agents.
+- Temporarily restored broad repository tools to the Sonnet coordinator and allowed visible direct-execution fallback after observing disabled parent editor tools.
+- Switched several tool declarations to compatible aliases while investigating tool resolution.
 
-### Why
+### Superseded by v0.3.0
 
-Tool availability and model-routing policy are different concerns. The harness should prefer workers by instruction and routing, while preserving the editor's normal built-in capabilities so a tool-boundary mistake cannot dead-end a coding session.
+The broader coordinator capability solved the immediate dead-end but reintroduced the original risk: Sonnet could become the implementation agent instead of the router. The later specification review showed that the parent and custom-subagent tool surfaces should be evaluated separately. v0.3.0 restores the strict harness boundary and adds a manual Luna recovery path.
 
 ## v0.2.0 — 2026-08-11
 
@@ -25,21 +50,16 @@ First routing-focused revision based on real VS Code testing.
 
 ### Changed
 
-- **Over the Luna became router-only.** The Sonnet coordinator removed repository read/search/execute/edit tools; substantive repository work had to go through a worker.
-- Small tasks routed directly to **Luna Implementer** instead of being solved by the Sonnet coordinator.
+- Made **Over the Luna** router-only so substantive repository work went through workers.
+- Routed small tasks to **Luna Implementer** instead of Sonnet.
 - Added **Luna Reviewer** as the default independent review path.
-- **Sonnet Reviewer** became second-line review for architecture, security/auth, concurrency, persistence/data integrity, migrations, contracts, or uncertain Luna reviews.
-- Routing rules explicitly preferred **MAI Mechanical** for deterministic repetition and **Kimi Deep Worker** for coherent long-horizon bounded implementation.
-- The coordinator emitted a one-line route summary so model routing was visible to the developer.
+- Reserved **Sonnet Reviewer** for architecture/security/concurrency/data-integrity/contracts or uncertain Luna reviews.
+- Explicitly preferred **MAI Mechanical** for deterministic repetition and **Kimi Deep Worker** for coherent long-horizon work.
+- Added a one-line route summary for model-routing visibility.
 
 ### Why
 
-v0.1 behaved too much like "Sonnet with optional helpers" because delegation was advisory. v0.2 separated the two product modes:
-
-- **Luna Solo** = direct single-model work.
-- **Over the Luna** = multi-model harness with worker-first routing.
-
-The hard tool restriction introduced here was corrected in v0.2.1 after real VS Code testing showed that it degraded the active tool surface.
+v0.1 behaved too much like "Sonnet with optional helpers" because delegation was advisory.
 
 ## v0.1.0 — 2026-08-11
 
@@ -60,4 +80,4 @@ Initial public test release.
 
 ### Release philosophy
 
-v0.x releases are expected to evolve quickly based on real VS Code usage and tester feedback. Prompt/routing fixes remain patch releases unless they materially change harness behavior.
+v0.x releases are expected to evolve quickly based on real VS Code usage and tester feedback.
