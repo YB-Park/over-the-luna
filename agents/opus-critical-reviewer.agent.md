@@ -9,8 +9,8 @@ tools: ['read', 'search', 'web']
 agents: []
 handoffs:
   - label: Fix accepted findings with Luna
-    agent: luna-implementer
-    prompt: Fix only the review findings I accept from the critical review above. Preserve the original scope, make focused changes, and validate them.
+    agent: luna-solo
+    prompt: Fix only the review findings I accept from the critical review above. Preserve the original scope, make focused changes, validate them, and stop when the accepted findings are resolved.
     send: false
     model: GPT-5.6 Luna (copilot)
 ---
