@@ -28,7 +28,7 @@ No MCP server. No daemon. No execution hooks. No custom extension runtime. Just 
 
    `https://github.com/YB-Park/over-the-luna`
 
-5. Open Copilot Chat and choose **Luna Solo** or **Over the Luna**.
+5. Open Copilot Chat and choose **Over the Luna**.
 
 Agent Plugins are a VS Code preview feature and can be disabled by organization policy through `chat.plugins.enabled`.
 
@@ -47,17 +47,11 @@ Clone the repository and copy `agents/*.agent.md` to either:
 - User-wide: `~/.copilot/agents`
 - Workspace-only: `.github/agents`
 
-## Two entry points
+## What this plugin owns
 
-### 🌙 Luna Solo
+**Over the Luna is the harness.** It does not bundle a second wrapper for ordinary direct coding.
 
-Direct single-model coding with GPT-5.6 Luna. It can read, search, edit, execute validation, and manage todos, but it cannot delegate.
-
-Use this when a normal IDE-agent loop is enough.
-
-### 🚀 Over the Luna
-
-Actual harness mode.
+For direct single-model work, use VS Code's built-in **Agent** and select **GPT-5.6 Luna** in the model picker. VS Code already provides that workflow, so duplicating it as a custom `Luna Solo` agent would add maintenance and UI clutter without adding unique harness behavior.
 
 The coordinator is fixed to **Claude Sonnet 5** and intentionally has only:
 
@@ -66,15 +60,11 @@ The coordinator is fixed to **Claude Sonnet 5** and intentionally has only:
 
 It cannot read/edit/execute against the repository. Every substantive repository task must cross a worker boundary.
 
-Even a small clear fix normally routes to **Luna Implementer**. If that boundary is not worth it, use Luna Solo.
-
 A healthy run starts with a visible route such as:
 
 `Route: Luna Explorer → Luna Implementer → Luna Reviewer`
 
 ## Parent tools vs worker tools
-
-This distinction is important.
 
 When **Over the Luna** is active, direct edit/terminal tools being unavailable on the parent Sonnet coordinator is **expected**.
 
@@ -84,50 +74,48 @@ A delegated custom subagent uses its own configured model, tools, and instructio
 - parent says it cannot edit and stops instead of delegating → routing failure;
 - Luna Implementer/Kimi/MAI actually starts but cannot edit/execute → subagent tool-resolution failure.
 
-The earlier v0.2.1 design temporarily blurred these layers. v0.3 restores the strict coordinator boundary and makes runtime failures observable.
-
 ## Routing map
 
 ```text
                               You
                                │
-                 ┌─────────────┴─────────────┐
-                 │                           │
-            Luna Solo                 Over the Luna
-           GPT-5.6 Luna               Claude Sonnet 5
-          direct/no harness           router + synthesis
-                                             │
-                ┌────────────────────────────┼───────────────────────────┐
-                │                            │                           │
-          Luna Explorer               Luna Researcher             implementation
-          repo discovery              current docs/web                  │
-                                                                         ▼
-                                     ┌───────────────────────────────────┼───────────────────┐
-                                     │                                   │                   │
-                              Luna Implementer                    MAI Mechanical      Kimi Deep Worker
-                              default coding                      repetition          long bounded work
-                                     │                                   │                   │
-                                     └───────────────────────────────────┼───────────────────┘
-                                                                         ▼
-                                                                  Luna Reviewer
-                                                                  default review
-                                                                         │
-                                                         high-risk / uncertainty only
-                                                                         ▼
-                                                                 Sonnet Reviewer
-                                                                         │
-                                                        human explicitly wants more
-                                                                         ▼
-                                                           Opus Critical Reviewer
-                                                             MANUAL HANDOFF ONLY
+                               ▼
+                         Over the Luna
+                         Claude Sonnet 5
+                        router + synthesis
+                               │
+          ┌────────────────────┼────────────────────┐
+          │                    │                    │
+    Luna Explorer       Luna Researcher       implementation
+    repo discovery      current docs/web            │
+                                                   route
+                         ┌───────────────────────────┼───────────────────┐
+                         │                           │                   │
+                  Luna Implementer             MAI Mechanical    Kimi Deep Worker
+                  default coding               repetition        long bounded work
+                         │                           │                   │
+                         └───────────────────────────┼───────────────────┘
+                                                     ▼
+                                              Luna Reviewer
+                                              default review
+                                                     │
+                                      high-risk / uncertainty only
+                                                     ▼
+                                             Sonnet Reviewer
+                                                     │
+                                    human explicitly wants more
+                                                     ▼
+                                       Opus Critical Reviewer
+                                         MANUAL HANDOFF ONLY
 ```
+
+For a no-harness baseline, use built-in **Agent + GPT-5.6 Luna**.
 
 ## Agent set
 
 | Agent | Primary model | Visible | Role |
 |---|---|---:|---|
 | **Over the Luna** | Claude Sonnet 5 | ✅ | Router/synthesizer only |
-| **Luna Solo** | GPT-5.6 Luna | ✅ | Direct coding, no delegation |
 | Luna Explorer | GPT-5.6 Luna | ❌ | Read-only repository discovery |
 | Luna Researcher | GPT-5.6 Luna | ❌ | Read-only current docs/web research |
 | Luna Implementer | GPT-5.6 Luna | ❌ | Default coding + validation |
@@ -138,7 +126,7 @@ The earlier v0.2.1 design temporarily blurred these layers. v0.3 restores the st
 | **Opus Critical Reviewer** | Claude Opus 4.8 | ✅ | Human-gated read-only critical review |
 | Haiku 4.5 | fallback | ❌ | Availability fallback only |
 
-The three user-facing entry/handoff agents are marked `disable-model-invocation: true`, so they are not meant to be silently selected as subagents. Hidden workers remain available to the coordinator.
+The two user-facing harness agents are marked `disable-model-invocation: true`, so they are selected deliberately rather than silently nested. Hidden workers remain available to the coordinator.
 
 ## Routing rules
 
@@ -166,7 +154,7 @@ If worker invocation, model routing, or worker tooling fails, the coordinator sh
 
 `HARNESS_FAILURE: <reason>`
 
-Then the developer can explicitly choose **Continue directly with Luna**. That manual handoff preserves convenience without hiding the fact that the harness path failed.
+For direct recovery, switch to VS Code's built-in **Agent** and select **GPT-5.6 Luna**. That keeps failure visible without maintaining a duplicate direct-mode agent inside this plugin.
 
 ## Model behavior and availability
 
@@ -183,13 +171,13 @@ The intended model set is:
 - Claude Opus 4.8
 - Claude Haiku 4.5
 
-Your Copilot plan and organization policy must enable the models you use. In particular, enterprise administrators can restrict individual models.
+Your Copilot plan and organization policy must enable the models you use.
 
 ## Recommended thinking effort
 
 | Model | Start with | Notes |
 |---|---|---|
-| GPT-5.6 Luna | **Medium** | General worker/reviewer default; High for hard Luna Solo work |
+| GPT-5.6 Luna | **Medium** | General worker/reviewer default; High for hard direct Agent work |
 | Claude Sonnet 5 | **Low / Medium** | Routing and rare second-line review |
 | Kimi K2.7 Code | Default | Give clear bounded acceptance criteria |
 | MAI-Code-1-Flash | Default | Best after design decisions are fixed |
@@ -199,7 +187,7 @@ Do not maximize reasoning blindly. The target is the minimum sufficient intellig
 
 ## Human-in-the-loop rules
 
-1. Luna Solo means direct work, no harness.
+1. Direct single-model work belongs to VS Code's built-in Agent/model picker.
 2. Over the Luna means repository work is delegated.
 3. Initial parallel fan-out is capped at three workers.
 4. Parallelize independent discovery/research, not overlapping implementations.
@@ -207,7 +195,7 @@ Do not maximize reasoning blindly. The target is the minimum sufficient intellig
 6. Material architecture/product decisions return to the developer.
 7. Reviewers are structurally non-editing: no `edit` or `execute` tool.
 8. Opus escalation is always user-visible.
-9. Harness failure is visible; recovery to Luna is a manual choice.
+9. Harness failure is visible; switching to direct Luna is a manual choice outside the plugin.
 
 ## Validation
 
@@ -218,12 +206,13 @@ Every push and pull request runs `scripts/validate_plugin.py` in GitHub Actions.
 - allowed model names;
 - documented primary tool aliases;
 - valid subagent/handoff references;
-- manual-only entry agents;
+- manual-only user-facing harness agents;
 - Sonnet-only router configuration;
 - router-only coordinator tools;
 - implementation-worker read/search/edit/execute access;
 - reviewers having neither edit nor execute;
-- no recursive worker delegation.
+- no recursive worker delegation;
+- no reintroduction of a redundant `Luna Solo` wrapper.
 
 Static validation cannot prove VS Code runtime behavior. Before normal use or a meaningful release, run [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md).
 
@@ -247,11 +236,11 @@ See [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md).
 
 ## Versioning
 
-Over the Luna follows semantic versioning. This hardening revision is **v0.3.0**.
+Over the Luna follows semantic versioning. The current close-beta revision is **v0.4.0**.
 
-- Patch (`0.3.x`): prompt/routing/compatibility fixes.
-- Minor (`0.x.0`): new agents or meaningful harness behavior changes.
-- Major (`x.0.0`): breaking installation/configuration or behavioral changes.
+- Patch (`0.4.x`): prompt/routing/compatibility fixes.
+- Minor (`0.x.0`): agent-set or meaningful harness behavior changes.
+- Major (`x.0.0`): breaking installation/configuration changes after stabilization.
 
 See [`CHANGELOG.md`](CHANGELOG.md).
 
