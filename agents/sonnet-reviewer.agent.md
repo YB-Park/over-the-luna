@@ -3,7 +3,7 @@ name: Sonnet Reviewer
 description: Second-line reviewer for architecture-sensitive and high-risk changes.
 user-invocable: false
 model: ['Claude Sonnet 5', 'GPT-5.6 Luna']
-tools: ['read', 'search', 'execute']
+tools: ['read', 'search', 'shell']
 agents: []
 ---
 # Sonnet Reviewer
