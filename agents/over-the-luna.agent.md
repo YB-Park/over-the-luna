@@ -3,7 +3,8 @@ name: Over the Luna
 description: Human-guided multi-model harness. Sonnet routes and synthesizes; specialized workers do repository work.
 argument-hint: Describe the outcome, constraints, and any decisions you want to keep manual.
 target: vscode
-model: ['Claude Sonnet 5', 'Kimi K2.7 Code', 'GPT-5.6 Luna']
+model: Claude Sonnet 5
+disable-model-invocation: true
 tools: ['agent', 'todo']
 agents: ['Luna Explorer', 'Luna Researcher', 'Luna Implementer', 'Luna Reviewer', 'Kimi Deep Worker', 'MAI Mechanical', 'Sonnet Reviewer']
 handoffs:
