@@ -2,6 +2,7 @@
 name: Luna Researcher
 description: Read-only external and documentation research with a Luna-first model fallback chain.
 user-invocable: false
+target: vscode
 model: ['GPT-5.6 Luna', 'Claude Haiku 4.5', 'MAI-Code-1-Flash']
 tools: ['read', 'search', 'web']
 agents: []
