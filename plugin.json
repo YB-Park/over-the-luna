@@ -1,0 +1,23 @@
+{
+  "name": "over-the-luna",
+  "description": "A thin, human-guided, Luna-first multi-model harness for GitHub Copilot in VS Code.",
+  "version": "0.1.0",
+  "author": {
+    "name": "YB-Park",
+    "url": "https://github.com/YB-Park"
+  },
+  "homepage": "https://github.com/YB-Park/over-the-luna",
+  "repository": "https://github.com/YB-Park/over-the-luna",
+  "license": "MIT",
+  "keywords": [
+    "vscode",
+    "github-copilot",
+    "copilot",
+    "agent",
+    "subagent",
+    "harness",
+    "gpt-5.6-luna",
+    "multi-model"
+  ],
+  "agents": "agents/"
+}
