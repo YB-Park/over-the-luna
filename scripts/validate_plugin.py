@@ -13,65 +13,64 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS_DIR = ROOT / "agents"
 
-ALLOWED_MODELS = {
-    "GPT-5.6 Luna",
-    "Claude Sonnet 5",
-    "Claude Opus 4.8",
-    "Kimi K2.7 Code",
-    "MAI-Code-1-Flash",
-    "Claude Haiku 4.5",
-}
-ALLOWED_EXPLICIT_TOOLS = {"agent", "todo", "read", "search", "edit", "execute", "web"}
-
+EXPECTED_VERSION = "0.8.0"
 EXPECTED_AGENT_IDS = {
     "over-the-luna",
-    "luna-explorer",
+    "luna-planner",
+    "luna-architect",
+    "luna-skeptic",
     "luna-researcher",
     "luna-tool-worker",
-    "luna-implementer",
+    "luna-recovery",
     "luna-reviewer",
-    "kimi-deep-worker",
     "sonnet-reviewer",
     "opus-critical-reviewer",
 }
-
-VISIBLE_AGENT_IDS = {"over-the-luna", "opus-critical-reviewer"}
-MANUAL_ONLY_AGENT_IDS = VISIBLE_AGENT_IDS
-FORBIDDEN_AGENT_IDS = {"luna-solo", "mai-mechanical"}
-
-# Current VS Code selected-tool inheritance requires these roles to omit tools.
-INHERITED_TOOL_AGENT_IDS = {
-    "over-the-luna",
-    "luna-tool-worker",
+FORBIDDEN_AGENT_IDS = {
+    "luna-solo",
     "luna-implementer",
+    "luna-explorer",
     "kimi-deep-worker",
+    "mai-mechanical",
 }
 
+LUNA_CORE_IDS = {
+    "over-the-luna",
+    "luna-planner",
+    "luna-architect",
+    "luna-skeptic",
+    "luna-researcher",
+    "luna-tool-worker",
+    "luna-recovery",
+    "luna-reviewer",
+}
+VISIBLE_AGENT_IDS = {"over-the-luna", "sonnet-reviewer", "opus-critical-reviewer"}
+MANUAL_ONLY_IDS = VISIBLE_AGENT_IDS
+
 STRICT_TOOLSETS = {
-    "luna-explorer": {"read", "search"},
+    "luna-planner": set(),
+    "luna-architect": {"read", "search"},
+    "luna-skeptic": {"read", "search"},
     "luna-researcher": {"read", "search", "web"},
+    "luna-recovery": {"read", "search"},
     "luna-reviewer": {"read", "search"},
     "sonnet-reviewer": {"read", "search"},
     "opus-critical-reviewer": {"read", "search", "web"},
 }
+INHERITED_TOOL_IDS = {"over-the-luna", "luna-tool-worker"}
 
-REVIEWER_AGENT_IDS = {"luna-reviewer", "sonnet-reviewer", "opus-critical-reviewer"}
-
-EXPECTED_COORDINATOR_WORKERS = {
-    "Luna Explorer",
+EXPECTED_MAIN_AGENTS = {
+    "Luna Planner",
+    "Luna Architect",
+    "Luna Skeptic",
     "Luna Researcher",
     "Luna Tool Worker",
-    "Luna Implementer",
+    "Luna Recovery",
     "Luna Reviewer",
-    "Kimi Deep Worker",
-    "Sonnet Reviewer",
 }
 
-AMBIENT_POLICY_MARKERS = (
-    "AMBIENT_TOOL_UNAVAILABLE",
-    "untrusted",
-    "External side effects",
-)
+ALLOWED_MODELS = {"GPT-5.6 Luna", "Claude Sonnet 5", "Claude Opus 4.8"}
+ALLOWED_EXPLICIT_TOOLS = {"read", "search", "web", "agent", "todo", "edit", "execute"}
 
 
 def fail(errors: list[str], message: str) -> None:
@@ -91,14 +90,6 @@ def parse_frontmatter(path: Path) -> tuple[dict, str]:
     return data, parts[2].strip()
 
 
-def model_names(value: object) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, list) and value and all(isinstance(item, str) for item in value):
-        return value
-    return []
-
-
 def base_handoff_model(value: str) -> str:
     return re.sub(r"\s+\(copilot\)$", "", value).strip()
 
@@ -106,212 +97,193 @@ def base_handoff_model(value: str) -> str:
 def main() -> int:
     errors: list[str] = []
 
-    plugin_path = ROOT / "plugin.json"
     try:
-        plugin = json.loads(plugin_path.read_text(encoding="utf-8"))
+        plugin = json.loads((ROOT / "plugin.json").read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR plugin.json: {exc}")
         return 1
 
-    if not re.fullmatch(r"[a-z0-9-]{1,64}", str(plugin.get("name", ""))):
-        fail(errors, "plugin.json: name must be kebab-case and <=64 characters")
-    if not re.fullmatch(r"\d+\.\d+\.\d+", str(plugin.get("version", ""))):
-        fail(errors, "plugin.json: version must be semantic x.y.z")
+    if plugin.get("version") != EXPECTED_VERSION:
+        fail(errors, f"plugin.json: expected version {EXPECTED_VERSION}")
     if plugin.get("agents", "agents/") != "agents/":
         fail(errors, "plugin.json: agents path must remain agents/")
-
     for key in ("mcpServers", "mcp-servers"):
         if key in plugin:
-            fail(errors, f"plugin.json: do not bundle MCP servers via {key}; VS Code user/workspace configuration owns integrations")
+            fail(errors, f"plugin.json: do not bundle MCP servers via {key}")
     if (ROOT / ".mcp.json").exists():
         fail(errors, ".mcp.json: this plugin must not bundle MCP servers")
 
     files = sorted(AGENTS_DIR.glob("*.agent.md"))
-    if not files:
-        fail(errors, "agents/: no .agent.md files found")
-
-    actual_agent_ids = {path.name.removesuffix(".agent.md") for path in files}
-    if actual_agent_ids != EXPECTED_AGENT_IDS:
-        missing = sorted(EXPECTED_AGENT_IDS - actual_agent_ids)
-        extra = sorted(actual_agent_ids - EXPECTED_AGENT_IDS)
+    actual_ids = {path.name.removesuffix(".agent.md") for path in files}
+    if actual_ids != EXPECTED_AGENT_IDS:
+        missing = sorted(EXPECTED_AGENT_IDS - actual_ids)
+        extra = sorted(actual_ids - EXPECTED_AGENT_IDS)
         if missing:
             fail(errors, f"agents/: missing expected agents: {', '.join(missing)}")
         if extra:
-            fail(errors, f"agents/: unexpected agents require architecture review: {', '.join(extra)}")
+            fail(errors, f"agents/: unexpected agents: {', '.join(extra)}")
+    forbidden_present = actual_ids & FORBIDDEN_AGENT_IDS
+    if forbidden_present:
+        fail(errors, f"agents/: retired architecture agents present: {', '.join(sorted(forbidden_present))}")
 
     parsed: dict[str, tuple[Path, dict, str]] = {}
     names: dict[str, str] = {}
 
     for path in files:
         agent_id = path.name.removesuffix(".agent.md")
-        if agent_id in FORBIDDEN_AGENT_IDS:
-            reason = "native Agent owns direct Luna mode" if agent_id == "luna-solo" else "MAI is a Luna availability fallback, not a dedicated routing role"
-            fail(errors, f"{path}: forbidden agent; {reason}")
-
         try:
-            frontmatter, body = parse_frontmatter(path)
+            fm, body = parse_frontmatter(path)
         except Exception as exc:  # noqa: BLE001
             fail(errors, f"{path}: {exc}")
             continue
+        parsed[agent_id] = (path, fm, body)
 
-        parsed[agent_id] = (path, frontmatter, body)
-
-        name = frontmatter.get("name")
+        name = fm.get("name")
         if not isinstance(name, str) or not name.strip():
             fail(errors, f"{path}: name is required")
         elif name in names:
-            fail(errors, f"{path}: duplicate display name {name!r} (also {names[name]})")
+            fail(errors, f"{path}: duplicate display name {name!r}")
         else:
             names[name] = agent_id
 
-        description = frontmatter.get("description")
-        if not isinstance(description, str) or not description.strip():
+        if not isinstance(fm.get("description"), str) or not fm.get("description", "").strip():
             fail(errors, f"{path}: description is required")
+        if fm.get("target") != "vscode":
+            fail(errors, f"{path}: target must be vscode")
 
-        if frontmatter.get("target") != "vscode":
-            fail(errors, f"{path}: target must be 'vscode'")
+        model = fm.get("model")
+        if not isinstance(model, str) or model not in ALLOWED_MODELS:
+            fail(errors, f"{path}: model must be one exact supported model string")
 
-        models = model_names(frontmatter.get("model"))
-        if not models:
-            fail(errors, f"{path}: model must be a string or non-empty string list")
-        for model in models:
-            if model not in ALLOWED_MODELS:
-                fail(errors, f"{path}: unsupported project model {model!r}")
+        if agent_id in LUNA_CORE_IDS and model != "GPT-5.6 Luna":
+            fail(errors, f"{path}: automatic core must be Luna-only")
+        if agent_id == "sonnet-reviewer" and model != "Claude Sonnet 5":
+            fail(errors, f"{path}: manual Sonnet reviewer must pin Claude Sonnet 5")
+        if agent_id == "opus-critical-reviewer" and model != "Claude Opus 4.8":
+            fail(errors, f"{path}: manual Opus reviewer must pin Claude Opus 4.8")
 
-        if "tools" in frontmatter:
-            tools = frontmatter["tools"]
+        expected_visible = agent_id in VISIBLE_AGENT_IDS
+        if bool(fm.get("user-invocable", True)) != expected_visible:
+            fail(errors, f"{path}: user-invocable should be {str(expected_visible).lower()}")
+        if agent_id in MANUAL_ONLY_IDS and fm.get("disable-model-invocation") is not True:
+            fail(errors, f"{path}: visible agents must set disable-model-invocation: true")
+        if agent_id not in MANUAL_ONLY_IDS and fm.get("disable-model-invocation") is True:
+            fail(errors, f"{path}: hidden Luna council agent must remain subagent-invocable")
+
+        if "tools" in fm:
+            tools = fm["tools"]
             if not isinstance(tools, list) or not all(isinstance(tool, str) for tool in tools):
-                fail(errors, f"{path}: tools must be a YAML string list when present")
+                fail(errors, f"{path}: tools must be a YAML string list")
                 tools = []
             for tool in tools:
                 if tool == "*":
-                    fail(errors, f"{path}: do not use global tools '*'; current VS Code inheritance uses tools omission for ambient roles")
+                    fail(errors, f"{path}: do not use global tools '*' in VS Code custom agents")
                 elif tool not in ALLOWED_EXPLICIT_TOOLS:
-                    fail(errors, f"{path}: unsupported explicit tool declaration {tool!r}")
+                    fail(errors, f"{path}: unsupported explicit tool {tool!r}")
 
-        for key in ("mcp-servers", "mcpServers"):
-            if key in frontmatter:
-                fail(errors, f"{path}: do not configure MCP servers in agent frontmatter via {key}")
+        for key in ("mcpServers", "mcp-servers"):
+            if key in fm:
+                fail(errors, f"{path}: do not configure MCP servers in agent frontmatter")
 
-        agents = frontmatter.get("agents", [])
-        if not isinstance(agents, list) or not all(isinstance(agent, str) for agent in agents):
+        agents = fm.get("agents", [])
+        if not isinstance(agents, list) or not all(isinstance(item, str) for item in agents):
             fail(errors, f"{path}: agents must be a YAML string list")
-            agents = []
-
-        expected_user_invocable = agent_id in VISIBLE_AGENT_IDS
-        actual_user_invocable = frontmatter.get("user-invocable", True)
-        if bool(actual_user_invocable) != expected_user_invocable:
-            fail(errors, f"{path}: user-invocable should be {str(expected_user_invocable).lower()} for this role")
-
-        if agent_id in MANUAL_ONLY_AGENT_IDS and frontmatter.get("disable-model-invocation") is not True:
-            fail(errors, f"{path}: user-facing entry/handoff agents must set disable-model-invocation: true")
-        if agent_id not in MANUAL_ONLY_AGENT_IDS and frontmatter.get("disable-model-invocation") is True:
-            fail(errors, f"{path}: worker must remain available for model/subagent invocation")
 
         if not body:
             fail(errors, f"{path}: instruction body must not be empty")
 
-    agent_ids = set(parsed)
-
-    for _, (path, frontmatter, _) in parsed.items():
-        for worker_name in frontmatter.get("agents", []):
-            if worker_name not in names:
-                fail(errors, f"{path}: unknown subagent display name {worker_name!r}")
-
-        handoffs = frontmatter.get("handoffs", []) or []
-        if not isinstance(handoffs, list):
-            fail(errors, f"{path}: handoffs must be a list")
-            continue
-        for handoff in handoffs:
-            if not isinstance(handoff, dict):
-                fail(errors, f"{path}: each handoff must be a mapping")
-                continue
-            target = handoff.get("agent")
-            if target not in agent_ids:
-                fail(errors, f"{path}: handoff references unknown agent id {target!r}")
-            elif target not in VISIBLE_AGENT_IDS:
-                fail(errors, f"{path}: handoff target {target!r} must be user-visible")
-            if not isinstance(handoff.get("label"), str) or not handoff.get("label", "").strip():
-                fail(errors, f"{path}: each handoff needs a non-empty label")
-            if not isinstance(handoff.get("prompt"), str) or not handoff.get("prompt", "").strip():
-                fail(errors, f"{path}: each handoff needs a non-empty prompt")
-            handoff_model = handoff.get("model")
-            if handoff_model is not None:
-                if not isinstance(handoff_model, str):
-                    fail(errors, f"{path}: handoff model must be a string")
-                elif base_handoff_model(handoff_model) not in ALLOWED_MODELS:
-                    fail(errors, f"{path}: unsupported handoff model {handoff_model!r}")
-
-    coordinator = parsed.get("over-the-luna")
-    if coordinator:
-        path, fm, body = coordinator
-        if fm.get("model") != "Claude Sonnet 5":
-            fail(errors, f"{path}: full harness coordinator must be Claude Sonnet 5")
-        if "tools" in fm:
-            fail(errors, f"{path}: coordinator must omit tools so active selected tools can flow to ambient children")
-        if set(fm.get("agents", [])) != EXPECTED_COORDINATOR_WORKERS:
-            fail(errors, f"{path}: coordinator worker allow-list drifted")
-        for marker in ("HARNESS_VIOLATION", "Never infer an external side effect", "AMBIENT_TOOL_UNAVAILABLE", "selected-tool", "ESCALATE_KIMI", "ESCALATION ONLY"):
-            if marker not in body:
-                fail(errors, f"{path}: coordinator routing/inheritance contract missing marker {marker!r}")
-        if "MAI Mechanical" in body:
-            fail(errors, f"{path}: dedicated MAI routing must not return; MAI is fallback-only")
-
-    for agent_id in INHERITED_TOOL_AGENT_IDS:
-        if agent_id not in parsed:
-            continue
-        path, fm, body = parsed[agent_id]
-        if "tools" in fm:
-            fail(errors, f"{path}: inherited-tool role must OMIT tools")
-        if agent_id != "over-the-luna" and fm.get("agents", []) != []:
-            fail(errors, f"{path}: inherited-tool worker must remain a leaf with agents: []")
-        if agent_id != "over-the-luna":
-            for marker in AMBIENT_POLICY_MARKERS:
-                if marker not in body:
-                    fail(errors, f"{path}: ambient safety policy missing marker {marker!r}")
+    for agent_id in INHERITED_TOOL_IDS:
+        if agent_id in parsed:
+            path, fm, _ = parsed[agent_id]
+            if "tools" in fm:
+                fail(errors, f"{path}: inherited-tool role must omit tools")
 
     for agent_id, expected_tools in STRICT_TOOLSETS.items():
-        if agent_id not in parsed:
-            continue
-        path, fm, _ = parsed[agent_id]
-        if "tools" not in fm:
-            fail(errors, f"{path}: strict role must declare an explicit tool allow-list")
-            continue
-        actual_tools = set(fm.get("tools", []))
-        if actual_tools != expected_tools:
-            fail(errors, f"{path}: strict tool boundary drifted; expected {sorted(expected_tools)}, got {sorted(actual_tools)}")
-
-    implementer = parsed.get("luna-implementer")
-    if implementer:
-        path, fm, body = implementer
-        if fm.get("model") != ["GPT-5.6 Luna", "MAI-Code-1-Flash"]:
-            fail(errors, f"{path}: Luna must remain primary; MAI is availability fallback only")
-        for marker in ("ESCALATE_KIMI", "repetitive", "Multi-file scope alone"):
-            if marker not in body:
-                fail(errors, f"{path}: Luna-first implementation contract missing marker {marker!r}")
-
-    kimi = parsed.get("kimi-deep-worker")
-    if kimi:
-        path, fm, body = kimi
-        if fm.get("model") != "Kimi K2.7 Code":
-            fail(errors, f"{path}: Kimi escalation must target Kimi K2.7 Code directly")
-        for marker in ("escalation-only", "ESCALATE_KIMI"):
-            if marker not in body:
-                fail(errors, f"{path}: Kimi escalation contract missing marker {marker!r}")
-
-    for agent_id in REVIEWER_AGENT_IDS:
-        if agent_id not in parsed:
-            continue
-        path, fm, body = parsed[agent_id]
-        tools = set(fm.get("tools", []))
-        if "edit" in tools or "execute" in tools:
-            fail(errors, f"{path}: reviewer must remain structurally non-mutating")
-        if "NEEDS_EXTERNAL_VERIFICATION" not in body:
-            fail(errors, f"{path}: reviewer must explicitly surface unverifiable ambient external state")
+        if agent_id in parsed:
+            path, fm, _ = parsed[agent_id]
+            if "tools" not in fm:
+                fail(errors, f"{path}: strict role must declare tools explicitly")
+            elif set(fm.get("tools", [])) != expected_tools:
+                fail(errors, f"{path}: strict tool boundary drifted; expected {sorted(expected_tools)}")
 
     for agent_id, (path, fm, _) in parsed.items():
         if agent_id != "over-the-luna" and fm.get("agents", []) != []:
-            fail(errors, f"{path}: workers/entry agents must not delegate recursively")
+            fail(errors, f"{path}: every council/reviewer agent must remain a leaf with agents: []")
+        for child_name in fm.get("agents", []):
+            if child_name not in names:
+                fail(errors, f"{path}: unknown subagent display name {child_name!r}")
+
+    main_agent = parsed.get("over-the-luna")
+    if main_agent:
+        path, fm, body = main_agent
+        if set(fm.get("agents", [])) != EXPECTED_MAIN_AGENTS:
+            fail(errors, f"{path}: Main Luna council allow-list drifted")
+        required_markers = (
+            "Parallelize thinking; serialize mutation.",
+            "Mode: SIMPLE",
+            "Mode: STANDARD",
+            "Mode: DEEP",
+            "two Recovery calls",
+            "RECOMMEND_SONNET",
+            "RECOMMEND_OPUS",
+            "AMBIENT_TOOL_UNAVAILABLE",
+        )
+        for marker in required_markers:
+            if marker not in body:
+                fail(errors, f"{path}: missing Luna Council contract marker {marker!r}")
+
+        handoffs = fm.get("handoffs", [])
+        if not isinstance(handoffs, list):
+            fail(errors, f"{path}: handoffs must be a list")
+        else:
+            expected = {
+                ("sonnet-reviewer", "Claude Sonnet 5"),
+                ("opus-critical-reviewer", "Claude Opus 4.8"),
+            }
+            actual: set[tuple[str, str]] = set()
+            for handoff in handoffs:
+                if not isinstance(handoff, dict):
+                    fail(errors, f"{path}: each handoff must be a mapping")
+                    continue
+                target = handoff.get("agent")
+                model = handoff.get("model")
+                if handoff.get("send") is not False:
+                    fail(errors, f"{path}: premium handoffs must require a visible human click (send: false)")
+                if isinstance(target, str) and isinstance(model, str):
+                    actual.add((target, base_handoff_model(model)))
+            if actual != expected:
+                fail(errors, f"{path}: premium handoff set drifted: {sorted(actual)}")
+
+    compact_markers = {
+        "luna-planner": "Return no more than 12 bullets",
+        "luna-architect": "Return no more than 10 bullets",
+        "luna-skeptic": "Return no more than 8",
+        "luna-researcher": "Return no more than 8 bullets",
+        "luna-tool-worker": "Return no more than 10 bullets",
+        "luna-recovery": "Return no more than 10 bullets",
+        "luna-reviewer": "Return no more than 12 bullets",
+    }
+    for agent_id, marker in compact_markers.items():
+        if agent_id in parsed and marker not in parsed[agent_id][2]:
+            fail(errors, f"{parsed[agent_id][0]}: compact-output contract missing {marker!r}")
+
+    for agent_id in {"luna-reviewer", "sonnet-reviewer", "opus-critical-reviewer"}:
+        if agent_id in parsed:
+            path, fm, body = parsed[agent_id]
+            tools = set(fm.get("tools", []))
+            if "edit" in tools or "execute" in tools:
+                fail(errors, f"{path}: reviewers must remain structurally non-mutating")
+            if "NEEDS_EXTERNAL_VERIFICATION" not in body:
+                fail(errors, f"{path}: reviewer must surface unverifiable external state")
+
+    sonnet = parsed.get("sonnet-reviewer")
+    if sonnet:
+        path, fm, body = sonnet
+        if "manual premium review handoff" not in body:
+            fail(errors, f"{path}: Sonnet must remain manual premium review only")
+        handoffs = fm.get("handoffs", []) or []
+        if len(handoffs) != 1 or handoffs[0].get("agent") != "opus-critical-reviewer" or handoffs[0].get("send") is not False:
+            fail(errors, f"{path}: Sonnet may only suggest a manual Opus handoff")
 
     if errors:
         print("Over the Luna validation FAILED:\n")
@@ -319,7 +291,7 @@ def main() -> int:
             print(f"- {error}")
         return 1
 
-    print(f"Over the Luna validation passed: {len(files)} agents, plugin v{plugin['version']}")
+    print(f"Over the Luna validation passed: {len(files)} agents, plugin v{plugin['version']}, Luna-only core")
     return 0
 
 

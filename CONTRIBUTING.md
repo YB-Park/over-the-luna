@@ -4,88 +4,104 @@ Contributions are welcome, especially evidence from real VS Code/Copilot usage.
 
 ## Principles
 
-Preserve the project's core constraints:
+Preserve these constraints:
 
 - human-guided, not swarm-by-default;
-- concise agent prompts;
-- Luna-first routing;
-- no hidden premium-model escalation;
-- preserve the developer's existing VS Code tool selection for execution workers;
-- keep exploration/review roles structurally narrow;
-- do not bundle or own user MCP servers, credentials, OAuth, or trust policy;
-- external side effects are never inferred from a coding task;
-- current VS Code runtime behavior outranks cross-product assumptions;
-- routing branches must have measurable reasons to exist.
+- **automatic core is GPT-5.6 Luna only**;
+- premium Sonnet/Opus use requires visible human choice;
+- Main Luna is the repository mutation owner;
+- council agents are independent leaf contexts, not a management chain;
+- extra agent calls must answer a real uncertainty, diagnose a real failure, or verify a concrete rubric;
+- council outputs stay compact;
+- preserve the developer's existing VS Code MCP/extension tool selection;
+- do not bundle credentials, OAuth, MCP servers, or trust policy;
+- external side effects are never inferred;
+- current VS Code runtime behavior outranks cross-product assumptions.
 
-## Specialist-worker burden of proof
+## Council-role burden of proof
 
-Do not add a dedicated model worker just because the organization makes that model available.
+Do not add a new Luna role just because Luna tokens are cheap.
 
-A new specialist route should show a repeatable advantage over Luna in at least one of:
+A new role should provide a repeatable benefit that Main Luna cannot get as efficiently in the same context, such as:
 
-- correctness / completion rate;
-- wall-clock time;
-- total tokens or credits;
-- context continuity;
-- capability isolation;
-- independent review quality.
+- independent requirement decomposition;
+- repository evidence isolated from requirement assumptions;
+- adversarial assumption checking;
+- failure-anchored diagnosis;
+- independent rubric verification;
+- bounded external context isolation.
 
-If the advantage is only availability resilience, prefer a **model fallback inside an existing role** instead of a new worker.
+Remove or merge a role if it mostly restates predictable information.
 
-Current policy:
+## Complexity budget
 
-- mechanical/repetitive work → Luna Implementer;
-- coherent multi-file work → Luna Implementer first;
-- MAI-Code-1-Flash → Luna Implementer availability fallback only;
-- Kimi Deep Worker → explicit developer request or `ESCALATE_KIMI` only.
+Changes must preserve:
 
-## Tool-boundary changes
+- SIMPLE → zero default subagents;
+- STANDARD → one or at most two justified advisory calls;
+- DEEP → at most three initial independent advisory calls;
+- Recovery → concrete failure evidence first, default maximum two calls;
+- review → one reviewer normally, at most two distinct-rubric reviewers for DEEP/high-risk work.
+
+Do not increase these budgets without real runtime evidence.
+
+## Tool boundaries
 
 **Inherited-tool roles** intentionally omit `tools`:
 
 - Over the Luna
 - Luna Tool Worker
-- Luna Implementer
-- Kimi Deep Worker
 
-Do not replace omission with `tools: ['*']` or a built-in-only list; current VS Code subagent inheritance relies on omission.
+This preserves current VS Code selected-tool inheritance. Do not replace omission with `tools: ['*']`.
 
-**Strict roles** keep explicit allow-lists:
+**Strict roles** keep explicit tool lists:
 
-- Luna Explorer
-- Luna Researcher
-- Luna Reviewer
-- Sonnet Reviewer
-- Opus Critical Reviewer
+- Luna Planner → no tools
+- Luna Architect → read/search
+- Luna Skeptic → read/search
+- Luna Researcher → read/search/web
+- Luna Recovery → read/search
+- Luna Reviewer → read/search
+- Sonnet Reviewer → read/search
+- Opus Critical Reviewer → read/search/web
 
-Do not add `.mcp.json`, plugin `mcpServers`, or per-agent MCP configuration for convenience. The harness consumes the developer's existing VS Code environment rather than owning integrations.
+All council/review agents remain `agents: []`.
 
-The coordinator's inherited tool visibility is an explicit tradeoff. Direct Sonnet environment-tool execution is a `HARNESS_VIOLATION`.
+## Model boundaries
 
-## Routing changes
+Automatic core:
 
-Before changing Luna/Kimi routing, explain:
+- GPT-5.6 Luna only.
 
-1. What real failure mode was observed.
-2. Why Luna could not reliably own the work.
-3. Whether the change improves correctness, time, or token/credit use.
-4. What model(s), tasks, and tool environment were tested.
-5. Whether the change adds another routing branch or agent call.
-6. What evidence would cause the route to be removed again.
+Manual visible premium profiles:
 
-`ESCALATE_KIMI` should describe a concrete continuity/non-convergence problem, not task size or file count.
+- Claude Sonnet 5
+- Claude Opus 4.8
 
-## Ambient-tool bug reports
+Do not add Kimi, MAI, Haiku, Sonnet, or Opus as an automatic core fallback/worker without a new evidence-backed architecture review.
 
-Include:
+## Premium handoffs
 
-- VS Code and Copilot versions;
-- plugin version;
-- worker/model;
-- MCP/extension source and exact tool name;
-- whether it works in native Agent;
-- Configure Tools state;
-- server/trust state;
-- exact error.
+Sonnet and Opus must remain:
 
-Avoid long examples unless they fix demonstrated behavior. Prompt tokens are part of the product.
+- user visible;
+- `disable-model-invocation: true`;
+- non-mutating;
+- absent from Main Luna's `agents` allow-list.
+
+Handoffs must use `send: false` so the developer explicitly chooses whether premium execution happens.
+
+## Reporting experiments
+
+When proposing an orchestration change, report:
+
+1. task type and complexity mode;
+2. council/review roles invoked;
+3. whether those calls changed a decision or caught a real issue;
+4. wall-clock effect;
+5. token/credit effect when visible;
+6. correctness / rework effect;
+7. tool/MCP environment;
+8. what evidence would cause the new role or budget to be removed again.
+
+Prompt tokens and management traffic are part of the product cost.
