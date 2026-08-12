@@ -1,198 +1,191 @@
-# Design notes
+# Design notes — v0.8 Luna Council
 
-Over the Luna is a **thin, human-guided harness** for GitHub Copilot in VS Code.
+Over the Luna is a **thin, human-guided context-isolation harness** for GitHub Copilot in VS Code.
 
-The goal is not to use every available model. The goal is to preserve VS Code's native environment, separate useful contexts/capabilities, and route to the **cheapest reliable path** with visible escalation.
+v0.8 changes the core question from "which model should own this task?" to:
 
-## v0.7 principle: model diversity must earn its cost
+> **Where does an independent fresh Luna context buy enough evidence or adversarial thinking to justify another call?**
 
-Luna is the default implementation model because current use shows it is cheap enough and capable enough to cover ordinary coding, deterministic repetition, and coherent multi-file work.
+The automatic core is GPT-5.6 Luna only. Sonnet and Opus exist only as visible human-selected review handoffs.
 
-A dedicated worker exists only when it adds a measurable advantage in at least one dimension:
+## Design principles
 
-- correctness or success rate;
-- wall-clock time;
-- total tokens/credits;
-- context continuity;
-- capability isolation;
-- independent review value.
+### 1. Parallelize thinking; serialize mutation
 
-A model being available in the organization's Copilot catalog is not sufficient reason to create a routing branch for it.
+Repository mutation has one owner: **Main Luna**.
 
-This leads to two simplifications in v0.7:
+Council agents do not compete on implementation. They contribute independent planning, repository evidence, skepticism, research, recovery diagnosis, or review.
 
-1. **MAI Mechanical is removed.** Mechanical work routes to Luna Implementer. MAI-Code-1-Flash remains only as Luna Implementer's availability fallback.
-2. **Kimi Deep Worker becomes escalation-only.** Multi-file or long work starts with Luna. Kimi is invoked only after a concrete `ESCALATE_KIMI` signal or an explicit developer request.
+This keeps a coherent mutable state while still allowing extra test-time compute.
 
-## Current funnel
+### 2. Star topology, not management chains
+
+Good:
 
 ```text
-wide/default                                         narrow/escalated
-────────────────────────────────────────────────────────────────────
-Luna discovery / tool bridge / implementation / first review
-                                │
-                                └─ implementation non-convergence → Kimi
-Sonnet coordination / high-risk second-line review
-Opus human-gated critical review
+Planner ─┐
+Architect ├── Main Luna ── implementation
+Skeptic ─┘
 ```
 
-## Why multiple Luna roles still matter
+Bad:
 
-A harness does not need different models at every stage to provide value.
+```text
+Main → Manager → Planner → Architect → Worker
+```
 
-The Luna roles have different context and capability boundaries:
+All hidden agents are leaf nodes with `agents: []`. Nested delegation is intentionally not required.
 
-- **Luna Explorer** — strict local read/search discovery;
-- **Luna Researcher** — strict public/current web research;
-- **Luna Tool Worker** — inherited user MCP/extension tools for bounded external work;
-- **Luna Implementer** — inherited implementation/tool surface and one coherent coding thread;
-- **Luna Reviewer** — strict independent read-only review.
+### 3. Spend tokens inside isolated contexts; return compressed evidence
 
-Using the same inexpensive model in separate stateless subagent invocations still provides useful separation between discovery, implementation, external evidence, and independent review.
+A council agent may inspect deeply, but its return contract is short. The main context should receive only decision-changing facts, constraints, risks, or diagnosis.
 
-## Luna Implementer ownership
+This reduces repeated context transfer and prevents the management plane from becoming the dominant workload.
 
-Luna Implementer owns by default:
+### 4. Scale compute by uncertainty, not file count
 
-- ordinary fixes/features;
-- deterministic repetition;
-- unit-test pattern replication;
-- DTO/schema/mapper/mock/boilerplate work;
-- mechanical renames and obvious lint/type fixes;
-- coherent multi-file implementation;
-- repeated validation/fix cycles while progress is converging.
+Main Luna chooses a complexity budget:
 
-Task size, repetition, unfamiliarity, or file count alone are not escalation signals.
+- **SIMPLE** — zero subagents by default.
+- **STANDARD** — one or at most two advisory calls.
+- **DEEP** — at most three initial advisory calls, preferably independent and parallel.
 
-If the blocker is an unresolved product/architecture/security/API decision, Luna returns the decision to the parent; another implementation model is not a substitute for human judgment.
+A 10-file mechanical change can still be SIMPLE/STANDARD. A 2-file auth state-machine change can be DEEP.
 
-## Kimi escalation
+### 5. Evidence-triggered iteration
 
-Kimi is a bounded continuation model, not an initial task classifier.
+Do not repeat councils because "more thinking might help."
 
-Luna may return:
+Use **Luna Recovery** only after concrete failure evidence exists. Recovery receives the attempted path and exact failure, then returns one bounded diagnosis/next attempt.
 
-`ESCALATE_KIMI: <specific reason>`
+Maximum default recovery budget is two calls for the same bounded task.
 
-only when a concrete implementation-continuity problem exists, such as:
+### 6. Rubric-driven verification
 
-- necessary coupled cross-file state is no longer being held reliably;
-- repeated validation/fix cycles are demonstrably not converging;
-- the same bounded implementation would benefit from handing its thread to another implementation owner.
+One generic reviewer is not automatically safer than none.
 
-Sonnet passes Kimi the original acceptance criteria, current implementation state, changed areas, failed validation, and minimal continuation context. Kimi should not restart broad discovery or widen the task.
+For normal non-trivial work, one Luna Reviewer gets one explicit rubric.
 
-The developer can also explicitly request Kimi for a bounded task.
+For DEEP/high-risk work, Main Luna can run two independent reviewer instances in parallel, but each must own a distinct lens such as:
 
-## MAI as fallback, not role
+- acceptance/correctness;
+- regression/compatibility;
+- security/auth;
+- concurrency/ordering;
+- persistence/data integrity;
+- migration/rollback.
 
-MAI-Code-1-Flash remains in Luna Implementer's model preference list after Luna.
+### 7. Premium judgment is a human-visible decision
 
-That is a **resilience decision**, not a specialization claim. If Luna is unavailable or the runtime chooses the configured fallback, the implementation role can still operate. There is no separate MAI routing branch, prompt surface, or worker lifecycle to maintain.
+Automatic core agents never include Sonnet or Opus.
 
-## Product boundary
+Main Luna can emit:
 
-Over the Luna owns orchestration, not the developer's environment.
+`RECOMMEND_SONNET: <specific reason>`
 
-It does not bundle MCP servers, credentials, OAuth, a daemon, or a custom VS Code runtime. Direct single-model coding stays in native **Agent + GPT-5.6 Luna**. MCP servers and extension tools remain configured through normal VS Code mechanisms.
+or:
 
-## Selected-tool inheritance
+`RECOMMEND_OPUS: <specific reason>`
 
-v0.6 established the current runtime-compatible inheritance model and v0.7 keeps it unchanged.
+The developer then chooses a visible handoff. Handoffs use `send: false`.
 
-Roles that intentionally omit `tools`:
+This also avoids relying on a Luna parent to invoke a higher-cost-tier subagent.
 
-- Over the Luna
-- Luna Tool Worker
-- Luna Implementer
-- Kimi Deep Worker
+## Role map
 
-Strict roles that intentionally override inheritance:
+### Main Luna
 
-- Luna Explorer → `read`, `search`
-- Luna Researcher → `read`, `search`, `web`
-- Luna Reviewer → `read`, `search`
-- Sonnet Reviewer → `read`, `search`
-- Opus Critical Reviewer → `read`, `search`, `web`
+The main agent is simultaneously:
 
-All workers remain leaf nodes with `agents: []`.
+- the user's conversational context owner;
+- complexity classifier;
+- council selector;
+- Work Contract synthesizer;
+- repository implementer;
+- test/validation owner;
+- final reporter.
 
-## Coordinator boundary
+This removes the v0.7 `Sonnet → Luna Implementer → Sonnet` implementation context hop.
 
-Current static VS Code `.agent.md` cannot simultaneously hard-limit Sonnet to delegation/todo and automatically pass every unknown user MCP into children.
+### Luna Planner
 
-So the coordinator omits `tools` as a selected-tool carrier, while router-only behavior is an explicit contract.
+No tools. Converts the user's request into acceptance, constraints, work units, human decisions, and unknowns.
 
-Healthy Sonnet direct calls:
+It deliberately does **not** know repository facts, so it cannot confuse guessed architecture with requirements.
 
-- subagent delegation;
-- optional todo/task coordination.
+### Luna Architect
 
-Any direct repository/web/MCP/extension/environment call is:
+Read/search only. Grounds the work in actual repository structure, patterns, dependency paths, tests, and blast radius.
 
-`HARNESS_VIOLATION: coordinator executed <tool>`
+### Luna Skeptic
 
-Strict exploration/review boundaries remain capability-level restrictions.
+Read/search only. Tries to falsify the current direction using concrete counterexamples or repository evidence.
 
-## External side-effect boundary
+### Luna Researcher
 
-Tool visibility is not authorization.
+Read/search/web only. Handles one current public-docs/API/specification question.
 
-External reads may be inferred when clearly necessary for the requested outcome. External mutation is never inferred. Ticket updates, messages, DB writes, deploys, pushes, PR creation, cloud changes, and similar effects require an explicit developer request.
+### Luna Tool Worker
 
-Unavailable/denied integration:
+Omits `tools` to inherit the developer's selected VS Code tools. Isolates one bounded MCP/extension-tool question or explicit external action.
 
-`AMBIENT_TOOL_UNAVAILABLE: <service or capability>`
+### Luna Recovery
 
-Workers must not bypass it through shell, direct HTTP, alternate credentials, or another integration.
+Read/search only. Exists only after failure evidence. It is a diagnosis layer, not a second implementer.
 
-## External evidence and review
+### Luna Reviewer
 
-Reviewers stay non-mutating and non-ambient.
+Read/search only. Reviews against a specific rubric. Can request external evidence with `NEEDS_EXTERNAL_VERIFICATION` and can recommend a Sonnet handoff with `RECOMMEND_SONNET`.
 
-When a verdict requires current private/external state:
+### Sonnet Reviewer / Opus Critical Reviewer
 
-`NEEDS_EXTERNAL_VERIFICATION: <specific fact or invariant>`
+Visible, `disable-model-invocation: true`, non-mutating premium review profiles. They are outside the automatic Luna core.
 
-The coordinator invokes a fresh Luna Tool Worker in read-only mode and passes evidence back to review.
+## MCP inheritance
 
-## Fan-out budget
+Main Luna and Luna Tool Worker intentionally omit `tools` so current VS Code selected-tool inheritance preserves user-configured MCP and extension tools.
 
-Initial parallel fan-out is capped at **three**. Parallelize independent discovery/research/evidence, not overlapping implementation. One coherent subsystem normally has one implementation owner.
+Strict council/review roles explicitly declare narrow tool lists and therefore do not inherit arbitrary ambient integrations.
 
-## Failure and recovery
+No `.mcp.json`, plugin `mcpServers`, credentials, or service names are bundled.
 
-- orchestration/runtime failure → `HARNESS_FAILURE: <reason>`
-- missing/denied integration → `AMBIENT_TOOL_UNAVAILABLE: <service or capability>`
-- coordinator directly uses environment tool → `HARNESS_VIOLATION: coordinator executed <tool>`
+## Why no Luna Implementer subagent?
 
-None of these grants Sonnet permission to silently become the implementer. Direct recovery belongs to native **Agent + GPT-5.6 Luna**.
+In v0.7, the parent coordinator delegated normal implementation into a fresh Luna Implementer context. That gave clean separation but also introduced another cold-start repository understanding step and another result transfer back to the parent.
 
-## Validation strategy
+v0.8 makes Main Luna the implementation owner so ordinary work stays in one execution trajectory. Extra Luna calls are reserved for independent evidence or verification rather than duplicating implementation context.
 
-Static CI enforces:
+## Why no Kimi / MAI / Haiku core roles?
 
-- exact 9-agent architecture;
-- no Luna Solo or MAI Mechanical worker;
-- Luna Implementer with Luna primary + MAI availability fallback;
-- Kimi as K2.7-only escalation worker;
-- `ESCALATE_KIMI` contract in Luna and coordinator;
-- coordinator/ambient roles omit `tools`;
-- strict roles keep exact explicit allow-lists;
-- no global `tools: ['*']` assumption;
-- no bundled/per-agent MCP configuration;
-- strict reviewer boundaries and `NEEDS_EXTERNAL_VERIFICATION`;
-- no recursive worker delegation.
+v0.8 is an explicit Luna-only experiment. Model diversity is not being optimized in the automatic path.
 
-Runtime smoke tests verify:
+The question being tested is whether Luna's cost profile makes **more structured test-time compute** economical enough to preserve or improve reliability without a continuously active premium coordinator.
 
-1. existing MCP tools reach Luna Tool Worker;
-2. user-disabled tools stay disabled;
-3. Luna handles ordinary, mechanical, and multi-file implementation first;
-4. Kimi is **not** selected merely because a task is long/multi-file;
-5. explicit Kimi escalation can run and remains bounded;
-6. strict reviewers stay strict;
-7. Sonnet direct environment-tool calls remain zero;
-8. no external side effect is inferred.
+Model diversity remains available through manual Sonnet and Opus review.
 
-The target is **maximum useful work per token and per minute, with the fewest routing branches that can justify themselves**.
+## Thinking effort
+
+Do not encode undocumented per-agent reasoning-effort fields. Current VS Code custom-agent frontmatter does not provide a stable per-agent thinking-effort contract.
+
+The harness controls work through observable mechanisms instead:
+
+- task complexity modes;
+- maximum initial council fan-out;
+- compact output contracts;
+- one mutation owner;
+- evidence-triggered recovery;
+- reviewer count/rubric;
+- explicit stop conditions.
+
+## Experiment success criteria
+
+v0.8 is promising if, compared with v0.7 on comparable real tasks:
+
+- premium-model token share drops materially;
+- Main Luna + council total cost remains low;
+- wall-clock time is acceptable despite extra advisory calls;
+- first-pass correctness or recovery quality does not regress materially;
+- council calls frequently change a decision or catch a real issue;
+- user-visible Sonnet/Opus handoffs are rare and justified.
+
+A council role should be removed if it mostly returns predictable restatements that Main Luna could have produced without an isolated context.
