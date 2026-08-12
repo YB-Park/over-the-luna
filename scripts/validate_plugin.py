@@ -13,7 +13,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS_DIR = ROOT / "agents"
 
-EXPECTED_VERSION = "0.8.0"
+EXPECTED_VERSION = "0.8.1"
 EXPECTED_AGENT_IDS = {
     "over-the-luna",
     "luna-planner",
@@ -220,10 +220,14 @@ def main() -> int:
             fail(errors, f"{path}: Main Luna council allow-list drifted")
         required_markers = (
             "Parallelize thinking; serialize mutation.",
+            "Main Luna owns the work, not all of the thinking.",
+            "context pollution and anchoring risk are routing signals too",
             "Mode: SIMPLE",
             "Mode: STANDARD",
             "Mode: DEEP",
+            "promote to STANDARD rather than continuing to accumulate scouting context",
             "two Recovery calls",
+            "Do not skip the reviewer merely because focused validation passed",
             "RECOMMEND_SONNET",
             "RECOMMEND_OPUS",
             "AMBIENT_TOOL_UNAVAILABLE",
