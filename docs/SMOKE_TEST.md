@@ -1,264 +1,221 @@
-# Over the Luna — VS Code Runtime Smoke Test
+# Over the Luna v0.8 — Runtime Smoke Test
 
-This checklist verifies behavior static validation cannot prove: selected-tool inheritance, MCP compatibility, Luna-first routing, bounded Kimi escalation, coordinator discipline, strict review, and failure handling.
+This checklist verifies behavior static CI cannot prove: Luna-only routing, complexity budgeting, Main-Luna execution ownership, selected-tool inheritance, recovery/review behavior, and human-visible premium escalation.
 
 ## Preflight
 
-- Update/reinstall the plugin and confirm **v0.7.0**.
+- Update/reinstall the plugin and confirm **v0.8.0**.
 - Reload VS Code.
-- Confirm Claude Sonnet 5 is available for the coordinator.
-- Open Chat customization diagnostics and confirm all **9 agents** load without errors.
-- Confirm there is **no MAI Mechanical agent**.
-- Have at least one harmless MCP/extension tool that works in VS Code's built-in Agent.
-- Prefer normal/default approval settings during compatibility testing.
+- Confirm GPT-5.6 Luna, Claude Sonnet 5, and Claude Opus 4.8 are available if you want to test premium handoffs.
+- Confirm all custom agents load without diagnostics errors.
+- Keep normal/default tool approval settings for compatibility tests.
+- Have one harmless MCP/extension tool that already works in built-in Agent.
 
-## Tool model
+## Test 1 — SIMPLE stays direct
 
-The coordinator and ambient workers intentionally omit `tools` so VS Code can preserve the active selected-tool map.
-
-Inherited-tool roles:
-
-- Over the Luna
-- Luna Tool Worker
-- Luna Implementer
-- Kimi Deep Worker
-
-Strict roles:
-
-- Luna Explorer — read/search
-- Luna Researcher — read/search/web
-- Luna Reviewer — read/search
-- Sonnet Reviewer — read/search
-- Opus Critical Reviewer — read/search/web
-
-The parent Sonnet may technically see environment tools for inheritance, but a healthy run permits direct Sonnet calls only for delegation and optional todo/task coordination.
-
-Any direct read/search/edit/execute/web/MCP/extension/environment call by Sonnet is a `HARNESS_VIOLATION`.
-
----
-
-## Test 1 — Existing user MCP is inherited
-
-First use a harmless read-only MCP/extension tool in native VS Code Agent and confirm it works.
-
-Then select **Over the Luna** and request the same bounded fact.
+Ask for a tiny clear repository change with an obvious existing pattern.
 
 Expected:
 
-1. route includes **Luna Tool Worker**;
-2. Sonnet itself does not call the MCP;
-3. Luna Tool Worker invokes the same existing tool without hardcoded server configuration;
-4. no unrelated service is probed;
-5. no external state changes.
-
-**Hard release gate:** native Agent works + Luna Tool Worker cannot call the same tool = fail.
-
-## Test 2 — User tool selection is preserved
-
-Disable one harmless MCP/tool in Configure Tools, or use one already disabled by policy.
-
-Request a Tool Worker task that requires it.
-
-Expected:
-
-- worker does not re-enable or bypass it;
-- required unavailable capability returns `AMBIENT_TOOL_UNAVAILABLE: <service or capability>`;
-- no direct HTTP/shell/alternate credential bypass occurs.
-
-## Test 3 — Ordinary implementation
-
-Request a small clearly scoped repository edit and focused validation.
-
-Expected route begins with **Luna Implementer**.
+`Mode: SIMPLE — direct Luna`
 
 Check:
 
-- Luna performs repository work;
-- focused validation runs;
-- Sonnet only routes/synthesizes;
-- Luna Reviewer follows when the change is non-trivial.
+- Main Luna reads/edits/validates directly;
+- no Planner/Architect/Skeptic/Recovery call occurs;
+- no separate Luna Reviewer unless the task is non-trivial or you explicitly ask;
+- no Sonnet/Opus call occurs.
 
-## Test 4 — Mechanical repetition is still Luna
+**Fail** if the harness creates a council for every trivial edit.
 
-Request deterministic repeated work such as unit-test pattern replication, DTO/schema/mapper/mock boilerplate, a mechanical rename, or obvious lint/type fixes.
+## Test 2 — STANDARD uses only necessary advice
 
-Expected implementation worker: **Luna Implementer**, not a dedicated MAI worker.
+Use a bounded change with one real uncertainty, for example a feature where the relevant repository pattern is unclear.
 
-Check:
+Expected example:
 
-- Luna follows the nearest existing pattern;
-- no unnecessary redesign appears;
-- the expanded implementation subagent normally shows GPT-5.6 Luna;
-- if MAI-Code-1-Flash appears, record it as the configured **model fallback**, not a routing role;
-- Luna Reviewer follows for a non-trivial change.
-
-## Test 5 — Multi-file work starts with Luna
-
-Choose one coherent bounded task with clear acceptance criteria spanning several coupled files and likely requiring multiple validation/fix cycles.
-
-Expected initial implementation worker: **Luna Implementer**.
-
-This is a critical v0.7 behavior check: **Kimi must not be selected initially merely because the task is large, long, or multi-file.**
+`Mode: STANDARD — Luna Architect`
 
 Check:
 
-- one Luna implementation owner holds the thread;
-- local/MCP tools work when relevant;
-- validation/fix iterations continue while progress is converging;
-- no duplicate implementation worker attacks the same task.
+- one or at most two advisory calls;
+- advisory output is compact;
+- Main Luna, not a subagent, owns edits/tests;
+- the selected advisory role materially answers the uncertainty.
 
-## Test 6 — Kimi explicit escalation route
+## Test 3 — DEEP council is shallow and parallel
 
-Use a bounded disposable task and explicitly ask the harness to use **Kimi Deep Worker** for the implementation.
+Choose a task with ambiguous acceptance criteria plus meaningful repository/risk uncertainty.
 
-Expected:
+Expected example:
 
-- Sonnet routes to Kimi Deep Worker;
-- expanded subagent shows **Kimi K2.7 Code** unless VS Code visibly substitutes a runtime fallback, which must be recorded;
-- Kimi owns only the bounded implementation;
-- Kimi does not spawn other agents;
-- normal Luna Reviewer follows for non-trivial work.
-
-This verifies Kimi remains available without making it a default route.
-
-## Test 7 — Natural `ESCALATE_KIMI` observation
-
-Do not force this solely for release testing. During real beta use, record any Luna Implementer result containing:
-
-`ESCALATE_KIMI: <specific reason>`
-
-When it occurs, verify:
-
-1. the reason is concrete non-convergence/context-continuity evidence, not just task size;
-2. Sonnet passes the original acceptance criteria, current implementation state, changed areas, and failed validation to Kimi;
-3. Kimi continues the same bounded task instead of restarting broad discovery;
-4. a missing product/architecture decision is returned to the developer rather than escalated.
-
-A natural Kimi escalation is useful evidence, but absence of one during a small smoke suite is **not** a release failure.
-
-## Test 8 — MCP-assisted implementation
-
-Use a harmless code task whose acceptance criteria or validation needs an existing MCP/extension tool.
-
-Examples:
-
-> Read ticket ABC-123 from my Jira MCP, implement only its acceptance criteria, and run focused tests. Do not update Jira.
-
-> Fix this UI flow and verify it with my Playwright MCP. Do not deploy or push anything.
-
-Expected route may use Tool Worker first when context isolation is useful, or Luna Implementer directly when the tool naturally belongs inside implementation.
+`Mode: DEEP — Luna Planner ∥ Luna Architect ∥ Luna Skeptic`
 
 Check:
 
-- ambient worker actually uses the external tool;
-- implementation retains local edit/execute capabilities;
-- external state is not mutated unless explicitly requested;
-- Sonnet performs zero environment-facing tool calls.
+- at most three **initial** advisory calls;
+- calls address independent questions;
+- no council agent delegates another agent;
+- Main Luna synthesizes a compact Work Contract;
+- Main Luna owns the implementation after synthesis.
 
-## Test 9 — Strict reviewer external verification
+**Fail** if the route becomes Planner → Architect → Skeptic → another manager chain.
 
-Use a review whose verdict depends on a current private/external fact.
+## Test 4 — File count does not force DEEP
 
-Expected:
-
-1. strict reviewer does not call arbitrary MCP directly;
-2. reviewer returns `NEEDS_EXTERNAL_VERIFICATION: <specific fact or invariant>`;
-3. coordinator delegates a fresh Luna Tool Worker in read-only mode;
-4. evidence returns to review/synthesis;
-5. no external mutation occurs.
-
-## Test 10 — External side-effect boundary
-
-Ask for code work that requires reading an external item but do not request any external update.
+Give a mechanical but coherent change spanning several files.
 
 Expected:
 
-- required read is allowed;
-- ticket/comment/assignment, remote data, PRs, pushes, deploys, messages, and cloud state remain unchanged.
+- SIMPLE or STANDARD is allowed;
+- Main Luna performs the work directly;
+- the harness does not fan out merely because many files are touched.
 
-## Test 11 — High-risk review escalation
+## Test 5 — Existing MCP is preserved
 
-Use auth/security, concurrency/ordering, transactions/state, persistence/data integrity, migrations, or public-contract work.
+First confirm a harmless read-only MCP/extension tool works in built-in Agent.
 
-Expected:
-
-- implementation still begins with Luna unless an explicit Kimi request is made or Luna later emits `ESCALATE_KIMI`;
-- Luna Reviewer performs first-line review;
-- Sonnet Reviewer appears only for high-risk/subtle second-line judgment or explicit Luna uncertainty;
-- both reviewers remain non-mutating.
-
-## Test 12 — Human-gated Opus
-
-Click **Critical review with Opus** manually after meaningful work.
+Then ask Over the Luna for the same bounded fact.
 
 Expected:
 
-- Opus is never automatically invoked;
-- handoff preserves context;
+- Main Luna may use the tool directly when it is naturally part of the task; or
+- Main Luna may isolate it through Luna Tool Worker when a clean external-context hop is useful;
+- no hardcoded server name is required;
+- no external state changes unless explicitly requested.
+
+**Hard gate:** native Agent works but neither Main Luna nor Luna Tool Worker can use the selected capability = fail.
+
+## Test 6 — Strict council roles stay strict
+
+Inspect expanded calls for Planner, Architect, Skeptic, Recovery, and Reviewer.
+
+Expected:
+
+- Planner: no tools;
+- Architect: read/search;
+- Skeptic: read/search;
+- Recovery: read/search;
+- Reviewer: read/search;
+- none can edit/execute or use arbitrary MCP tools.
+
+## Test 7 — Evidence-triggered Recovery
+
+Choose a bounded task that produces a real focused validation failure, or use a disposable test case where a first implementation attempt can reasonably fail.
+
+Expected:
+
+1. Main Luna attempts the implementation/validation.
+2. Recovery is **not** called before failure evidence exists.
+3. Luna Recovery receives the exact failure plus attempted fix/context.
+4. Recovery returns a bounded diagnosis/next attempt.
+5. Main Luna performs the next mutation.
+
+Check the default stop budget: no more than two Recovery calls for the same bounded task without surfacing the blocker.
+
+## Test 8 — Normal review
+
+Complete a non-trivial but ordinary change.
+
+Expected:
+
+- one Luna Reviewer call;
+- Main Luna supplies an explicit rubric;
+- reviewer remains read/search only;
+- Main Luna handles accepted fixes itself.
+
+## Test 9 — Deep multi-perspective review
+
+Use a high-risk or DEEP task.
+
+Expected:
+
+- at most two Luna Reviewer calls in parallel;
+- each gets a different rubric, for example correctness vs regression/security/data/concurrency;
+- duplicate vague review prompts are a failure;
+- Main Luna synthesizes findings.
+
+## Test 10 — Sonnet is recommendation + human handoff only
+
+Use architecture-sensitive, auth/security, concurrency, transaction, migration, data-integrity, or public-contract work where premium judgment is plausibly useful.
+
+Expected:
+
+- automatic core remains Luna-only;
+- Luna Reviewer or Main Luna may output `RECOMMEND_SONNET: <specific reason>`;
+- **Sonnet Reviewer is not automatically invoked**;
+- the **Review with Sonnet** handoff button is visible;
+- Sonnet runs only after you click/select the handoff.
+
+## Test 11 — Opus is manual only
+
+From Main Luna or Sonnet Reviewer, inspect the **Critical review with Opus** handoff.
+
+Expected:
+
+- Opus is never an automatic subagent;
+- handoff uses a visible user action;
 - Opus remains read/search/web only;
-- developer chooses the next action.
+- no edit/execute/arbitrary MCP inheritance.
 
-## Test 13 — Coordinator discipline
+## Test 12 — No retired model route
 
-Across all tests, inspect expanded tool calls.
+Across normal runs, inspect expanded model names.
 
-Expected Sonnet direct calls:
+Expected automatic core models:
 
-- subagent delegation: yes;
-- todo/task coordination: optional;
-- repository read/search/edit/execute: **0**;
-- MCP/extension tools: **0**;
-- web/browser/database/cloud/source-control environment tools: **0**.
+**GPT-5.6 Luna only.**
 
-Any direct environment-facing Sonnet call fails the harness even if the task succeeds.
+Kimi K2.7 Code, MAI-Code-1-Flash, Haiku, Sonnet, and Opus must not appear in automatic council/execution/review calls.
 
-## Test 14 — Native Luna baseline
+## Test 13 — Compare v0.8 economics
 
-Run comparable fresh work in native Agent + GPT-5.6 Luna.
+For comparable real tasks, record when visible:
 
-Compare:
-
-- elapsed time;
-- tokens/credits when visible;
+- wall-clock time;
+- Main Luna input/output tokens or credits;
+- total council/recovery/reviewer tokens;
+- subagent count;
 - first-pass correctness;
-- agent calls;
+- validation attempts;
+- real findings caught by council/review;
 - human interventions;
-- review findings.
+- whether a premium handoff was offered and whether using it changed the outcome.
 
-For any Kimi escalation observed in beta, additionally ask whether Kimi provided a clear advantage over simply continuing with Luna. That evidence determines whether the Kimi routing branch survives future versions.
+Compare against v0.7 and native Agent + Luna on different but comparable tasks to avoid prior-context bias.
 
 ---
 
 ## Release gates
 
-- [ ] Plugin loads as v0.7.0 with **9 agents** and no MAI Mechanical worker.
-- [ ] Native-Agent MCP tool is callable by Luna Tool Worker.
-- [ ] User-disabled tool remains unavailable to inherited-tool workers.
-- [ ] Luna Implementer can read/edit/execute locally.
-- [ ] Mechanical repetition routes to Luna Implementer.
-- [ ] Multi-file bounded work routes to Luna Implementer initially.
-- [ ] Kimi is not selected initially merely because work is large/multi-file.
-- [ ] Explicit Kimi request can invoke Kimi Deep Worker as Kimi K2.7 Code, or any runtime substitution is visibly recorded.
-- [ ] Strict reviewers do not receive arbitrary MCP/edit/execute capabilities.
-- [ ] Reviewer external-state uncertainty uses `NEEDS_EXTERNAL_VERIFICATION` + Tool Worker.
-- [ ] Sonnet performs **zero direct environment-facing tool calls** in healthy runs.
-- [ ] No external mutation is inferred.
-- [ ] Opus is never automatically invoked.
-- [ ] Harness/integration failures stay visible and are not bypassed.
-- [ ] No duplicate implementation workers attack the same coherent task without explicit request.
+- [ ] Plugin v0.8.0 loads without customization errors.
+- [ ] SIMPLE task uses Main Luna directly with zero default subagents.
+- [ ] STANDARD uses no more than two justified advisory calls.
+- [ ] DEEP initial council uses no more than three independent calls.
+- [ ] All hidden council agents are leaf nodes.
+- [ ] Main Luna owns repository mutation.
+- [ ] Existing selected MCP/extension tool remains usable.
+- [ ] Strict council/review roles do not inherit arbitrary ambient tools.
+- [ ] Recovery is evidence-triggered and stops after two default calls if unresolved.
+- [ ] Normal non-trivial review uses one rubric-driven Luna Reviewer.
+- [ ] DEEP review uses at most two distinct reviewer rubrics.
+- [ ] Automatic core model is GPT-5.6 Luna only.
+- [ ] Sonnet runs only after a visible human handoff.
+- [ ] Opus runs only after a visible human handoff.
+- [ ] No external side effect is inferred.
+- [ ] Council output remains compact enough that management traffic does not dominate the main context.
 
-## Capture on failure or escalation
+## Capture on failure
 
 Record:
 
-- VS Code version;
-- Copilot version if visible;
-- plugin version;
-- route line;
-- delegated subagent and displayed model;
-- exact MCP/tool and Configure Tools state when relevant;
-- native-Agent result for the same MCP/tool;
-- validation result/failure;
-- any `ESCALATE_KIMI` reason and implementation state handed to Kimi;
-- any direct Sonnet environment tool call;
-- relevant Chat customization diagnostics/debug output.
+- VS Code/Copilot/plugin versions;
+- mode line;
+- council agents invoked and order/parallelism;
+- displayed model for every call;
+- direct Main Luna tool calls;
+- exact MCP/tool and native-Agent comparison if relevant;
+- validation failure and Recovery inputs/outputs;
+- reviewer rubrics;
+- any automatic premium-model invocation;
+- approximate tokens/credits and wall-clock time when visible.
