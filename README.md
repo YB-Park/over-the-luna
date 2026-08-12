@@ -4,11 +4,15 @@
 
 > **Use more Luna. Pay for judgment only when it earns its place.**
 
-GPT-5.6 Luna changes the economics of an agent harness. It is inexpensive enough that extra planning, repository analysis, skepticism, recovery, research, and review can be practical without putting a premium model on every turn. **Over the Luna uses that cheap test-time compute deliberately while keeping one Main Luna responsible for the actual implementation.**
+Over the Luna starts from a simple economic idea: **when capable inference becomes cheap enough, the best optimization is not always to use fewer tokens.** Sometimes the better trade is to spend more low-cost inference on independent planning, repository analysis, skepticism, recovery, research, and review — while keeping premium-model inference deliberate and rare.
+
+That is what GPT-5.6 Luna makes interesting. Over the Luna uses Luna's cost profile as a test-time compute budget: spend inexpensive Luna calls where another independent pass can improve engineering judgment, but keep one Main Luna responsible for the actual implementation. The goal is **more useful reasoning per AI coding budget**, not the smallest possible token count.
 
 Over the Luna is a **VS Code-native, Luna-only coding harness for GitHub Copilot**. It is intentionally thin: no daemon, no second editor UI, no bundled MCP server, no hidden premium escalation, and no swarm of agents competing to edit the same code. Simple work stays simple. Harder work can fan out into small isolated Luna contexts, then return compact evidence to the same Main Luna.
 
-If Luna decides that a stronger second opinion would materially reduce risk, it can recommend **Claude Sonnet 5** or **Claude Opus 4.8**. Those models never run automatically; the developer chooses a visible handoff.
+It is also designed for **managed development environments** where GitHub Copilot is the standard or approved AI coding interface and the available model catalog is controlled by organization or enterprise policy. Over the Luna does not bypass those controls; it tries to get more engineering value from the models and tools already available inside them.
+
+If Luna decides that a stronger second opinion would materially reduce risk, it can recommend **Claude Sonnet 5** or **Claude Opus 4.8**. Those models never run automatically; the developer chooses a visible handoff. In other words: **use affordable compute generously, and use expensive judgment deliberately.**
 
 **Over the Luna 1.0 defines the stable harness contract.** VS Code Agent Plugins themselves are still a Preview feature, so platform behavior can continue to evolve.
 
@@ -165,6 +169,14 @@ The research below does not benchmark GPT-5.6 Luna or prove that this exact harn
 
 Low inference cost makes extra independent passes practical. Research on [test-time compute scaling for LLM agents](https://arxiv.org/abs/2506.12928) shows that additional compute can improve agent performance, while also showing that **when** and **how** the compute is spent matters. Over the Luna therefore scales advisory work with SIMPLE / STANDARD / DEEP instead of always fanning out.
 
+The economic target is not minimum token usage. A well-justified Council pass may increase total Luna tokens while still improving the overall cost/quality trade-off by reducing wrong-direction work or avoiding premium inference as the default.
+
+### Managed boundaries are design inputs, not obstacles to bypass
+
+GitHub Copilot Business and Enterprise can control feature and model availability through [organization and enterprise policies](https://docs.github.com/en/copilot/concepts/policies). Over the Luna treats those boundaries as part of the runtime environment. It does not acquire models outside the available Copilot catalog, install a second agent runtime, or attempt to evade organization controls.
+
+This makes the harness relevant when the practical question is not "which AI stack can I adopt?" but **"how much agentic coding can I get from the VS Code, Copilot, and model catalog I already have?"**
+
 ### More agents are not automatically better
 
 OpenAI's [practical guide to building agents](https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/) recommends maximizing a single agent before introducing multi-agent complexity. TeamBench likewise reports cases where teams or verifiers hurt instead of help ([TeamBench](https://arxiv.org/abs/2605.07073)). That is why Main Luna implements directly and every extra call needs a concrete reason.
@@ -232,7 +244,7 @@ Over the Luna does not encode undocumented per-agent reasoning-effort fields in 
 
 ## Scope and limitations
 
-Over the Luna is an orchestration layer, not a security boundary. It relies on VS Code trust, approval, sandboxing, organization policy, and the developer's configured tools. Agent Plugins are currently a Preview VS Code feature, so runtime behavior may change across VS Code/Copilot releases.
+Over the Luna is an orchestration layer, not a security boundary. It relies on VS Code trust, approval, sandboxing, organization policy, and the developer's configured tools. **It does not circumvent GitHub Copilot feature or model policies, and it does not obtain models outside the catalog available to the developer.** Agent Plugins are currently a Preview VS Code feature, so runtime behavior may change across VS Code/Copilot releases.
 
 The automatic core intentionally optimizes around **GPT-5.6 Luna**. If Luna is unavailable in your organization, the harness does not silently substitute another automatic model.
 
