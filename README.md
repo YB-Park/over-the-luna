@@ -4,13 +4,15 @@
 
 > **Use more Luna. Pay for judgment only when it earns its place.**
 
-Over the Luna starts from a simple economic idea: **when capable inference becomes cheap enough, the best optimization is not always to use fewer tokens.** Sometimes the better trade is to spend more low-cost inference on independent planning, repository analysis, skepticism, recovery, research, and review — while keeping premium-model inference deliberate and rare.
+**Over the Luna is a VS Code-native GPT-5.6 Luna coding harness for GitHub Copilot.** It runs inside the Copilot/VS Code agent environment you already use; it is not a standalone CLI, a second agent runtime, or an alternative editor.
+
+Within that boundary, Over the Luna starts from a simple economic idea: **when capable inference becomes cheap enough, the best optimization is not always to use fewer tokens.** Sometimes the better trade is to spend more low-cost inference on independent planning, repository analysis, skepticism, recovery, research, and review — while keeping premium-model inference deliberate and rare.
 
 That is what GPT-5.6 Luna makes interesting. Over the Luna uses Luna's cost profile as a test-time compute budget: spend inexpensive Luna calls where another independent pass can improve engineering judgment, but keep one Main Luna responsible for the actual implementation. The goal is **more useful reasoning per AI coding budget**, not the smallest possible token count.
 
-Over the Luna is a **VS Code-native, Luna-only coding harness for GitHub Copilot**. It is intentionally thin: no daemon, no second editor UI, no bundled MCP server, no hidden premium escalation, and no swarm of agents competing to edit the same code. Simple work stays simple. Harder work can fan out into small isolated Luna contexts, then return compact evidence to the same Main Luna.
+The harness is intentionally thin: no daemon, no bundled MCP server, no hidden premium escalation, and no swarm of agents competing to edit the same code. Simple work stays simple. Harder work can fan out into small isolated Luna contexts, then return compact evidence to the same Main Luna.
 
-It is also designed for **managed development environments** where GitHub Copilot is the standard or approved AI coding interface and the available model catalog is controlled by organization or enterprise policy. Over the Luna does not bypass those controls; it tries to get more engineering value from the models and tools already available inside them.
+This is especially useful in **managed development environments** where GitHub Copilot is the standard or approved AI coding interface and the available model catalog is controlled by organization or enterprise policy. Over the Luna does not bypass those controls; it tries to get more engineering value from the models and tools already available inside them.
 
 If Luna decides that a stronger second opinion would materially reduce risk, it can recommend **Claude Sonnet 5** or **Claude Opus 4.8**. Those models never run automatically; the developer chooses a visible handoff. In other words: **use affordable compute generously, and use expensive judgment deliberately.**
 
