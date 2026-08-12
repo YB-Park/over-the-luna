@@ -4,6 +4,51 @@ All notable changes to **Over the Luna** are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.8.0 — 2026-08-12
+
+Luna Council experiment: remove the always-on premium coordinator and use GPT-5.6 Luna as both the main working agent and the automatic orchestration core.
+
+### Added
+
+- Added **Luna Planner** for tool-free acceptance criteria and work-contract decomposition.
+- Added **Luna Architect** for independent read-only repository structure, dependency, pattern, and impact evidence.
+- Added **Luna Skeptic** for evidence-backed assumption challenges and edge-case falsification.
+- Added **Luna Recovery** for failure-anchored diagnosis after concrete validation/implementation failures.
+- Added explicit `SIMPLE`, `STANDARD`, and `DEEP` compute budgets.
+- Added compact-output contracts for every council/evidence/review leaf.
+- Added manual **Review with Sonnet** and **Critical review with Opus** handoffs from Main Luna.
+
+### Changed
+
+- **Over the Luna now runs on GPT-5.6 Luna** and performs repository implementation directly instead of acting as a Sonnet-only router.
+- Automatic routing is now **Luna-only**. Sonnet and Opus are outside the automatic subagent allow-list.
+- Main Luna owns repository edits, commands, tests, validation loops, and final synthesis.
+- Council workers are a shallow star topology: all are `agents: []`; nested management chains are not part of the core design.
+- STANDARD uses at most two advisory calls; DEEP uses at most three initial independent advisory calls.
+- Recovery is evidence-triggered and defaults to at most two Recovery calls per bounded task.
+- Normal review uses one rubric-driven Luna Reviewer; DEEP/high-risk review can use at most two independent reviewers with distinct rubrics.
+- Luna Researcher, Tool Worker, and Reviewer now pin GPT-5.6 Luna with no automatic non-Luna fallback.
+- Sonnet Reviewer is now user-visible, manual-only, non-mutating, and may only suggest a manual Opus handoff.
+- Opus Critical Reviewer now pins Opus directly with no Sonnet fallback.
+- Selected-tool inheritance remains unchanged for Main Luna and Luna Tool Worker so user MCP/extension tools stay available.
+
+### Removed
+
+- Removed **Luna Implementer** because Main Luna now owns execution directly.
+- Removed **Luna Explorer**; its repository-shape role is absorbed by Luna Architect.
+- Removed **Kimi Deep Worker** from the v0.8 Luna-only experiment.
+- Removed MAI/Haiku/Kimi fallback paths from the automatic core.
+
+### Why
+
+v0.8 tests a different use of Luna's low token cost: spend extra Luna inference on **independent planning, evidence, skepticism, recovery, and verification**, while avoiding duplicated implementation contexts and an always-on premium coordinator.
+
+The design rule is:
+
+**Parallelize thinking; serialize mutation.**
+
+Premium model judgment remains available, but only through visible human-selected handoffs.
+
 ## v0.7.0 — 2026-08-11
 
 Luna-first routing simplification after re-evaluating whether MAI and Kimi dedicated routes still justified their complexity and cost.
