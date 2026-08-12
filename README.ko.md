@@ -4,13 +4,15 @@
 
 > **Luna는 많이 쓰고, 비싼 판단은 정말 값어치를 할 때만 쓴다.**
 
-Over the Luna의 출발점은 단순한 경제적 아이디어다. **충분히 유능한 inference가 아주 저렴해지면, 최선의 최적화가 항상 토큰을 덜 쓰는 것은 아니다.** 오히려 저렴한 inference를 계획, 저장소 분석, 반대 검토, 실패 복구, 리서치, 리뷰 같은 독립적인 판단에 더 쓰고, premium 모델의 inference는 꼭 필요한 순간에만 선택적으로 사용하는 편이 나을 수 있다.
+**Over the Luna는 GitHub Copilot 안에서 동작하는 VS Code 네이티브 GPT-5.6 Luna 코딩 하네스다.** 기존 Copilot/VS Code agent 환경을 확장하는 것이 목적이며, 별도 CLI나 두 번째 agent runtime, 대체 editor를 제공하는 프로젝트가 아니다.
+
+이 경계 안에서 출발점은 단순한 경제적 아이디어다. **충분히 유능한 inference가 아주 저렴해지면, 최선의 최적화가 항상 토큰을 덜 쓰는 것은 아니다.** 오히려 저렴한 inference를 계획, 저장소 분석, 반대 검토, 실패 복구, 리서치, 리뷰 같은 독립적인 판단에 더 쓰고, premium 모델의 inference는 꼭 필요한 순간에만 선택적으로 사용하는 편이 나을 수 있다.
 
 GPT-5.6 Luna가 흥미로운 이유가 바로 여기에 있다. Over the Luna는 Luna의 비용 구조 자체를 test-time compute budget으로 사용한다. 독립적인 한 번의 추가 판단이 engineering quality를 높일 수 있는 곳에는 저렴한 Luna call을 더 쓰되, 실제 구현의 책임과 mutable context는 하나의 Main Luna가 계속 소유한다. 목표는 **최소 토큰 사용량이 아니라, AI coding 비용 대비 더 많은 유효한 판단을 얻는 것**이다.
 
-Over the Luna는 **GitHub Copilot을 위한 VS Code 네이티브 Luna-only 코딩 하네스**다. 의도적으로 얇다. 별도 daemon도, 두 번째 editor UI도, 번들 MCP 서버도, 몰래 호출되는 premium 모델도, 같은 코드를 서로 고치는 agent swarm도 없다. 단순한 작업은 그대로 단순하게 처리하고, 복잡한 작업은 필요한 순간에만 작은 Luna context들을 열어 독립적인 증거를 수집한 뒤 같은 Main Luna에게 짧게 돌려준다.
+하네스는 의도적으로 얇다. 별도 daemon도, 번들 MCP 서버도, 몰래 호출되는 premium 모델도, 같은 코드를 서로 고치는 agent swarm도 없다. 단순한 작업은 그대로 단순하게 처리하고, 복잡한 작업은 필요한 순간에만 작은 Luna context들을 열어 독립적인 증거를 수집한 뒤 같은 Main Luna에게 짧게 돌려준다.
 
-또한 **관리되는 개발 환경(managed development environment)**도 중요한 사용 사례로 본다. GitHub Copilot이 표준 또는 허용된 AI coding interface이고, 사용 가능한 모델 catalog가 조직이나 enterprise 정책으로 관리되는 환경에서도 동작하도록 설계했다. Over the Luna의 목적은 그런 통제를 우회하는 것이 아니라, **이미 허용된 모델과 도구 안에서 더 많은 engineering value를 얻는 것**이다.
+이 구조는 특히 **관리되는 개발 환경(managed development environment)**에서 유용하다. GitHub Copilot이 표준 또는 허용된 AI coding interface이고, 사용 가능한 모델 catalog가 조직이나 enterprise 정책으로 관리되는 환경에서도 동작하도록 설계했다. Over the Luna의 목적은 그런 통제를 우회하는 것이 아니라, **이미 허용된 모델과 도구 안에서 더 많은 engineering value를 얻는 것**이다.
 
 Luna가 더 강한 두 번째 판단이 실제로 위험을 줄일 수 있다고 판단하면 **Claude Sonnet 5** 또는 **Claude Opus 4.8** 리뷰를 제안할 수 있다. 두 모델은 절대 자동 실행되지 않고, 개발자가 눈에 보이는 handoff를 직접 선택해야 한다. 한마디로 **저렴한 compute는 충분히 쓰고, 비싼 판단은 의도적으로 선택한다.**
 
