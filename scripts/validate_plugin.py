@@ -13,7 +13,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS_DIR = ROOT / "agents"
 
-EXPECTED_VERSION = "0.8.1"
+EXPECTED_VERSION = "1.0.0"
 EXPECTED_AGENT_IDS = {
     "over-the-luna",
     "luna-planner",
