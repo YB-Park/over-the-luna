@@ -8,13 +8,19 @@ The central design question is:
 
 > **Where does a fresh Luna context buy enough independent evidence, context isolation, or adversarial thinking to justify another call?**
 
+The economic objective is **not minimum token count**. The harness may intentionally spend more low-cost Luna inference when another independent pass can improve engineering judgment or reduce reliance on premium inference. The target is better cost/quality trade-offs, not the smallest transcript.
+
+Over the Luna also treats the developer's available VS Code/Copilot surface, tools, and model catalog as hard runtime inputs. Organization or enterprise policy is a boundary to operate within, not something the harness attempts to bypass.
+
 ## Goals
 
 - Keep one coherent mutable implementation trajectory.
 - Spend cheap Luna inference on independent evidence when it can improve quality or protect context.
+- Improve engineering judgment per unit of AI spend rather than minimize token count mechanically.
 - Keep context hops short and outputs compact.
 - Make premium-model use visible and human-selected.
 - Preserve the developer's existing VS Code tool ecosystem instead of replacing it.
+- Work cleanly inside managed Copilot feature/model boundaries when those are present.
 
 ## Non-goals
 
@@ -22,7 +28,8 @@ The central design question is:
 - Deep manager hierarchies or recursive delegation chains.
 - Hidden premium escalation.
 - Bundled MCP servers, credentials, trust policy, or a second editor UI.
-- Maximizing agent count for its own sake.
+- Circumventing organization or enterprise Copilot feature/model policy.
+- Maximizing agent count or minimizing raw token count for its own sake.
 
 ## Core principles
 
@@ -206,9 +213,11 @@ The architecture is healthy when:
 - Main Luna preserves implementation continuity without monopolizing broad read-only exploration;
 - council calls frequently change a decision, compress useful evidence, diagnose a real failure, or catch a real issue;
 - council outputs stay compact enough that management traffic does not dominate Main context;
+- low-cost Luna calls earn their overhead through useful reasoning, context isolation, or premium-inference avoidance rather than raw token reduction;
 - non-trivial work gets genuinely independent review;
 - recovery loops remain bounded;
 - premium handoffs are rare, specific, and human-selected;
-- existing user-selected MCP/extension tools remain usable through the intended roles.
+- existing user-selected MCP/extension tools remain usable through the intended roles;
+- organization/enterprise Copilot feature and model boundaries remain intact.
 
 A council role should be removed or merged if it mostly returns predictable restatements that Main Luna could have produced just as efficiently in the same context.

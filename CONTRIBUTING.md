@@ -12,8 +12,10 @@ Preserve these constraints unless a change is backed by clear runtime evidence:
 - Main Luna is the single automatic repository mutation owner;
 - council agents are independent leaf contexts, not a management chain;
 - extra calls must answer a real uncertainty, isolate useful read-only context, diagnose a real failure, or verify a concrete rubric;
+- optimize the overall cost/quality trade-off, not minimum raw token count; cheap Luna calls still need to earn their overhead;
 - council outputs stay compact;
 - preserve the developer's existing VS Code MCP/extension tool selection;
+- treat organization/enterprise Copilot feature and model policy as a hard runtime boundary, never as something to bypass;
 - do not bundle credentials, OAuth, MCP servers, or trust policy;
 - external side effects are never inferred;
 - current VS Code runtime behavior outranks assumptions from other products or older platform behavior.
@@ -80,6 +82,8 @@ Manual visible premium profiles:
 
 Adding any non-Luna automatic model requires a new evidence-backed architecture review rather than a convenience fallback.
 
+Do not describe the harness as acquiring, substituting, or routing around models that are unavailable under the developer's Copilot policy. If Luna is unavailable, that is an explicit unsupported environment rather than a policy-avoidance problem to solve.
+
 ## Premium handoffs
 
 Sonnet and Opus must remain:
@@ -108,7 +112,7 @@ When proposing a routing or role change, report:
 7. tool/MCP environment;
 8. what evidence would cause the new role or budget to be removed again.
 
-Prompt tokens, latency, and management traffic are part of the product cost.
+Prompt tokens, latency, and management traffic are part of the product cost. A change can be economically better while using more Luna tokens if it materially reduces rework or premium-model dependence; do not claim token minimization unless measurements actually support it.
 
 ## Before opening a PR
 
