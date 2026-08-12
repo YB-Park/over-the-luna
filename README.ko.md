@@ -4,11 +4,15 @@
 
 > **Luna는 많이 쓰고, 비싼 판단은 정말 값어치를 할 때만 쓴다.**
 
-GPT-5.6 Luna는 agent harness의 경제성을 바꿔놓는다. 충분히 저렴하기 때문에 계획, 저장소 분석, 반대 검토, 실패 복구, 리서치, 리뷰 같은 독립적인 판단을 여러 번 수행하면서도 매 턴 premium 모델을 상시 배치할 필요가 없다. **Over the Luna는 이 저렴한 test-time compute를 적극적으로 활용하되, 실제 구현의 책임과 mutable context는 하나의 Main Luna가 계속 소유하도록 설계했다.**
+Over the Luna의 출발점은 단순한 경제적 아이디어다. **충분히 유능한 inference가 아주 저렴해지면, 최선의 최적화가 항상 토큰을 덜 쓰는 것은 아니다.** 오히려 저렴한 inference를 계획, 저장소 분석, 반대 검토, 실패 복구, 리서치, 리뷰 같은 독립적인 판단에 더 쓰고, premium 모델의 inference는 꼭 필요한 순간에만 선택적으로 사용하는 편이 나을 수 있다.
+
+GPT-5.6 Luna가 흥미로운 이유가 바로 여기에 있다. Over the Luna는 Luna의 비용 구조 자체를 test-time compute budget으로 사용한다. 독립적인 한 번의 추가 판단이 engineering quality를 높일 수 있는 곳에는 저렴한 Luna call을 더 쓰되, 실제 구현의 책임과 mutable context는 하나의 Main Luna가 계속 소유한다. 목표는 **최소 토큰 사용량이 아니라, AI coding 비용 대비 더 많은 유효한 판단을 얻는 것**이다.
 
 Over the Luna는 **GitHub Copilot을 위한 VS Code 네이티브 Luna-only 코딩 하네스**다. 의도적으로 얇다. 별도 daemon도, 두 번째 editor UI도, 번들 MCP 서버도, 몰래 호출되는 premium 모델도, 같은 코드를 서로 고치는 agent swarm도 없다. 단순한 작업은 그대로 단순하게 처리하고, 복잡한 작업은 필요한 순간에만 작은 Luna context들을 열어 독립적인 증거를 수집한 뒤 같은 Main Luna에게 짧게 돌려준다.
 
-Luna가 더 강한 두 번째 판단이 실제로 위험을 줄일 수 있다고 판단하면 **Claude Sonnet 5** 또는 **Claude Opus 4.8** 리뷰를 제안할 수 있다. 두 모델은 절대 자동 실행되지 않고, 개발자가 눈에 보이는 handoff를 직접 선택해야 한다.
+또한 **관리되는 개발 환경(managed development environment)**도 중요한 사용 사례로 본다. GitHub Copilot이 표준 또는 허용된 AI coding interface이고, 사용 가능한 모델 catalog가 조직이나 enterprise 정책으로 관리되는 환경에서도 동작하도록 설계했다. Over the Luna의 목적은 그런 통제를 우회하는 것이 아니라, **이미 허용된 모델과 도구 안에서 더 많은 engineering value를 얻는 것**이다.
+
+Luna가 더 강한 두 번째 판단이 실제로 위험을 줄일 수 있다고 판단하면 **Claude Sonnet 5** 또는 **Claude Opus 4.8** 리뷰를 제안할 수 있다. 두 모델은 절대 자동 실행되지 않고, 개발자가 눈에 보이는 handoff를 직접 선택해야 한다. 한마디로 **저렴한 compute는 충분히 쓰고, 비싼 판단은 의도적으로 선택한다.**
 
 **Over the Luna 1.0은 이 하네스의 안정적인 설계 계약을 정의한다.** 다만 VS Code Agent Plugins 자체는 아직 Preview 기능이므로 플랫폼 동작은 앞으로도 바뀔 수 있다.
 
@@ -165,6 +169,14 @@ Main Luna가 유일한 자동 repository mutation owner다. Council agent들은 
 
 추론 비용이 충분히 낮으면 planning이나 verification을 한 번 더 독립적으로 수행하는 multi-pass 전략 자체가 현실적인 선택지가 된다. [Scaling Test-time Compute for LLM Agents](https://arxiv.org/abs/2506.12928)는 추가 compute가 agent 성능을 개선할 수 있음을 보이면서 동시에 **언제**, **어떻게** compute를 쓰는지가 중요하다고 보고한다. 그래서 Over the Luna는 항상 fan-out하지 않고 SIMPLE / STANDARD / DEEP으로 budget을 조절한다.
 
+여기서 목표는 최소 토큰 사용량이 아니다. 값어치가 있는 Council pass는 전체 Luna token을 늘릴 수 있다. 그래도 잘못된 방향의 구현을 줄이거나 premium inference를 상시 기본값으로 두지 않게 해준다면 전체적인 cost/quality trade-off는 더 좋아질 수 있다.
+
+### 관리 경계는 우회 대상이 아니라 설계 입력이다
+
+GitHub Copilot Business/Enterprise는 [organization/enterprise policy](https://docs.github.com/en/copilot/concepts/policies)를 통해 feature와 model availability를 제어할 수 있다. Over the Luna는 이 경계를 runtime environment의 일부로 받아들인다. 사용 가능한 Copilot catalog 밖의 모델을 가져오거나, 별도 agent runtime을 설치하거나, 조직 통제를 회피하려고 하지 않는다.
+
+그래서 현실적인 질문이 "어떤 AI stack을 새로 도입할 수 있나?"가 아니라 **"이미 가진 VS Code, Copilot, model catalog 안에서 agentic coding을 어디까지 밀어붙일 수 있나?"**인 환경에서도 사용할 수 있다.
+
 ### agent가 많다고 자동으로 좋아지는 것은 아니다
 
 OpenAI의 [A practical guide to building agents](https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/)는 multi-agent 복잡도를 추가하기 전에 single agent의 capability를 충분히 활용할 것을 권한다. [TeamBench](https://arxiv.org/abs/2605.07073)도 팀이나 verifier가 오히려 성능을 해치는 경우를 보고한다. 그래서 Main Luna가 직접 구현하고, 추가 호출에는 반드시 구체적인 이유가 있어야 한다.
@@ -232,7 +244,7 @@ Over the Luna는 `.agent.md`에 문서화되지 않은 per-agent reasoning-effor
 
 ## 범위와 한계
 
-Over the Luna는 orchestration layer이지 security boundary가 아니다. VS Code의 trust, approval, sandboxing, organization policy, 그리고 개발자가 설정한 tool environment에 의존한다. Agent Plugins는 현재 Preview 기능이므로 VS Code/Copilot 업데이트에 따라 runtime behavior가 달라질 수 있다.
+Over the Luna는 orchestration layer이지 security boundary가 아니다. VS Code의 trust, approval, sandboxing, organization policy, 그리고 개발자가 설정한 tool environment에 의존한다. **GitHub Copilot의 feature/model policy를 우회하지 않으며, 개발자에게 허용된 model catalog 밖의 모델을 가져오지 않는다.** Agent Plugins는 현재 Preview 기능이므로 VS Code/Copilot 업데이트에 따라 runtime behavior가 달라질 수 있다.
 
 Automatic core는 의도적으로 **GPT-5.6 Luna**에 최적화되어 있다. 조직에서 Luna를 사용할 수 없다면 다른 모델로 조용히 자동 대체하지 않는다.
 
