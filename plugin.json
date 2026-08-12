@@ -1,6 +1,6 @@
 {
   "name": "over-the-luna",
-  "description": "A thin, human-guided Luna-only context-isolation harness for GitHub Copilot in VS Code.",
+  "description": "A VS Code-native, cost-aware GPT-5.6 Luna coding harness for GitHub Copilot with human-selected premium review.",
   "version": "1.0.0",
   "author": {
     "name": "YB-Park",
@@ -11,11 +11,14 @@
   "license": "MIT",
   "keywords": [
     "vscode",
+    "vscode-native",
     "github-copilot",
     "copilot",
     "agent",
     "subagent",
     "harness",
+    "agentic-coding",
+    "cost-aware",
     "gpt-5.6-luna",
     "luna-only"
   ],
