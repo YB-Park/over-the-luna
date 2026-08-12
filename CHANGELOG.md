@@ -4,6 +4,14 @@ All notable changes to **Over the Luna** are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Documentation
+
+- Clarified that Over the Luna optimizes the overall AI coding cost/quality trade-off rather than minimum token count.
+- Documented managed GitHub Copilot environments and organization-controlled model catalogs as first-class use cases, while explicitly treating policy boundaries as constraints rather than something to bypass.
+- Made the intended economic pattern more explicit: spend low-cost Luna inference where independent reasoning helps, and keep premium-model inference visible and deliberate.
+
 ## v1.0.0 — 2026-08-12
 
 First stable release of the Luna-only VS Code/GitHub Copilot harness.
