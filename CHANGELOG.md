@@ -4,6 +4,28 @@ All notable changes to **Over the Luna** are documented here.
 
 The project follows [Semantic Versioning](https://semver.org/).
 
+## v0.8.1 — 2026-08-12
+
+Council-balance refinement after real use showed that Main Luna's direct-work bias could also keep too much read-only exploration and self-verification in the main context.
+
+### Changed
+
+- Clarified the central ownership rule as **“Main Luna owns the work, not all of the thinking.”** Main Luna remains the single mutation/test/synthesis owner, while independent read-only work should be isolated when it protects context quality.
+- Added **context pollution and anchoring risk** as routing signals alongside task uncertainty and risk.
+- Added a locality rule: Main Luna may perform focused nearby inspection, but broad repository scouting, multi-path dependency tracing, or distant pattern comparison should prefer **Luna Architect** and return compact evidence.
+- A mechanically simple edit can now justify STANDARD when finding the correct implementation pattern would otherwise consume broad Main-Luna context.
+- Strengthened normal review: **non-trivial completed changes should receive one rubric-driven Luna Reviewer even when focused validation passes or Main Luna reports high confidence.**
+- Kept Planner, Skeptic, Recovery, DEEP fan-out, one-mutation-owner, and premium handoff budgets unchanged so the correction does not turn Council usage into ceremony.
+- Updated runtime smoke tests to verify broad-scouting isolation and independent non-trivial review without introducing a target subagent-usage percentage.
+
+### Why
+
+v0.8 intentionally removed the implementation subagent cold start, but the first direct-work policy could be interpreted too aggressively: a capable Main Luna can often do broad discovery itself, which risks turning the Council into a rarely used fallback instead of a context-isolation mechanism.
+
+v0.8.1 keeps direct implementation ownership while lowering the threshold for **useful independent evidence**. The desired balance is not “more agents.” It is:
+
+**Main Luna owns mutation and continuity; Council Luna absorbs broad disposable exploration and independent judgment when those clean contexts are likely to pay off.**
+
 ## v0.8.0 — 2026-08-12
 
 Luna Council experiment: remove the always-on premium coordinator and use GPT-5.6 Luna as both the main working agent and the automatic orchestration core.

@@ -1,10 +1,10 @@
-# Over the Luna v0.8 — Runtime Smoke Test
+# Over the Luna v0.8.1 — Runtime Smoke Test
 
-This checklist verifies behavior static CI cannot prove: Luna-only routing, complexity budgeting, Main-Luna execution ownership, selected-tool inheritance, recovery/review behavior, and human-visible premium escalation.
+This checklist verifies behavior static CI cannot prove: Luna-only routing, context-isolation budgeting, Main-Luna mutation ownership, selected-tool inheritance, recovery/review behavior, and human-visible premium escalation.
 
 ## Preflight
 
-- Update/reinstall the plugin and confirm **v0.8.0**.
+- Update/reinstall the plugin and confirm **v0.8.1**.
 - Reload VS Code.
 - Confirm GPT-5.6 Luna, Claude Sonnet 5, and Claude Opus 4.8 are available if you want to test premium handoffs.
 - Confirm all custom agents load without diagnostics errors.
@@ -13,7 +13,7 @@ This checklist verifies behavior static CI cannot prove: Luna-only routing, comp
 
 ## Test 1 — SIMPLE stays direct
 
-Ask for a tiny clear repository change with an obvious existing pattern.
+Ask for a tiny clear repository change with an obvious nearby existing pattern.
 
 Expected:
 
@@ -21,16 +21,18 @@ Expected:
 
 Check:
 
-- Main Luna reads/edits/validates directly;
+- Main Luna performs a small amount of focused inspection, then edits/validates directly;
 - no Planner/Architect/Skeptic/Recovery call occurs;
-- no separate Luna Reviewer unless the task is non-trivial or you explicitly ask;
+- no separate Luna Reviewer for a truly tiny mechanically validated task unless explicitly requested;
 - no Sonnet/Opus call occurs.
 
 **Fail** if the harness creates a council for every trivial edit.
 
-## Test 2 — STANDARD uses only necessary advice
+## Test 2 — Broad scouting is isolated even when the edit is simple
 
-Use a bounded change with one real uncertainty, for example a feature where the relevant repository pattern is unclear.
+Ask for a mechanically simple change whose correct location/pattern is not obvious without searching across the repository, for example:
+
+> Find how this repository normally handles pagination and apply the same pattern to this endpoint.
 
 Expected example:
 
@@ -38,12 +40,33 @@ Expected example:
 
 Check:
 
+- Main Luna may do focused initial inspection to establish locality;
+- if the answer requires broad search/dependency tracing/distant pattern comparison, Main Luna delegates that read-only investigation instead of accumulating a long scouting trail itself;
+- Architect returns compact file/symbol evidence;
+- Main Luna performs the actual edit and validation.
+
+**Fail** if Main Luna performs broad repository scouting itself merely because the eventual edit is simple.
+
+## Test 3 — STANDARD uses only necessary advice
+
+Use a bounded change with one real uncertainty, for example a feature where one repository contract or consequential assumption is unclear.
+
+Expected examples:
+
+`Mode: STANDARD — Luna Architect`
+
+or
+
+`Mode: STANDARD — Luna Skeptic`
+
+Check:
+
 - one or at most two advisory calls;
 - advisory output is compact;
 - Main Luna, not a subagent, owns edits/tests;
-- the selected advisory role materially answers the uncertainty.
+- the selected advisory role materially answers an uncertainty, protects Main context, or reduces anchoring risk.
 
-## Test 3 — DEEP council is shallow and parallel
+## Test 4 — DEEP council is shallow and parallel
 
 Choose a task with ambiguous acceptance criteria plus meaningful repository/risk uncertainty.
 
@@ -61,17 +84,18 @@ Check:
 
 **Fail** if the route becomes Planner → Architect → Skeptic → another manager chain.
 
-## Test 4 — File count does not force DEEP
+## Test 5 — File count does not force DEEP
 
 Give a mechanical but coherent change spanning several files.
 
 Expected:
 
 - SIMPLE or STANDARD is allowed;
-- Main Luna performs the work directly;
+- Main Luna performs mutation directly;
+- Architect may still be used if broad scouting would otherwise pollute Main context;
 - the harness does not fan out merely because many files are touched.
 
-## Test 5 — Existing MCP is preserved
+## Test 6 — Existing MCP is preserved
 
 First confirm a harmless read-only MCP/extension tool works in built-in Agent.
 
@@ -79,14 +103,14 @@ Then ask Over the Luna for the same bounded fact.
 
 Expected:
 
-- Main Luna may use the tool directly when it is naturally part of the task; or
+- Main Luna may use the tool directly when it is naturally part of the implementation context; or
 - Main Luna may isolate it through Luna Tool Worker when a clean external-context hop is useful;
 - no hardcoded server name is required;
 - no external state changes unless explicitly requested.
 
 **Hard gate:** native Agent works but neither Main Luna nor Luna Tool Worker can use the selected capability = fail.
 
-## Test 6 — Strict council roles stay strict
+## Test 7 — Strict council roles stay strict
 
 Inspect expanded calls for Planner, Architect, Skeptic, Recovery, and Reviewer.
 
@@ -99,7 +123,7 @@ Expected:
 - Reviewer: read/search;
 - none can edit/execute or use arbitrary MCP tools.
 
-## Test 7 — Evidence-triggered Recovery
+## Test 8 — Evidence-triggered Recovery
 
 Choose a bounded task that produces a real focused validation failure, or use a disposable test case where a first implementation attempt can reasonably fail.
 
@@ -113,18 +137,20 @@ Expected:
 
 Check the default stop budget: no more than two Recovery calls for the same bounded task without surfacing the blocker.
 
-## Test 8 — Normal review
+## Test 9 — Normal non-trivial review is independent
 
-Complete a non-trivial but ordinary change.
+Complete a non-trivial but ordinary change whose focused validation passes.
 
 Expected:
 
-- one Luna Reviewer call;
+- one Luna Reviewer call still occurs;
 - Main Luna supplies an explicit rubric;
 - reviewer remains read/search only;
 - Main Luna handles accepted fixes itself.
 
-## Test 9 — Deep multi-perspective review
+**Fail** if Main Luna skips independent review solely because tests passed or it reports high confidence.
+
+## Test 10 — Deep multi-perspective review
 
 Use a high-risk or DEEP task.
 
@@ -135,7 +161,7 @@ Expected:
 - duplicate vague review prompts are a failure;
 - Main Luna synthesizes findings.
 
-## Test 10 — Sonnet is recommendation + human handoff only
+## Test 11 — Sonnet is recommendation + human handoff only
 
 Use architecture-sensitive, auth/security, concurrency, transaction, migration, data-integrity, or public-contract work where premium judgment is plausibly useful.
 
@@ -147,7 +173,7 @@ Expected:
 - the **Review with Sonnet** handoff button is visible;
 - Sonnet runs only after you click/select the handoff.
 
-## Test 11 — Opus is manual only
+## Test 12 — Opus is manual only
 
 From Main Luna or Sonnet Reviewer, inspect the **Critical review with Opus** handoff.
 
@@ -158,7 +184,7 @@ Expected:
 - Opus remains read/search/web only;
 - no edit/execute/arbitrary MCP inheritance.
 
-## Test 12 — No retired model route
+## Test 13 — No retired model route
 
 Across normal runs, inspect expanded model names.
 
@@ -168,7 +194,7 @@ Expected automatic core models:
 
 Kimi K2.7 Code, MAI-Code-1-Flash, Haiku, Sonnet, and Opus must not appear in automatic council/execution/review calls.
 
-## Test 13 — Compare v0.8 economics
+## Test 14 — Compare v0.8.1 balance
 
 For comparable real tasks, record when visible:
 
@@ -176,28 +202,33 @@ For comparable real tasks, record when visible:
 - Main Luna input/output tokens or credits;
 - total council/recovery/reviewer tokens;
 - subagent count;
+- how much broad scouting occurred in Main vs Architect;
 - first-pass correctness;
 - validation attempts;
 - real findings caught by council/review;
 - human interventions;
 - whether a premium handoff was offered and whether using it changed the outcome.
 
-Compare against v0.7 and native Agent + Luna on different but comparable tasks to avoid prior-context bias.
+Compare against v0.8.0 behavior and native Agent + Luna on different but comparable tasks to avoid prior-context bias.
+
+The desired outcome is **not** a target percentage of subagent usage. The desired outcome is that Main Luna remains the mutation/context owner while broad read-only exploration and independent verification are isolated often enough to provide real value.
 
 ---
 
 ## Release gates
 
-- [ ] Plugin v0.8.0 loads without customization errors.
-- [ ] SIMPLE task uses Main Luna directly with zero default subagents.
+- [ ] Plugin v0.8.1 loads without customization errors.
+- [ ] SIMPLE local task uses Main Luna directly with zero default subagents.
+- [ ] A simple edit requiring broad repository scouting promotes to STANDARD and can use Luna Architect.
 - [ ] STANDARD uses no more than two justified advisory calls.
 - [ ] DEEP initial council uses no more than three independent calls.
 - [ ] All hidden council agents are leaf nodes.
-- [ ] Main Luna owns repository mutation.
+- [ ] Main Luna remains the only automatic repository mutation owner.
+- [ ] Main Luna does not monopolize broad read-only exploration when an isolated Architect pass would compress it.
 - [ ] Existing selected MCP/extension tool remains usable.
 - [ ] Strict council/review roles do not inherit arbitrary ambient tools.
 - [ ] Recovery is evidence-triggered and stops after two default calls if unresolved.
-- [ ] Normal non-trivial review uses one rubric-driven Luna Reviewer.
+- [ ] Normal non-trivial review uses one rubric-driven Luna Reviewer even after successful focused validation.
 - [ ] DEEP review uses at most two distinct reviewer rubrics.
 - [ ] Automatic core model is GPT-5.6 Luna only.
 - [ ] Sonnet runs only after a visible human handoff.
@@ -214,6 +245,7 @@ Record:
 - council agents invoked and order/parallelism;
 - displayed model for every call;
 - direct Main Luna tool calls;
+- broad repo scouting performed by Main vs Architect;
 - exact MCP/tool and native-Agent comparison if relevant;
 - validation failure and Recovery inputs/outputs;
 - reviewer rubrics;
