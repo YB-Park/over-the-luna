@@ -35,13 +35,14 @@ jobs:
           COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/over-the-luna-probe-otel.jsonl
           COPILOT_OTEL_CAPTURE_CONTENT: 'false'
         run: |
+          set -o pipefail
           copilot \
             --plugin-dir=. \
             --agent='Over the Luna' \
             --model=gpt-5.6-luna \
             --available-tools='view,grep,glob,task,list_agents,read_agent' \
             --allow-all-tools \
-            --max-ai-credits=1 \
+            --max-ai-credits=30 \
             --no-remote-export \
             --output-format=json \
             --prompt='READ-ONLY RUNTIME PROBE. Do not modify files or run shell commands. Determine how this repository currently validates custom-agent metadata, then propose the smallest regression check that would catch a handoff whose target does not resolve to an actual custom-agent name. Inspect only what you need. Follow the installed Over the Luna routing instructions normally: print the Mode line, use a council subagent only if the current rules genuinely justify it, and report which files/symbols support the conclusion.' \
