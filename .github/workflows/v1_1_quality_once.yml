@@ -1,0 +1,286 @@
+name: v1.1 one-shot reviewer quality matrix
+
+# ONE-SHOT PAID RESEARCH WORKFLOW. Delete after artifact collection.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v1_1_quality_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  reviewer-quality:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        policy: [baseline, split]
+        case: [falsey-config, request-id, cache-key]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Prepare plugin and fixture
+        env:
+          POLICY: ${{ matrix.policy }}
+          CASE: ${{ matrix.case }}
+        run: |
+          set -euo pipefail
+          cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin"
+          if [ "$POLICY" = split ]; then
+            cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_split_state.agent.md" \
+              "${RUNNER_TEMP}/plugin/agents/over-the-luna.agent.md"
+          fi
+          mkdir -p "${RUNNER_TEMP}/fixture/tests"
+
+          case "$CASE" in
+            falsey-config)
+              cat > "${RUNNER_TEMP}/fixture/settings.py" <<'PY'
+          def _validate_timeout(timeout: int) -> int:
+              if not isinstance(timeout, int):
+                  raise ValueError("timeout must be an integer")
+              if timeout < 0:
+                  raise ValueError("timeout must be non-negative")
+              return timeout
+
+
+          def create_settings(timeout=None, retries=None):
+              result = {}
+              if timeout is not None:
+                  result["timeout"] = _validate_timeout(timeout)
+              if retries is not None:
+                  result["retries"] = retries
+              return result
+
+
+          def update_settings(timeout=None, retries=None):
+              result = {}
+              if timeout:
+                  result["timeout"] = _validate_timeout(timeout)
+              if retries is not None:
+                  result["retries"] = retries
+              return result
+          PY
+              cat > "${RUNNER_TEMP}/fixture/tests/test_settings.py" <<'PY'
+          import unittest
+          from settings import create_settings, update_settings
+
+          class SettingsTests(unittest.TestCase):
+              def test_create_allows_explicit_zero_timeout(self):
+                  self.assertEqual(create_settings(timeout=0), {"timeout": 0})
+
+              def test_update_positive_timeout(self):
+                  self.assertEqual(update_settings(timeout=5), {"timeout": 5})
+
+              def test_update_preserves_retries_behavior(self):
+                  self.assertEqual(update_settings(retries=0), {"retries": 0})
+
+          if __name__ == "__main__": unittest.main()
+          PY
+              cat > "${RUNNER_TEMP}/hidden_eval.py" <<'PY'
+          import pathlib, sys
+          sys.path.insert(0, str(pathlib.Path(sys.argv[1])))
+          from settings import update_settings
+          assert update_settings(timeout=0) == {"timeout": 0}
+          assert update_settings() == {}
+          assert update_settings(retries=0) == {"retries": 0}
+          for bad in (-1, "5"):
+              try: update_settings(timeout=bad)
+              except ValueError: pass
+              else: raise AssertionError(f"timeout {bad!r} must be rejected")
+          print("hidden evaluation: PASS")
+          PY
+              printf '%s\n' \
+                'Make update_settings follow the already-established create_settings timeout contract, including explicit zero, while preserving None-as-absent and the existing retries behavior. Add focused regression tests and run them. Keep the change local and do not use premium review.' \
+                > "${RUNNER_TEMP}/prompt.txt"
+              ;;
+
+            request-id)
+              cat > "${RUNNER_TEMP}/fixture/headers.py" <<'PY'
+          def _normalize_request_id(request_id: str) -> str:
+              if not isinstance(request_id, str):
+                  raise ValueError("request_id must be a string")
+              cleaned = request_id.strip()
+              if not cleaned:
+                  raise ValueError("request_id must not be blank")
+              return cleaned
+
+
+          def create_headers(token: str, request_id=None):
+              headers = {"Authorization": f"Bearer {token}"}
+              if request_id is not None:
+                  headers["X-Request-ID"] = _normalize_request_id(request_id)
+              return headers
+
+
+          def update_headers(token: str, request_id=None):
+              headers = {"Authorization": f"Bearer {token}"}
+              if request_id:
+                  headers["X-Request-ID"] = request_id.strip()
+              return headers
+          PY
+              cat > "${RUNNER_TEMP}/fixture/tests/test_headers.py" <<'PY'
+          import unittest
+          from headers import create_headers, update_headers
+
+          class HeaderTests(unittest.TestCase):
+              def test_create_normalizes_request_id(self):
+                  self.assertEqual(create_headers("t", "  req-1  ")["X-Request-ID"], "req-1")
+
+              def test_update_normal_request_id(self):
+                  self.assertEqual(update_headers("t", "req-2")["X-Request-ID"], "req-2")
+
+              def test_update_without_request_id_preserves_auth(self):
+                  self.assertEqual(update_headers("t"), {"Authorization": "Bearer t"})
+
+          if __name__ == "__main__": unittest.main()
+          PY
+              cat > "${RUNNER_TEMP}/hidden_eval.py" <<'PY'
+          import pathlib, sys
+          sys.path.insert(0, str(pathlib.Path(sys.argv[1])))
+          from headers import update_headers
+          assert update_headers("t", "  req-9 ") == {"Authorization": "Bearer t", "X-Request-ID": "req-9"}
+          assert update_headers("t") == {"Authorization": "Bearer t"}
+          for bad in ("   ", 9):
+              try: update_headers("t", bad)
+              except ValueError: pass
+              else: raise AssertionError(f"request_id {bad!r} must be rejected")
+          print("hidden evaluation: PASS")
+          PY
+              printf '%s\n' \
+                'Make update_headers enforce the same established request_id normalization and validation contract as create_headers while preserving Authorization and the behavior when request_id is absent. Add focused regression tests and run them. Do not use premium review.' \
+                > "${RUNNER_TEMP}/prompt.txt"
+              ;;
+
+            cache-key)
+              cat > "${RUNNER_TEMP}/fixture/cache.py" <<'PY'
+          def _normalize_key(key: str) -> str:
+              if not isinstance(key, str):
+                  raise ValueError("key must be a string")
+              cleaned = key.strip().lower()
+              if not cleaned:
+                  raise ValueError("key must not be blank")
+              return cleaned
+
+
+          class Cache:
+              def __init__(self):
+                  self._data = {}
+
+              def put(self, key, value):
+                  self._data[_normalize_key(key)] = value
+
+              def get(self, key):
+                  return self._data.get(_normalize_key(key))
+
+              def invalidate(self, key):
+                  self._data.pop(key, None)
+          PY
+              cat > "${RUNNER_TEMP}/fixture/tests/test_cache.py" <<'PY'
+          import unittest
+          from cache import Cache
+
+          class CacheTests(unittest.TestCase):
+              def test_put_and_get_share_key_identity(self):
+                  cache = Cache(); cache.put(" User:1 ", "v")
+                  self.assertEqual(cache.get("user:1"), "v")
+
+              def test_invalidate_missing_key_is_noop(self):
+                  cache = Cache(); cache.invalidate("missing")
+                  self.assertIsNone(cache.get("missing"))
+
+          if __name__ == "__main__": unittest.main()
+          PY
+              cat > "${RUNNER_TEMP}/hidden_eval.py" <<'PY'
+          import pathlib, sys
+          sys.path.insert(0, str(pathlib.Path(sys.argv[1])))
+          from cache import Cache
+          cache = Cache(); cache.put(" User:1 ", "v"); cache.invalidate("USER:1")
+          assert cache.get("user:1") is None
+          cache.put(" User:2 ", "x"); cache.invalidate("  user:2  ")
+          assert cache.get("USER:2") is None
+          for bad in ("   ", 7):
+              try: cache.invalidate(bad)
+              except ValueError: pass
+              else: raise AssertionError(f"key {bad!r} must be rejected")
+          print("hidden evaluation: PASS")
+          PY
+              printf '%s\n' \
+                'Make Cache.invalidate follow the same established key identity and validation contract as put/get while preserving missing-key no-op behavior. Add focused regression tests and run them. Do not use premium review.' \
+                > "${RUNNER_TEMP}/prompt.txt"
+              ;;
+          esac
+
+          git -C "${RUNNER_TEMP}/fixture" init -q
+          git -C "${RUNNER_TEMP}/fixture" config user.name experiment
+          git -C "${RUNNER_TEMP}/fixture" config user.email experiment@example.invalid
+          git -C "${RUNNER_TEMP}/fixture" add .
+          git -C "${RUNNER_TEMP}/fixture" commit -qm baseline
+
+      - name: Run policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/fixture"
+          copilot \
+            --plugin-dir="${RUNNER_TEMP}/plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$(cat "${RUNNER_TEMP}/prompt.txt")" \
+            | tee "${RUNNER_TEMP}/output.jsonl"
+
+      - name: Evaluate and summarize
+        if: always()
+        run: |
+          set +e
+          cd "${RUNNER_TEMP}/fixture"
+          git diff --no-ext-diff > "${RUNNER_TEMP}/patch.diff"
+          python -m unittest discover -s tests -v > "${RUNNER_TEMP}/tests.txt" 2>&1
+          tests_code=$?
+          python "${RUNNER_TEMP}/hidden_eval.py" "$PWD" > "${RUNNER_TEMP}/hidden.txt" 2>&1
+          hidden_code=$?
+          if [ -f "${RUNNER_TEMP}/otel.jsonl" ]; then
+            python "$GITHUB_WORKSPACE/scripts/analyze_otel.py" \
+              "${RUNNER_TEMP}/otel.jsonl" --events "${RUNNER_TEMP}/output.jsonl" \
+              > "${RUNNER_TEMP}/summary.md"
+          fi
+          printf 'tests_exit=%s\nhidden_exit=%s\n' "$tests_code" "$hidden_code" > "${RUNNER_TEMP}/evaluation.txt"
+          cat "${RUNNER_TEMP}/tests.txt"; cat "${RUNNER_TEMP}/hidden.txt"
+          exit 0
+
+      - name: Upload quality artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-${{ matrix.policy }}-${{ matrix.case }}
+          path: |
+            ${{ runner.temp }}/output.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/summary.md
+            ${{ runner.temp }}/patch.diff
+            ${{ runner.temp }}/tests.txt
+            ${{ runner.temp }}/hidden.txt
+            ${{ runner.temp }}/evaluation.txt
+          if-no-files-found: warn
