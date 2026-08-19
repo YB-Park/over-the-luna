@@ -1,0 +1,313 @@
+name: v1.1 baseline vs assurance candidate fixture A/B
+
+# ONE-SHOT RESEARCH TRIGGER. Delete immediately after jobs are queued.
+on:
+  pull_request:
+    types: [synchronize]
+    branches: ['research/v1.1-runtime-baseline']
+    paths:
+      - .github/workflows/v1_1_policy_ab_fixture.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  ab:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - policy: baseline
+            plugin_sha: de1f63057c57e06764a359ebfe148a3e031dcf19
+          - policy: assurance-candidate
+            plugin_sha: 173590bc0645188d35a19b2945a247c5721f5902
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out fixed plugin revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.plugin_sha }}
+          path: plugin
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Run Retry-After fixture
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PLUGIN_DIR: ${{ github.workspace }}/plugin
+          OTEL_PATH: ${{ runner.temp }}/retry-otel.jsonl
+          OUTPUT_PATH: ${{ runner.temp }}/retry-output.jsonl
+        run: |
+          set -euo pipefail
+          mkdir retry-fixture
+          cd retry-fixture
+          cat > retry_after.py <<'PY'
+          from __future__ import annotations
+
+          from datetime import datetime
+
+
+          def retry_delay(value: str | None, now: datetime) -> int | None:
+              """Return seconds to wait for Retry-After, or None for an invalid value."""
+              if value is None:
+                  return None
+              value = value.strip()
+              try:
+                  seconds = int(value)
+              except ValueError:
+                  return None
+              return seconds if seconds >= 0 else None
+          PY
+          cat > test_retry_after.py <<'PY'
+          from datetime import datetime, timezone
+          import unittest
+
+          from retry_after import retry_delay
+
+
+          class RetryAfterTests(unittest.TestCase):
+              def test_delta_seconds(self):
+                  now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+                  self.assertEqual(retry_delay(" 15 ", now), 15)
+
+              def test_negative_and_invalid_are_none(self):
+                  now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+                  self.assertIsNone(retry_delay("-1", now))
+                  self.assertIsNone(retry_delay("nonsense", now))
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          PY
+          cat > TASK.txt <<'EOF'
+          Implement `retry_delay(value, now)` in retry_after.py for an HTTP client.
+
+          Acceptance criteria:
+          - Keep the existing non-negative decimal delta-seconds behavior, including surrounding whitespace.
+          - Also accept an RFC/HTTP Retry-After date parseable by `email.utils.parsedate_to_datetime`.
+          - `now` is timezone-aware. Reject a parsed date that has no timezone.
+          - For a future date, return the remaining whole seconds rounded UP so the caller never retries early.
+          - For a valid date in the past, return 0.
+          - Return None for None, malformed values, or negative delta-seconds.
+          - Use only the Python standard library and keep the public function signature unchanged.
+          - Add/adjust focused visible tests as useful and run them.
+          Follow the installed Over the Luna routing/review instructions normally. Do not use premium review.
+          EOF
+          set -o pipefail
+          COPILOT_OTEL_FILE_EXPORTER_PATH="$OTEL_PATH" COPILOT_OTEL_CAPTURE_CONTENT=false \
+          copilot --plugin-dir="$PLUGIN_DIR" --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools --max-ai-credits=30 --no-remote-export --output-format=json \
+            --prompt="$(cat TASK.txt)" | tee "$OUTPUT_PATH"
+          git diff --no-index /dev/null retry_after.py > "${{ runner.temp }}/retry-final.diff" || true
+          python -m unittest -v test_retry_after.py | tee "${{ runner.temp }}/retry-visible.txt"
+          cat > test_retry_hidden.py <<'PY'
+          from datetime import datetime, timedelta, timezone
+          import unittest
+
+          from retry_after import retry_delay
+
+
+          class HiddenRetryAfterTests(unittest.TestCase):
+              def test_http_date_rounds_up_fractional_remaining_second(self):
+                  now = datetime(2026, 1, 1, 0, 0, 0, 200000, tzinfo=timezone.utc)
+                  self.assertEqual(retry_delay("Thu, 01 Jan 2026 00:00:02 GMT", now), 2)
+
+              def test_past_http_date_clamps_to_zero(self):
+                  now = datetime(2026, 1, 2, tzinfo=timezone.utc)
+                  self.assertEqual(retry_delay("Thu, 01 Jan 2026 00:00:00 GMT", now), 0)
+
+              def test_timezone_less_parsed_date_is_rejected(self):
+                  now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+                  self.assertIsNone(retry_delay("Thu, 01 Jan 2026 00:00:02", now))
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          PY
+          set +e
+          python -m unittest -v test_retry_hidden.py > "${{ runner.temp }}/retry-hidden.txt" 2>&1
+          echo "$?" > "${{ runner.temp }}/retry-hidden.exit"
+          cat "${{ runner.temp }}/retry-hidden.txt"
+          exit 0
+
+      - name: Run TTL cache fixture
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PLUGIN_DIR: ${{ github.workspace }}/plugin
+          OTEL_PATH: ${{ runner.temp }}/ttl-otel.jsonl
+          OUTPUT_PATH: ${{ runner.temp }}/ttl-output.jsonl
+        run: |
+          set -euo pipefail
+          mkdir ttl-fixture
+          cd ttl-fixture
+          cat > ttl_cache.py <<'PY'
+          from __future__ import annotations
+
+          from collections import OrderedDict
+          from collections.abc import Callable
+
+
+          class TTLCache:
+              def __init__(self, maxsize: int, ttl: float, clock: Callable[[], float]):
+                  self.maxsize = maxsize
+                  self.ttl = ttl
+                  self.clock = clock
+                  self._items = OrderedDict()
+
+              def get(self, key):
+                  item = self._items.get(key)
+                  if item is None:
+                      return None
+                  value, expires_at = item
+                  if expires_at <= self.clock():
+                      del self._items[key]
+                      return None
+                  self._items.move_to_end(key)
+                  return value
+
+              def set(self, key, value):
+                  if len(self._items) >= self.maxsize:
+                      self._items.popitem(last=False)
+                  self._items[key] = (value, self.clock() + self.ttl)
+          PY
+          cat > test_ttl_cache.py <<'PY'
+          import unittest
+
+          from ttl_cache import TTLCache
+
+
+          class Clock:
+              def __init__(self):
+                  self.t = 0.0
+              def __call__(self):
+                  return self.t
+
+
+          class TTLCacheTests(unittest.TestCase):
+              def test_get_refreshes_lru_order(self):
+                  clock = Clock()
+                  cache = TTLCache(2, 10, clock)
+                  cache.set("a", 1)
+                  cache.set("b", 2)
+                  self.assertEqual(cache.get("a"), 1)
+                  cache.set("c", 3)
+                  self.assertIsNone(cache.get("b"))
+                  self.assertEqual(cache.get("a"), 1)
+
+              def test_expired_get_removes_item(self):
+                  clock = Clock()
+                  cache = TTLCache(2, 1, clock)
+                  cache.set("a", 1)
+                  clock.t = 1.0
+                  self.assertIsNone(cache.get("a"))
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          PY
+          cat > TASK.txt <<'EOF'
+          Fix TTLCache.set in ttl_cache.py while preserving the public class API.
+
+          Acceptance criteria:
+          - An existing key update must refresh its value, expiry, and MRU position without evicting a different live key.
+          - Before capacity eviction, remove expired entries so an expired oldest entry does not cause a live entry to be evicted unnecessarily.
+          - If capacity is still full after expired entries are removed, evict exactly the least-recently-used live entry.
+          - get() behavior and its LRU refresh semantics must remain compatible.
+          - Assume maxsize is a positive integer and ttl is positive; constructor validation is out of scope.
+          - Add/adjust focused visible tests as useful and run them.
+          Follow the installed Over the Luna routing/review instructions normally. Do not use premium review.
+          EOF
+          set -o pipefail
+          COPILOT_OTEL_FILE_EXPORTER_PATH="$OTEL_PATH" COPILOT_OTEL_CAPTURE_CONTENT=false \
+          copilot --plugin-dir="$PLUGIN_DIR" --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools --max-ai-credits=30 --no-remote-export --output-format=json \
+            --prompt="$(cat TASK.txt)" | tee "$OUTPUT_PATH"
+          python -m unittest -v test_ttl_cache.py | tee "${{ runner.temp }}/ttl-visible.txt"
+          cat > test_ttl_hidden.py <<'PY'
+          import unittest
+
+          from ttl_cache import TTLCache
+
+
+          class Clock:
+              def __init__(self): self.t = 0.0
+              def __call__(self): return self.t
+
+
+          class HiddenTTLCacheTests(unittest.TestCase):
+              def test_update_at_capacity_does_not_evict_other_live_key(self):
+                  clock = Clock()
+                  cache = TTLCache(2, 10, clock)
+                  cache.set("a", 1)
+                  cache.set("b", 2)
+                  cache.set("a", 10)
+                  self.assertEqual(cache.get("b"), 2)
+                  self.assertEqual(cache.get("a"), 10)
+
+              def test_expired_entries_are_purged_before_live_lru_eviction(self):
+                  clock = Clock()
+                  cache = TTLCache(2, 1, clock)
+                  cache.set("old", 1)
+                  clock.t = 0.5
+                  cache.set("live", 2)
+                  clock.t = 1.1
+                  cache.set("new", 3)
+                  self.assertEqual(cache.get("live"), 2)
+                  self.assertEqual(cache.get("new"), 3)
+                  self.assertIsNone(cache.get("old"))
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          PY
+          set +e
+          python -m unittest -v test_ttl_hidden.py > "${{ runner.temp }}/ttl-hidden.txt" 2>&1
+          echo "$?" > "${{ runner.temp }}/ttl-hidden.exit"
+          cat "${{ runner.temp }}/ttl-hidden.txt"
+          exit 0
+
+      - name: Summarize traces
+        if: always()
+        run: |
+          for case in retry ttl; do
+            if [ -f "${{ runner.temp }}/${case}-otel.jsonl" ]; then
+              python plugin/scripts/analyze_otel.py \
+                "${{ runner.temp }}/${case}-otel.jsonl" \
+                --events "${{ runner.temp }}/${case}-output.jsonl" \
+                > "${{ runner.temp }}/${case}-summary.md"
+              cat "${{ runner.temp }}/${case}-summary.md"
+            fi
+          done
+
+      - name: Upload A/B artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.1-policy-ab-${{ matrix.policy }}
+          path: |
+            ${{ runner.temp }}/retry-output.jsonl
+            ${{ runner.temp }}/retry-otel.jsonl
+            ${{ runner.temp }}/retry-summary.md
+            ${{ runner.temp }}/retry-visible.txt
+            ${{ runner.temp }}/retry-hidden.txt
+            ${{ runner.temp }}/retry-hidden.exit
+            ${{ runner.temp }}/ttl-output.jsonl
+            ${{ runner.temp }}/ttl-otel.jsonl
+            ${{ runner.temp }}/ttl-summary.md
+            ${{ runner.temp }}/ttl-visible.txt
+            ${{ runner.temp }}/ttl-hidden.txt
+            ${{ runner.temp }}/ttl-hidden.exit
+          if-no-files-found: warn
