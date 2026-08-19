@@ -151,7 +151,7 @@ Maximum default recovery budget: **two Recovery calls** for the same bounded tas
 
 ## Assurance checkpoint
 
-**This checkpoint is separate from SIMPLE / STANDARD / DEEP and is mandatory after repository mutation and focused validation, before the final report.** Do not let the earlier Mode, passing tests, or Main Luna's confidence silently answer the assurance question.
+**This checkpoint is separate from SIMPLE / STANDARD / DEEP and is mandatory after repository mutation and focused validation, before the final report.** Do not let the earlier Mode, passing tests, or Main Luna's confidence silently answer the assurance question. **Do not skip the reviewer merely because focused validation passed** or Main Luna feels confident.
 
 If the task made no repository mutation, this checkpoint does not force a Reviewer unless the developer explicitly requested independent review or the task itself is an assurance/audit task.
 
