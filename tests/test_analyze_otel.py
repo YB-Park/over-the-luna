@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.analyze_otel import load_spans, summarize
+from scripts.analyze_otel import detect_mode_from_events, load_spans, summarize
 
 
 def span(
@@ -117,6 +117,55 @@ class AnalyzeOtelTests(unittest.TestCase):
         self.assertEqual(summary.council_tokens.input, 100)
         self.assertEqual(summary.tools["runSubagent"], 1)
         self.assertEqual(summary.tools["apply_patch"], 1)
+
+    def test_plugin_qualified_over_the_luna_is_main(self) -> None:
+        events = [
+            span(
+                "invoke_agent over-the-luna:over-the-luna",
+                "invoke_agent",
+                "root",
+                attributes={"gen_ai.agent.name": "over-the-luna:over-the-luna"},
+            ),
+            span(
+                "chat gpt-5.6-luna",
+                "chat",
+                "main-chat",
+                parent="root",
+                attributes={
+                    "gen_ai.response.model": "gpt-5.6-luna",
+                    "gen_ai.usage.input_tokens": 41170,
+                    "gen_ai.usage.output_tokens": 1007,
+                },
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "trace.jsonl"
+            path.write_text("\n".join(json.dumps(event) for event in events), encoding="utf-8")
+            summary = summarize(load_spans(path))
+
+        self.assertEqual(summary.main_tokens.input, 41170)
+        self.assertEqual(summary.main_tokens.output, 1007)
+        self.assertEqual(summary.council_tokens.input, 0)
+        self.assertEqual(summary.council_tokens.output, 0)
+
+    def test_mode_can_be_recovered_from_cli_event_stream(self) -> None:
+        events = [
+            {
+                "type": "assistant.message_delta",
+                "data": {"deltaContent": "Mode"},
+            },
+            {
+                "type": "assistant.message_delta",
+                "data": {"deltaContent": ": SIMPLE — direct Luna"},
+            },
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "events.jsonl"
+            path.write_text("\n".join(json.dumps(event) for event in events), encoding="utf-8")
+            mode = detect_mode_from_events(path)
+
+        self.assertEqual(mode, "SIMPLE")
 
     def test_accepts_otlp_attribute_array_shape(self) -> None:
         raw = {
