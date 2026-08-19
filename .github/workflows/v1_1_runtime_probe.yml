@@ -1,13 +1,10 @@
 name: v1.1 Copilot runtime probe
 
-# Temporary one-shot PR trigger for two bounded baseline probes. After the
-# results are captured this workflow returns to workflow_dispatch only.
+# Paid runtime probes are deliberately manual-only. The baseline PR-triggered
+# runs have been captured; normal pushes and pull requests must not consume
+# Copilot AI credits.
 on:
-  pull_request:
-    types: [synchronize]
-    branches: [main]
-    paths:
-      - .github/workflows/v1_1_runtime_probe.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
