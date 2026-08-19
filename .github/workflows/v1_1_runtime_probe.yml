@@ -1,15 +1,13 @@
 name: v1.1 Copilot runtime probe
 
-# Paid/runtime probes are deliberately manual-only. Do not attach this workflow
-# to push or pull_request events: repository validation is the always-on gate,
-# while Copilot probes are evidence-gathering experiments.
+# Temporary one-shot PR trigger for two bounded baseline probes. After the
+# results are captured this workflow returns to workflow_dispatch only.
 on:
-  workflow_dispatch:
-    inputs:
-      prompt:
-        description: 'Read-only probe prompt'
-        required: false
-        default: 'READ-ONLY RUNTIME PROBE. Do not modify files or run shell commands. Determine how this repository currently validates custom-agent metadata, then propose the smallest regression check that would catch a handoff whose target does not resolve to an actual custom-agent name. Inspect only what you need. Follow the installed Over the Luna routing instructions normally: print the Mode line, use a council subagent only if the current rules genuinely justify it, and report which files/symbols support the conclusion.'
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+    paths:
+      - .github/workflows/v1_1_runtime_probe.yml
 
 permissions:
   contents: read
@@ -17,6 +15,29 @@ permissions:
 
 jobs:
   probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: broad-core-contract
+            prompt: >-
+              READ-ONLY BASELINE PROBE. Do not modify files or run shell commands.
+              Suppose a future version were considering adding one non-Luna model to the automatic core.
+              Trace every repository contract that currently enforces or documents the Luna-only automatic core,
+              and return the smallest coherent set of files/symbols that would need reconsideration.
+              Do not recommend making the change; this is blast-radius analysis only.
+              Follow the installed Over the Luna routing instructions normally: print the Mode line,
+              use a council subagent only if the current rules genuinely justify it,
+              and keep the final evidence compact.
+          - case: adversarial-contract-audit
+            prompt: >-
+              READ-ONLY BASELINE PROBE. Do not modify files or run shell commands.
+              Audit this repository for the highest-risk cases where a validator or test could stay green
+              while actual VS Code runtime semantics are broken because the test merely mirrors our own assumptions.
+              Identify at most three concrete contract gaps, rank them by practical risk, and cite the exact files/symbols.
+              Follow the installed Over the Luna routing instructions normally: print the Mode line,
+              use a council subagent only if the current rules genuinely justify it,
+              and do not invent failures without repository evidence.
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -38,7 +59,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/over-the-luna-probe-otel.jsonl
           COPILOT_OTEL_CAPTURE_CONTENT: 'false'
-          PROBE_PROMPT: ${{ inputs.prompt }}
+          PROBE_PROMPT: ${{ matrix.prompt }}
         run: |
           set -o pipefail
           copilot \
@@ -73,7 +94,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v1.1-runtime-probe
+          name: v1.1-runtime-probe-${{ matrix.case }}
           path: |
             ${{ runner.temp }}/over-the-luna-probe-output.jsonl
             ${{ runner.temp }}/over-the-luna-probe-otel.jsonl
