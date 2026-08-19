@@ -1,0 +1,111 @@
+name: v1.1 one-shot broad-scouting isolation matrix
+
+# ONE-SHOT PAID RESEARCH WORKFLOW. Delete after artifact collection.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v1_1_scouting_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  scouting-isolation:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        policy: [baseline, split, locality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Prepare policy plugin and main-repo fixture
+        env:
+          POLICY: ${{ matrix.policy }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git worktree add --detach "${RUNNER_TEMP}/fixture" origin/main
+
+          if [ "$POLICY" = baseline ]; then
+            cp -a "${RUNNER_TEMP}/fixture" "${RUNNER_TEMP}/plugin"
+          else
+            cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin"
+            case "$POLICY" in
+              split) candidate='experiments/v1_1_candidate_split_state.agent.md' ;;
+              locality) candidate='experiments/v1_1_candidate_split_locality.agent.md' ;;
+              *) exit 2 ;;
+            esac
+            cp "$GITHUB_WORKSPACE/$candidate" "${RUNNER_TEMP}/plugin/agents/over-the-luna.agent.md"
+          fi
+
+      - name: Run read-only broad contract trace
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          TASK_PROMPT: >-
+            Read-only task. Trace every repository contract that would have to change if the
+            automatic core stopped being Luna-only while preserving the current premium
+            human-gate behavior. Identify the exact files/symbols and the invariant relationships
+            among agent allowlists, model contracts, validator expectations, documentation, and
+            smoke/release checks. Do not modify anything. Follow the installed Over the Luna policy
+            naturally. Do not request or use premium review.
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/fixture"
+          copilot \
+            --plugin-dir="${RUNNER_TEMP}/plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$TASK_PROMPT" \
+            | tee "${RUNNER_TEMP}/output.jsonl"
+
+      - name: Summarize trace and tool ownership
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/otel.jsonl" ]; then
+            python "$GITHUB_WORKSPACE/scripts/analyze_otel.py" \
+              "${RUNNER_TEMP}/otel.jsonl" --events "${RUNNER_TEMP}/output.jsonl" \
+              > "${RUNNER_TEMP}/summary.md"
+            python "$GITHUB_WORKSPACE/scripts/analyze_tool_ownership.py" \
+              "${RUNNER_TEMP}/otel.jsonl" \
+              > "${RUNNER_TEMP}/tool-ownership.json"
+          fi
+          git -C "${RUNNER_TEMP}/fixture" status --porcelain > "${RUNNER_TEMP}/fixture-status.txt"
+
+      - name: Upload scouting artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scouting-${{ matrix.policy }}
+          path: |
+            ${{ runner.temp }}/output.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/summary.md
+            ${{ runner.temp }}/tool-ownership.json
+            ${{ runner.temp }}/fixture-status.txt
+          if-no-files-found: warn
