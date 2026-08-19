@@ -1,13 +1,8 @@
 name: v1.1 fresh Luna review ablation
 
-# Temporary one-shot trigger because the connected GitHub surface cannot dispatch
-# workflow_dispatch. Revert to manual-only immediately after the artifact is captured.
+# Paid experiment. Manual-only by design.
 on:
-  pull_request:
-    types: [synchronize]
-    branches: [main]
-    paths:
-      - .github/workflows/v1_1_review_ablation.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
