@@ -1,10 +1,10 @@
-# v1.1 policy A/B — first live result
+# v1.1 policy A/B — live results
 
-This records a controlled live Copilot comparison between the released v1.0 routing contract and the experimental `DIRECT/ISOLATE/DEEP + NONE/REVIEW/RISK` candidate. It is evidence, not a release decision.
+These controlled Copilot runs compare released v1.0 routing with candidate v1.1 assurance policies. They are evidence, not a release decision.
 
-## Setup
+## Shared setup
 
-Both variants started from byte-identical small Python repositories and received the same normal user task:
+The variants start from byte-identical small Python repositories and receive the same normal user task:
 
 - make `preview_order` use the same established customer-ID validation/normalization as `create_order`;
 - add focused regression tests;
@@ -18,14 +18,16 @@ Runtime:
 - Copilot CLI 1.0.80;
 - GPT-5.6 Luna;
 - checked-out Over the Luna plugin loaded with `--plugin-dir`;
-- same allowed tools and hard AI-credit ceiling for both variants;
+- same allowed tools and hard AI-credit ceiling for compared variants;
 - OTel content capture disabled;
 - separate clean fixture and plugin copy per variant;
 - hidden post-run evaluation outside the agent-visible repository tests.
 
-The candidate changed only Main routing/assurance instructions. Main remained the only mutation owner and used the same `Luna Reviewer` leaf implementation as v1.0.
+The candidates change Main routing/assurance instructions only. Main remains the single mutation owner and uses the same read-only `Luna Reviewer` leaf as v1.0.
 
-## Released-policy baseline
+## Run A — full direct-assurance candidate
+
+### Released-policy baseline
 
 Observed route:
 
@@ -40,14 +42,15 @@ Observed route:
 - First mutation tool: `apply_patch`
 - Visible repository tests: PASS
 - Hidden evaluation: PASS
+- Copilot event duration: about 17.1 seconds
 
-The completed patch was correct but received no automatic independent review despite being a behavioral mutation with new tests.
+The patch was correct but received no automatic independent review despite being a behavioral mutation with new tests.
 
-## Direct-assurance candidate
+### `DIRECT/ISOLATE/DEEP + NONE/REVIEW/RISK` candidate
 
-Observed route in the final response:
+Observed route:
 
-`DIRECT + REVIEW`
+`Route: DIRECT + REVIEW`
 
 - Agent invocations: 2
 - Subagents: 1 (`Luna Reviewer`)
@@ -61,51 +64,94 @@ Observed route in the final response:
 - Visible repository tests: PASS
 - Hidden evaluation: PASS
 - Reviewer verdict: PASS
+- Copilot event duration: about 32.4 seconds
 
 The Reviewer inspected the final state and confirmed that `preview_order` reused `_normalize_customer_id`, preserved return/quantity semantics, and had focused coverage. It did not mutate the repository.
 
-## Patch equivalence
+### Patch equivalence and overhead
 
-The baseline and candidate produced the same implementation/test diff:
+Baseline and candidate produced the same implementation/test diff:
 
 - one call to `_normalize_customer_id` added to `preview_order`;
 - tests added for normalization, blank ID, and non-string ID;
 - no unrelated changes.
 
-So in this sample the assurance candidate did **not** alter implementation trajectory or cause review-driven rework.
-
-## Incremental cost
-
-Compared with the released policy:
+Compared with baseline:
 
 - total input tokens: 98,932 → 103,367 (**+4.5%**);
 - additional reviewer input/output: 3,864 / 465;
 - Main input remained essentially flat (98,932 → 99,503);
 - model calls: 7 → 8;
-- one fresh read-only Reviewer was added.
+- wall-clock/event-stream duration increased by roughly 15 seconds in this sample.
 
-The large percentage increase in total output tokens is not itself a useful cost signal here because absolute output volumes are small and the candidate final report explicitly includes the review result. Input/reviewer tokens and wall-clock should remain the primary overhead measures for subsequent samples.
+This is a useful trade-off signal: token overhead was modest, but latency overhead was not negligible.
 
-## What this sample supports
+## Run B — minimal late-review candidate
 
-It supports three narrow claims:
+The second candidate deliberately kept the public investigation vocabulary `SIMPLE / STANDARD / DEEP`. It changed the instructions to say explicitly that complexity mode controls investigation only and added a late gate requiring one fresh Reviewer for non-trivial mutation.
 
-1. A clear local task can remain a single-Main implementation while a late fresh Reviewer is invoked reliably.
-2. The independent pass can be added with modest incremental input-token overhead in at least one real Copilot run.
-3. Separating assurance from implementation complexity does not inherently require competing mutation owners or pre-implementation planning ceremony.
+### Released-policy baseline
 
-## What this sample does **not** prove
+Observed route:
 
-- It does not prove that an always-on Reviewer improves correctness. Both variants were already correct.
-- It does not prove that the full new routing vocabulary is needed; a smaller change to the existing SIMPLE/STANDARD/DEEP contract may achieve the same adherence.
-- It does not establish reviewer precision on difficult patches. Earlier forced-review samples included one materially incorrect finding, so false-positive pressure remains a release concern.
-- It does not justify a target Reviewer invocation rate.
+`Mode: SIMPLE — direct Luna`
 
-## Next comparison
+- Agent invocations: 1
+- Reviewer invocations: 0
+- Model calls: 5
+- Tool calls: 7
+- OTel input/output tokens: 68,330 / 790
+- Visible repository tests: PASS
+- Hidden evaluation: PASS
 
-Compare this full two-axis candidate against a **minimal late-review candidate** that keeps `SIMPLE / STANDARD / DEEP` intact but makes two changes explicit:
+### Minimal late-review candidate
 
-1. the complexity mode governs investigation only, not the whole trajectory;
-2. a late assurance gate requires one fresh Reviewer for non-trivial completed mutation regardless of initial mode.
+Observed route:
 
-If the minimal candidate achieves the same Reviewer adherence and similar quality/cost, prefer the smaller product/mental-model change. Independently test broad-scoping reclassification; do not use Reviewer policy as a substitute for Architect/context-isolation routing.
+`Mode: SIMPLE — direct Luna`
+
+- Agent invocations: 1
+- Reviewer invocations: **0**
+- Model calls: 5
+- Tool calls: 8
+- OTel input/output tokens: 66,178 / 933
+- Visible repository tests: PASS
+- Hidden evaluation: PASS
+
+The candidate produced the same correct diff as its baseline but **did not execute the explicitly required late Reviewer**. Its final response reported the implementation and tests and ended without an assurance pass.
+
+## Cross-run interpretation
+
+The first two live candidate runs support a more specific hypothesis than “review instructions need to be stronger”:
+
+> **An early `SIMPLE — direct Luna` trajectory label may act as a strong global frame. A later textual review rule can be ignored even when it says the Reviewer is required. Making assurance a first-class state at the initial route decision may materially improve adherence.**
+
+This is consistent with earlier v1.0 mutation observations where automatic Reviewer invocation was 0/2 despite the released contract already saying non-trivial completed changes should receive one Luna Reviewer.
+
+However, one run per candidate is not enough to distinguish a real prompt-structure effect from stochastic model behavior.
+
+## What these samples support
+
+1. A clear local task can remain a single-Main implementation while a late fresh Reviewer is added without changing the patch.
+2. A first-class `DIRECT + REVIEW` state produced the intended review behavior once with modest token overhead.
+3. Merely appending a strong late-review gate to the existing `SIMPLE` framing did **not** produce the intended behavior in its first live run.
+4. Reviewer latency matters even when Luna token cost is small.
+5. Neither run proves correctness improvement: all baseline/candidate patches passed visible and hidden evaluation before review.
+
+## What remains unresolved
+
+- Reviewer precision on harder patches. Earlier forced-review evidence includes one materially incorrect finding, so increased invocation alone is not success.
+- Whether the full vocabulary rename to `DIRECT / ISOLATE / DEEP` is necessary.
+- Whether a middle policy can preserve familiar `SIMPLE / STANDARD / DEEP` investigation labels while declaring assurance as a first-class state up front, for example `Mode: SIMPLE | Assurance: REVIEW`.
+- Whether the adherence difference repeats across multiple runs of the same controlled task.
+- Broad-scouting reclassification remains a separate problem and must not be hidden by assurance changes.
+
+## Next experiment
+
+Run a small adherence replication on the same controlled task:
+
+- full direct-assurance candidate, additional repetitions;
+- minimal late-review candidate, additional repetitions;
+- a middle candidate that keeps `SIMPLE / STANDARD / DEEP` for investigation but **declares `NONE / REVIEW / RISK` at initial routing time** and rechecks it after mutation.
+
+Measure Reviewer invocation reliability, patch equivalence, hidden correctness, tokens, and latency. Prefer the smallest policy that makes assurance reliable without increasing ceremony.
