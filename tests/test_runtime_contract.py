@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS_DIR = ROOT / "agents"
+WORKFLOWS_DIR = ROOT / ".github" / "workflows"
 
 
 def parse_frontmatter(path: Path) -> dict:
@@ -20,6 +22,38 @@ def parse_frontmatter(path: Path) -> dict:
     if not isinstance(data, dict):
         raise AssertionError(f"{path}: frontmatter must be a mapping")
     return data
+
+
+def workflow_on(workflow: Mapping) -> object:
+    """PyYAML 1.1 parses the GitHub Actions `on` key as the boolean True."""
+    return workflow.get("on", workflow.get(True))
+
+
+def workflow_triggers(workflow: Mapping) -> set[str]:
+    triggers = workflow_on(workflow)
+    if isinstance(triggers, Mapping):
+        return {str(trigger) for trigger in triggers}
+    if isinstance(triggers, list):
+        return {str(trigger) for trigger in triggers}
+    if isinstance(triggers, str):
+        return {triggers}
+    return set()
+
+
+def validate_paid_workflow(path: Path, workflow: Mapping) -> None:
+    permissions = workflow.get("permissions")
+    if not isinstance(permissions, Mapping) or permissions.get("copilot-requests") != "write":
+        return
+
+    triggers = workflow_triggers(workflow)
+    if "workflow_dispatch" not in triggers:
+        raise AssertionError(f"{path}: paid workflow must include workflow_dispatch")
+    automatic_triggers = triggers - {"workflow_dispatch"}
+    if automatic_triggers:
+        raise AssertionError(
+            f"{path}: paid workflow must be manual-only; found triggers "
+            f"{sorted(automatic_triggers)}"
+        )
 
 
 class RuntimeContractTests(unittest.TestCase):
@@ -58,6 +92,28 @@ class RuntimeContractTests(unittest.TestCase):
                         False,
                         f"{source_name}: premium handoff must remain explicit and non-auto-send",
                     )
+
+    def test_paid_workflows_are_manual_only(self) -> None:
+        for path in sorted(WORKFLOWS_DIR.glob("*.y*ml")):
+            workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+            self.assertIsInstance(workflow, dict, f"{path}: workflow must be a mapping")
+            validate_paid_workflow(path, workflow)
+
+    def test_automatic_paid_workflow_is_rejected_without_mutating_repository(self) -> None:
+        invalid_workflow = {
+            "on": {"push": {}, "workflow_dispatch": {}},
+            "permissions": {"contents": "read", "copilot-requests": "write"},
+        }
+
+        with self.assertRaises(AssertionError):
+            validate_paid_workflow(Path("<synthetic-invalid-workflow>"), invalid_workflow)
+
+    def test_non_paid_automatic_workflow_remains_allowed(self) -> None:
+        validation_workflow = yaml.safe_load(
+            (WORKFLOWS_DIR / "validate.yml").read_text(encoding="utf-8")
+        )
+
+        validate_paid_workflow(WORKFLOWS_DIR / "validate.yml", validation_workflow)
 
 
 if __name__ == "__main__":
