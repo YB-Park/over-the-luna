@@ -1,9 +1,9 @@
 name: v1.1 Copilot runtime probe
 
 on:
-  push:
-    branches:
-      - research/v1.1-runtime-baseline
+  pull_request:
+    types: [synchronize]
+    branches: [main]
     paths:
       - .github/workflows/v1_1_runtime_probe.yml
 
