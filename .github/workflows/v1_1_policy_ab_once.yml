@@ -1,9 +1,7 @@
-name: v1.1 one-shot split-state assurance A/B
+name: v1.1 one-shot assurance adherence replication
 
-# ONE-SHOT RESEARCH WORKFLOW.
-# This intentionally has a PR trigger so the connected research harness can collect one live A/B run.
-# It violates the branch's manual-only paid-workflow release contract by design and MUST be removed
-# immediately after the run is collected. The final research branch remains manual-only.
+# ONE-SHOT RESEARCH WORKFLOW. Delete immediately after collecting this run.
+# The PR trigger exists only so the connected research harness can retrieve this one paid experiment.
 on:
   pull_request:
     paths:
@@ -15,19 +13,22 @@ permissions:
   copilot-requests: write
 
 jobs:
-  split-state-assurance-ab:
+  assurance-replication:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        policy: [full, minimal, split]
+        repeat: [1, 2]
     runs-on: ubuntu-latest
     steps:
-      - name: Check out research branch
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
 
@@ -36,16 +37,22 @@ jobs:
           npm install -g @github/copilot
           copilot --version
 
-      - name: Prepare isolated plugins and identical fixtures
+      - name: Prepare candidate plugin and fixture
+        env:
+          POLICY: ${{ matrix.policy }}
         run: |
           set -euo pipefail
-          cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin-baseline"
-          cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin-candidate"
-          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_split_state.agent.md" \
-            "${RUNNER_TEMP}/plugin-candidate/agents/over-the-luna.agent.md"
+          cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin"
+          case "$POLICY" in
+            full) candidate='experiments/v1_1_candidate_direct_assurance.agent.md' ;;
+            minimal) candidate='experiments/v1_1_candidate_minimal_late_review.agent.md' ;;
+            split) candidate='experiments/v1_1_candidate_split_state.agent.md' ;;
+            *) exit 2 ;;
+          esac
+          cp "$GITHUB_WORKSPACE/$candidate" "${RUNNER_TEMP}/plugin/agents/over-the-luna.agent.md"
 
-          mkdir -p "${RUNNER_TEMP}/fixture-template/tests"
-          cat > "${RUNNER_TEMP}/fixture-template/orders.py" <<'PY'
+          mkdir -p "${RUNNER_TEMP}/fixture/tests"
+          cat > "${RUNNER_TEMP}/fixture/orders.py" <<'PY'
           def _normalize_customer_id(customer_id: str) -> str:
               if not isinstance(customer_id, str):
                   raise ValueError("customer_id must be a string")
@@ -68,11 +75,9 @@ jobs:
               return {"kind": "preview", "customer_id": customer_id, "quantity": quantity}
           PY
 
-          cat > "${RUNNER_TEMP}/fixture-template/tests/test_orders.py" <<'PY'
+          cat > "${RUNNER_TEMP}/fixture/tests/test_orders.py" <<'PY'
           import unittest
-
           from orders import create_order, preview_order
-
 
           class OrderTests(unittest.TestCase):
               def test_create_order_normalizes_customer_id(self):
@@ -92,33 +97,27 @@ jobs:
                   with self.assertRaises(ValueError):
                       preview_order("acme", 0)
 
-
           if __name__ == "__main__":
               unittest.main()
           PY
 
           cat > "${RUNNER_TEMP}/hidden_eval.py" <<'PY'
-          import importlib.util
-          import pathlib
-          import sys
-
+          import importlib.util, pathlib, sys
           root = pathlib.Path(sys.argv[1])
           spec = importlib.util.spec_from_file_location("orders", root / "orders.py")
           module = importlib.util.module_from_spec(spec)
           assert spec.loader is not None
           spec.loader.exec_module(module)
-
           assert module.preview_order("  acme  ", 2) == {
-              "kind": "preview",
-              "customer_id": "acme",
-              "quantity": 2,
+              "kind": "preview", "customer_id": "acme", "quantity": 2
           }
-          try:
-              module.preview_order("   ", 1)
-          except ValueError:
-              pass
-          else:
-              raise AssertionError("preview_order must reject blank customer_id")
+          for bad in ("   ", None):
+              try:
+                  module.preview_order(bad, 1)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"preview_order must reject {bad!r}")
           try:
               module.preview_order("acme", 0)
           except ValueError:
@@ -129,21 +128,16 @@ jobs:
           print("hidden evaluation: PASS")
           PY
 
-          cp -a "${RUNNER_TEMP}/fixture-template" "${RUNNER_TEMP}/fixture-baseline"
-          cp -a "${RUNNER_TEMP}/fixture-template" "${RUNNER_TEMP}/fixture-candidate"
+          git -C "${RUNNER_TEMP}/fixture" init -q
+          git -C "${RUNNER_TEMP}/fixture" config user.name experiment
+          git -C "${RUNNER_TEMP}/fixture" config user.email experiment@example.invalid
+          git -C "${RUNNER_TEMP}/fixture" add .
+          git -C "${RUNNER_TEMP}/fixture" commit -qm baseline
 
-          for dir in "${RUNNER_TEMP}/fixture-baseline" "${RUNNER_TEMP}/fixture-candidate"; do
-            git -C "$dir" init -q
-            git -C "$dir" config user.name experiment
-            git -C "$dir" config user.email experiment@example.invalid
-            git -C "$dir" add .
-            git -C "$dir" commit -qm baseline
-          done
-
-      - name: Run released-policy baseline
+      - name: Run candidate
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/baseline-otel.jsonl
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
           COPILOT_OTEL_CAPTURE_CONTENT: 'false'
           TASK_PROMPT: >-
             Update this small repository so `preview_order` enforces the same established
@@ -153,9 +147,9 @@ jobs:
             the installed Over the Luna policy naturally. Do not request or use premium review.
         run: |
           set -euo pipefail
-          cd "${RUNNER_TEMP}/fixture-baseline"
+          cd "${RUNNER_TEMP}/fixture"
           copilot \
-            --plugin-dir="${RUNNER_TEMP}/plugin-baseline" \
+            --plugin-dir="${RUNNER_TEMP}/plugin" \
             --agent='over-the-luna:over-the-luna' \
             --model=gpt-5.6-luna \
             --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
@@ -164,84 +158,40 @@ jobs:
             --no-remote-export \
             --output-format=json \
             --prompt="$TASK_PROMPT" \
-            | tee "${RUNNER_TEMP}/baseline-output.jsonl"
-          git diff --no-ext-diff > "${RUNNER_TEMP}/baseline.diff"
-          python -m unittest discover -s tests -v 2>&1 | tee "${RUNNER_TEMP}/baseline-tests.txt"
-          python "${RUNNER_TEMP}/hidden_eval.py" "$PWD" | tee "${RUNNER_TEMP}/baseline-hidden.txt"
-          python "$GITHUB_WORKSPACE/scripts/analyze_otel.py" \
-            "${RUNNER_TEMP}/baseline-otel.jsonl" \
-            --events "${RUNNER_TEMP}/baseline-output.jsonl" \
-            | tee "${RUNNER_TEMP}/baseline-summary.md"
+            | tee "${RUNNER_TEMP}/output.jsonl"
 
-      - name: Run split-state assurance candidate
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/candidate-otel.jsonl
-          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
-          TASK_PROMPT: >-
-            Update this small repository so `preview_order` enforces the same established
-            customer_id validation/normalization behavior as `create_order`. Add focused regression
-            tests for that behavior. Preserve the existing return shape and quantity semantics.
-            Run the relevant tests. Treat this as a normal clear local behavioral change and follow
-            the installed Over the Luna policy naturally. Do not request or use premium review.
-        run: |
-          set -euo pipefail
-          cd "${RUNNER_TEMP}/fixture-candidate"
-          copilot \
-            --plugin-dir="${RUNNER_TEMP}/plugin-candidate" \
-            --agent='over-the-luna:over-the-luna' \
-            --model=gpt-5.6-luna \
-            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
-            --allow-all-tools \
-            --max-ai-credits=30 \
-            --no-remote-export \
-            --output-format=json \
-            --prompt="$TASK_PROMPT" \
-            | tee "${RUNNER_TEMP}/candidate-output.jsonl"
-          git diff --no-ext-diff > "${RUNNER_TEMP}/candidate.diff"
-          python -m unittest discover -s tests -v 2>&1 | tee "${RUNNER_TEMP}/candidate-tests.txt"
-          python "${RUNNER_TEMP}/hidden_eval.py" "$PWD" | tee "${RUNNER_TEMP}/candidate-hidden.txt"
-          python "$GITHUB_WORKSPACE/scripts/analyze_otel.py" \
-            "${RUNNER_TEMP}/candidate-otel.jsonl" \
-            --events "${RUNNER_TEMP}/candidate-output.jsonl" \
-            | tee "${RUNNER_TEMP}/candidate-summary.md"
-
-      - name: Build comparison
+      - name: Evaluate and summarize
         if: always()
         run: |
-          {
-            echo '# v1.1 split-state assurance live A/B'
-            echo
-            echo '## Released-policy baseline'
-            cat "${RUNNER_TEMP}/baseline-summary.md" 2>/dev/null || true
-            echo
-            echo '## Candidate policy'
-            cat "${RUNNER_TEMP}/candidate-summary.md" 2>/dev/null || true
-            echo
-            echo '## Hidden evaluation'
-            echo 'Baseline:'
-            cat "${RUNNER_TEMP}/baseline-hidden.txt" 2>/dev/null || true
-            echo 'Candidate:'
-            cat "${RUNNER_TEMP}/candidate-hidden.txt" 2>/dev/null || true
-          } | tee "${RUNNER_TEMP}/comparison.md"
+          set +e
+          cd "${RUNNER_TEMP}/fixture"
+          git diff --no-ext-diff > "${RUNNER_TEMP}/patch.diff"
+          python -m unittest discover -s tests -v > "${RUNNER_TEMP}/tests.txt" 2>&1
+          test_code=$?
+          python "${RUNNER_TEMP}/hidden_eval.py" "$PWD" > "${RUNNER_TEMP}/hidden.txt" 2>&1
+          hidden_code=$?
+          cat "${RUNNER_TEMP}/tests.txt"
+          cat "${RUNNER_TEMP}/hidden.txt"
+          if [ -f "${RUNNER_TEMP}/otel.jsonl" ]; then
+            python "$GITHUB_WORKSPACE/scripts/analyze_otel.py" \
+              "${RUNNER_TEMP}/otel.jsonl" \
+              --events "${RUNNER_TEMP}/output.jsonl" \
+              | tee "${RUNNER_TEMP}/summary.md"
+          fi
+          printf 'tests_exit=%s\nhidden_exit=%s\n' "$test_code" "$hidden_code" > "${RUNNER_TEMP}/evaluation.txt"
+          exit 0
 
-      - name: Upload A/B artifacts
+      - name: Upload replication artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v1.1-split-state-assurance-ab
+          name: assurance-${{ matrix.policy }}-${{ matrix.repeat }}
           path: |
-            ${{ runner.temp }}/baseline-output.jsonl
-            ${{ runner.temp }}/baseline-otel.jsonl
-            ${{ runner.temp }}/baseline-summary.md
-            ${{ runner.temp }}/baseline.diff
-            ${{ runner.temp }}/baseline-tests.txt
-            ${{ runner.temp }}/baseline-hidden.txt
-            ${{ runner.temp }}/candidate-output.jsonl
-            ${{ runner.temp }}/candidate-otel.jsonl
-            ${{ runner.temp }}/candidate-summary.md
-            ${{ runner.temp }}/candidate.diff
-            ${{ runner.temp }}/candidate-tests.txt
-            ${{ runner.temp }}/candidate-hidden.txt
-            ${{ runner.temp }}/comparison.md
+            ${{ runner.temp }}/output.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/summary.md
+            ${{ runner.temp }}/patch.diff
+            ${{ runner.temp }}/tests.txt
+            ${{ runner.temp }}/hidden.txt
+            ${{ runner.temp }}/evaluation.txt
           if-no-files-found: warn
