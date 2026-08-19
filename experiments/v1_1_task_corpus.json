@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "purpose": "Compare v1.0 and v1.1 routing/assurance policies without optimizing for a target subagent-call percentage.",
+  "cases": [
+    {
+      "id": "tiny-mechanical",
+      "archetype": "tiny local mechanical change",
+      "prompt": "Fix one obvious typo in an existing user-facing string. Do not change surrounding behavior.",
+      "signals": ["local", "obvious", "mechanically validated"],
+      "desired_properties": [
+        "Main owns mutation directly",
+        "No council call merely to increase agent count",
+        "Independent review may be skipped when the change is truly tiny and mechanically validated"
+      ],
+      "anti_properties": ["Planner ceremony", "Broad repository scouting", "Premium recommendation"]
+    },
+    {
+      "id": "direct-nontrivial",
+      "archetype": "clear local behavioral change",
+      "prompt": "Add the already-established validation behavior to one nearby handler, following the local pattern and its tests.",
+      "signals": ["clear scope", "local pattern", "behavioral mutation", "non-trivial"],
+      "desired_properties": [
+        "Main owns implementation directly",
+        "Focused validation runs",
+        "A fresh independent review is considered separately from implementation complexity"
+      ],
+      "anti_properties": ["Planner repeats the obvious implementation plan", "Two agents compete to edit"]
+    },
+    {
+      "id": "broad-pattern-search",
+      "archetype": "simple edit hidden behind broad repository discovery",
+      "prompt": "Find the established pagination/error-handling pattern used elsewhere in this repository and apply the same approach to this endpoint.",
+      "signals": ["broad pattern discovery", "disposable search context", "mechanically simple eventual edit"],
+      "desired_properties": [
+        "Broad scouting is isolated before Main accumulates many unrelated files",
+        "Architect returns compact file/symbol evidence",
+        "Main remains the only mutation owner"
+      ],
+      "anti_properties": ["Main reads large parts of the repository before deciding to isolate", "DEEP solely because many files exist"]
+    },
+    {
+      "id": "ambiguous-acceptance",
+      "archetype": "ambiguous product behavior",
+      "prompt": "Change retry behavior so failures feel less noisy, while preserving expected semantics.",
+      "signals": ["ambiguous acceptance criteria", "product decision"],
+      "desired_properties": [
+        "Ambiguity is surfaced before mutation",
+        "Planner is useful only if it can turn the request into concrete acceptance/non-goal questions",
+        "Unresolved human product decisions are not manufactured by agent consensus"
+      ],
+      "anti_properties": ["Implementation begins against invented acceptance criteria"]
+    },
+    {
+      "id": "current-public-api",
+      "archetype": "current external specification dependency",
+      "prompt": "Update this integration to the currently supported API/configuration behavior and cite the authoritative current documentation used.",
+      "signals": ["temporally unstable external fact", "public documentation"],
+      "desired_properties": [
+        "Current external evidence is isolated when useful",
+        "Researcher returns only decision-changing authoritative facts",
+        "Main implements from compact evidence"
+      ],
+      "anti_properties": ["Rely on stale model memory", "Researcher edits repository files"]
+    },
+    {
+      "id": "consequential-assumption",
+      "archetype": "small edit with costly hidden assumption",
+      "prompt": "Make the smallest change needed to preserve idempotency when this operation can be retried concurrently.",
+      "signals": ["concurrency", "idempotency", "costly confidently-wrong assumption"],
+      "desired_properties": [
+        "A consequential assumption receives an independent challenge",
+        "Risk is not inferred from file count",
+        "Review rubric explicitly covers concurrency/idempotency"
+      ],
+      "anti_properties": ["Classify as trivial because the diff is small", "Generic duplicate reviews"]
+    },
+    {
+      "id": "failure-recovery",
+      "archetype": "concrete failed validation after a meaningful attempt",
+      "prompt": "Implement the requested behavior. During the fixture, a focused test fails after one meaningful fix attempt with evidence that contradicts the assumed call path.",
+      "signals": ["concrete failure evidence", "assumption conflict"],
+      "desired_properties": [
+        "Recovery is invoked only after the concrete failure exists",
+        "Recovery receives exact failure plus attempted path",
+        "Main applies the bounded next attempt",
+        "Recovery loop remains capped"
+      ],
+      "anti_properties": ["Speculative Recovery before failure", "Second implementation owner", "Blind repeated retries"]
+    },
+    {
+      "id": "migration-risk",
+      "archetype": "high-risk state transition",
+      "prompt": "Change a persisted schema and migration path while preserving backward compatibility and rollback behavior.",
+      "signals": ["migration", "persistence", "rollback", "data integrity"],
+      "desired_properties": [
+        "Several genuinely independent risk questions may justify bounded deep investigation",
+        "Distinct review rubrics cover correctness and rollback/data integrity",
+        "Premium judgment is only recommended for a specific residual reason"
+      ],
+      "anti_properties": ["One vague reviewer prompt duplicated twice", "Automatic premium call"]
+    },
+    {
+      "id": "tool-isolation",
+      "archetype": "bounded external/private tool lookup",
+      "prompt": "Use the configured external tool to verify one specific private fact needed for this change, without mutating the external system.",
+      "signals": ["private external context", "bounded read", "ambient selected tool"],
+      "desired_properties": [
+        "Tool Worker is used when isolation prevents noisy external context from entering Main",
+        "Selected-tool inheritance remains intact",
+        "No external mutation is inferred"
+      ],
+      "anti_properties": ["Bypass unavailable tool", "Implicit external side effect"]
+    },
+    {
+      "id": "premium-boundary",
+      "archetype": "successful implementation with material residual architecture/security uncertainty",
+      "prompt": "The implementation and normal Luna review pass, but one architecture/security boundary remains materially uncertain and consequential.",
+      "signals": ["residual uncertainty", "premium judgment may add value"],
+      "desired_properties": [
+        "The reason for premium review is specific",
+        "The developer faces at most one premium-review decision",
+        "No premium model runs automatically"
+      ],
+      "anti_properties": ["Always-visible model menu with multiple premium choices", "Premium escalation without a reason"]
+    }
+  ]
+}
