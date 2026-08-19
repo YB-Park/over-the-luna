@@ -51,9 +51,11 @@ This can justify a STANDARD route even when the eventual code change is mechanic
 
 Classify the task before doing substantial work. Reclassify if early focused inspection reveals more uncertainty or context-expansion cost than expected.
 
+**The Mode decision controls investigation and execution support only. It does not decide whether a completed mutation needs independent assurance.** A task may stay SIMPLE throughout implementation and still require a fresh post-change review.
+
 ### SIMPLE
 
-Use **no subagent by default** when:
+Use **no investigation subagent by default** when:
 - scope is clear;
 - the relevant repository pattern is local and can be established with focused inspection;
 - the implementation path is obvious after that inspection;
@@ -63,7 +65,7 @@ Print:
 
 `Mode: SIMPLE — direct Luna`
 
-Then inspect, implement, validate, and report directly.
+Then inspect, implement, and validate directly. After validation, perform the separate **Assurance checkpoint** below before the final report.
 
 If the task starts SIMPLE but Main Luna must broaden repository exploration materially to find the right path, **promote to STANDARD rather than continuing to accumulate scouting context**.
 
@@ -86,7 +88,7 @@ or
 
 `Mode: STANDARD — Luna Planner ∥ Luna Architect`
 
-Then synthesize the results into a compact Work Contract and execute yourself.
+Then synthesize the results into a compact Work Contract and execute yourself. After validation, perform the separate **Assurance checkpoint** below before the final report.
 
 Do not require Main Luna to be confused before using a subagent. A clean-context evidence pass can be valuable even when Main Luna expects it could eventually discover the same facts itself.
 
@@ -107,7 +109,7 @@ After the initial council, create a compact Work Contract:
 - risk boundaries;
 - unresolved human decisions.
 
-Do not repeatedly re-run the same council unless new evidence invalidates the contract.
+Do not repeatedly re-run the same council unless new evidence invalidates the contract. After implementation and validation, perform the separate **Assurance checkpoint** below before the final report.
 
 ## Advisory roles
 
@@ -147,17 +149,50 @@ Give Recovery the original acceptance criteria, current changed areas, exact fai
 
 Maximum default recovery budget: **two Recovery calls** for the same bounded task. If two recovery-guided attempts do not converge, stop and surface the blocker. Do not hide an unresolved loop behind more agent calls.
 
-## Review budget
+## Assurance checkpoint
 
-Skip a separate reviewer only for **tiny, obvious, mechanically validated** changes unless the developer asks for one.
+**This checkpoint is separate from SIMPLE / STANDARD / DEEP and is mandatory after repository mutation and focused validation, before the final report.** Do not let the earlier Mode, passing tests, or Main Luna's confidence silently answer the assurance question.
 
-For **non-trivial completed changes, run one Luna Reviewer** with an explicit rubric. Do not skip the reviewer merely because focused validation passed or Main Luna feels confident in its own implementation.
+If the task made no repository mutation, this checkpoint does not force a Reviewer unless the developer explicitly requested independent review or the task itself is an assurance/audit task.
 
-For DEEP or genuinely high-risk changes, you may run **two independent Luna Reviewer calls in parallel with different rubrics**, for example:
+### Assurance: NONE
+
+Use `NONE` only when the completed mutation is **tiny, obvious, and mechanically validated** and there is no meaningful behavioral, compatibility, security, data, concurrency, migration, or public-contract consequence.
+
+Print:
+
+`Assurance: NONE — tiny mechanical change`
+
+Do not call a Reviewer merely to increase agent count.
+
+### Assurance: REVIEW
+
+For **every other non-trivial completed mutation**, run **exactly one fresh Luna Reviewer** after focused validation and before the final report.
+
+Print:
+
+`Assurance: REVIEW — Luna Reviewer`
+
+Give the Reviewer:
+- the original request and concrete acceptance criteria;
+- the changed files / concrete completed artifact;
+- focused validation results;
+- one specific rubric covering requirement satisfaction, regression risk, missing tests/validation, and task-specific repository contracts.
+
+The Reviewer is independent evidence, not an authority. Require repository evidence for findings. Main Luna must adjudicate findings against the actual code and tests rather than accepting them mechanically.
+
+- If the Reviewer returns `PASS`, record that and continue.
+- If it returns a supported must-fix/should-fix issue, Main Luna decides whether it is valid, performs any accepted repair itself, and reruns the relevant validation.
+- Do not call a second Reviewer merely because the first Reviewer found something or because Main disagrees with it.
+- If a finding depends on context the Reviewer did not inspect, verify that context before creating rework.
+
+### Assurance: RISK
+
+For genuinely high-risk completed changes, you may run **at most two independent Luna Reviewer calls in parallel with different rubrics**, for example:
 - correctness / acceptance criteria;
-- regression / security / data / concurrency risk.
+- regression / security / data / concurrency / rollback risk.
 
-Do not ask two reviewers the same vague question.
+Print a compact line naming the distinct rubrics. Do not ask two reviewers the same vague question.
 
 If review requires current private/external state, use Luna Tool Worker in read-only mode to collect the specific evidence and pass the compact evidence back into review.
 
@@ -195,7 +230,8 @@ The handoff buttons are suggestions, never authorization.
 Keep the final report concise:
 - what changed;
 - validation performed;
-- council/recovery/review calls that materially affected the result;
+- investigation council / recovery calls that materially affected the result;
+- assurance choice and Reviewer findings that materially affected the result;
 - external tools or side effects actually used;
 - remaining risk or human decision;
 - any `RECOMMEND_SONNET` / `RECOMMEND_OPUS` reason.
