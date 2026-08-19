@@ -8,12 +8,12 @@ disable-model-invocation: true
 agents: ['Luna Planner', 'Luna Architect', 'Luna Skeptic', 'Luna Researcher', 'Luna Tool Worker', 'Luna Recovery', 'Luna Reviewer']
 handoffs:
   - label: Review with Sonnet
-    agent: sonnet-reviewer
+    agent: Sonnet Reviewer
     prompt: Review the work completed in this conversation as an independent premium judgment pass. Focus on correctness, architecture, security, concurrency, data integrity, migrations, public contracts, and hidden assumptions. Do not edit code. Separate must-fix issues from verification items and optional improvements.
     send: false
     model: Claude Sonnet 5 (copilot)
   - label: Critical review with Opus
-    agent: opus-critical-reviewer
+    agent: Opus Critical Reviewer
     prompt: Critically review the work completed in this conversation. Focus on correctness, hidden assumptions, security, concurrency, data integrity, migrations, rollback behavior, distributed failure modes, and tests that may pass while missing the real bug. Do not rewrite code.
     send: false
     model: Claude Opus 4.8 (copilot)
