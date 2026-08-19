@@ -1,0 +1,69 @@
+name: v1.1 Copilot runtime probe
+
+on:
+  push:
+    branches:
+      - research/v1.1-runtime-baseline
+    paths:
+      - .github/workflows/v1_1_runtime_probe.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install latest Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Show Copilot CLI version
+        run: copilot --version
+
+      - name: Run read-only Over the Luna probe
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/over-the-luna-probe-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          copilot \
+            --plugin-dir=. \
+            --agent='Over the Luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,grep,glob,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=1 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt='READ-ONLY RUNTIME PROBE. Do not modify files or run shell commands. Determine how this repository currently validates custom-agent metadata, then propose the smallest regression check that would catch a handoff whose target does not resolve to an actual custom-agent name. Inspect only what you need. Follow the installed Over the Luna routing instructions normally: print the Mode line, use a council subagent only if the current rules genuinely justify it, and report which files/symbols support the conclusion.' \
+            | tee "${{ runner.temp }}/over-the-luna-probe-output.jsonl"
+
+      - name: Summarize OTel trace
+        if: always()
+        run: |
+          if [ -f "${{ runner.temp }}/over-the-luna-probe-otel.jsonl" ]; then
+            python scripts/analyze_otel.py "${{ runner.temp }}/over-the-luna-probe-otel.jsonl" \
+              | tee "${{ runner.temp }}/over-the-luna-probe-summary.md"
+          else
+            echo 'OTel trace file was not produced.' | tee "${{ runner.temp }}/over-the-luna-probe-summary.md"
+          fi
+
+      - name: Upload probe artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.1-runtime-probe
+          path: |
+            ${{ runner.temp }}/over-the-luna-probe-output.jsonl
+            ${{ runner.temp }}/over-the-luna-probe-otel.jsonl
+            ${{ runner.temp }}/over-the-luna-probe-summary.md
+          if-no-files-found: warn
