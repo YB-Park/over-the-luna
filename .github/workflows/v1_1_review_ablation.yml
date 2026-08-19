@@ -1,8 +1,13 @@
 name: v1.1 fresh Luna review ablation
 
-# Paid experiment. Manual-only by design.
+# Temporary one-shot trigger for the second bounded ablation. Revert to
+# workflow_dispatch immediately after the artifact is captured.
 on:
-  workflow_dispatch:
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+    paths:
+      - .github/workflows/v1_1_review_ablation.yml
 
 permissions:
   contents: read
@@ -37,14 +42,15 @@ jobs:
           COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/main-otel.jsonl
           COPILOT_OTEL_CAPTURE_CONTENT: 'false'
           TASK_PROMPT: >-
-            V1.1 CONTROLLED MUTATION EXPERIMENT. Work only in scripts/analyze_otel.py and
-            tests/test_analyze_otel.py unless a tiny adjacent change is strictly required.
-            Improve the OTel experiment analyzer so execute_tool spans are attributed to the
-            nearest invoking agent, not only counted globally. Preserve the existing global tool
-            totals. Expose Main-versus-Council tool counts and the agent that owns the first detected
-            mutation tool in machine-readable and Markdown summaries. Reuse the existing span-parent
-            traversal rather than inventing a second ownership model. Add focused regression tests
-            proving Main and Council tool attribution and mutation ownership. Run the focused tests.
+            V1.1 CONTROLLED MUTATION EXPERIMENT. Add a focused repository runtime contract that
+            prevents accidental automatic execution of paid Copilot workflows. Any workflow under
+            .github/workflows that requests `copilot-requests: write` must be manual-only:
+            `workflow_dispatch` must be present and automatic/event triggers such as push,
+            pull_request, schedule, or workflow_run must be rejected. Add regression coverage that
+            proves a representative invalid automatic-trigger workflow would fail without modifying
+            a real workflow as part of the test. Keep the implementation focused in
+            tests/test_runtime_contract.py unless a tiny reusable helper is genuinely needed.
+            Existing non-paid validation workflows must remain unaffected. Run the focused tests.
             Follow the installed Over the Luna routing/review policy normally; do not add Council
             calls merely because this is an experiment. Do not use or request premium review.
         run: |
@@ -96,18 +102,20 @@ jobs:
           V1.1 REVIEW ABLATION. This is an independent read-only review of an exact completed patch.
 
           Original requirement:
-          Improve scripts/analyze_otel.py so execute_tool spans are attributed to the nearest invoking
-          agent while preserving global tool totals. Expose Main-vs-Council tool counts and the owner
-          of the first mutation tool in JSON and Markdown. Reuse existing parent traversal and add
-          focused regression tests.
+          Add a runtime contract for .github/workflows: any workflow requesting
+          `permissions.copilot-requests: write` must include `workflow_dispatch` and reject automatic
+          triggers such as push, pull_request, schedule, or workflow_run. Regression coverage must
+          prove a representative invalid workflow is rejected without mutating a real workflow.
+          Non-paid validation workflows must remain unaffected.
 
           Rubric:
-          1. requirement/correctness;
-          2. attribution correctness for Main versus nested Council spans;
-          3. backward compatibility of existing summary fields/output;
-          4. regression-test adequacy;
-          5. false ownership or mutation attribution edge cases.
+          1. semantic correctness of paid-workflow detection;
+          2. trigger parsing correctness for real GitHub Actions YAML;
+          3. negative regression test actually proves the guard can fail;
+          4. no false positives for non-paid workflows;
+          5. maintainability and scope.
 
+          Inspect repository evidence when the diff depends on unchanged helper/parser behavior.
           Do not edit files or run commands. Do not recommend premium review. Return PASS or only
           concrete actionable findings, and distinguish must-fix from should-fix.
 
@@ -163,7 +171,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v1.1-review-ablation
+          name: v1.1-review-ablation-paid-workflow-guard
           path: |
             ${{ runner.temp }}/main-output.jsonl
             ${{ runner.temp }}/main-otel.jsonl
