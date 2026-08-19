@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Summarize VS Code Copilot OTel JSONL for Over the Luna experiments.
+"""Summarize VS Code/Copilot OTel JSONL for Over the Luna experiments.
 
-The VS Code Copilot file exporter writes one JSON-serialized ReadableSpan per line.
-This script intentionally uses only standard/observed GenAI attributes and tolerates
-minor shape differences between OpenTelemetry SDK versions.
+The VS Code/Copilot file exporter writes JSON-serialized spans. Content capture is
+kept off by default, so an optional Copilot event JSONL file can be supplied only
+to recover user-visible routing markers such as ``Mode: SIMPLE`` without putting
+prompt contents into the telemetry trace itself.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
@@ -24,8 +25,6 @@ ATTR_AGENT = "gen_ai.agent.name"
 ATTR_MODEL_REQUEST = "gen_ai.request.model"
 ATTR_MODEL_RESPONSE = "gen_ai.response.model"
 ATTR_TOOL = "gen_ai.tool.name"
-ATTR_CONVERSATION = "gen_ai.conversation.id"
-ATTR_CHAT_SESSION = "copilot_chat.chat_session_id"
 ATTR_INPUT = "gen_ai.usage.input_tokens"
 ATTR_OUTPUT = "gen_ai.usage.output_tokens"
 ATTR_CACHE_READ = "gen_ai.usage.cache_read.input_tokens"
@@ -33,6 +32,14 @@ ATTR_CACHE_CREATE = "gen_ai.usage.cache_creation.input_tokens"
 ATTR_REASONING = "gen_ai.usage.reasoning_tokens"
 
 REVIEW_AGENT_HINTS = ("reviewer", "review")
+MAIN_AGENT_NAMES = {
+    "main",
+    "agent",
+    "copilot",
+    "over the luna",
+    "over-the-luna",
+    "over-the-luna:over-the-luna",
+}
 MUTATION_TOOL_HINTS = (
     "apply_patch",
     "create",
@@ -42,6 +49,7 @@ MUTATION_TOOL_HINTS = (
     "replace_string",
     "write",
 )
+ROUTING_MODES = ("DEEP", "STANDARD", "SIMPLE", "DIRECT", "ISOLATE")
 
 
 @dataclass
@@ -266,17 +274,55 @@ def load_spans(path: Path) -> list[Span]:
     return spans
 
 
-def detect_mode(spans: Iterable[Span]) -> str:
-    haystack = "\n".join(json.dumps(span.raw, ensure_ascii=False) for span in spans)
-    for mode in ("DEEP", "STANDARD", "SIMPLE", "DIRECT", "ISOLATE"):
-        if f"Mode: {mode}" in haystack:
+def detect_mode_text(text: str) -> str:
+    for mode in ROUTING_MODES:
+        if f"Mode: {mode}" in text:
             return mode
     return "UNKNOWN"
+
+
+def detect_mode(spans: Iterable[Span]) -> str:
+    haystack = "\n".join(json.dumps(span.raw, ensure_ascii=False) for span in spans)
+    return detect_mode_text(haystack)
+
+
+def detect_mode_from_events(path: Path) -> str:
+    """Recover the visible mode marker from Copilot CLI event JSONL.
+
+    The event stream is intentionally kept separate from OTel so OTel content
+    capture can remain disabled. We only inspect assistant message text here.
+    """
+    chunks: list[str] = []
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{path}:{line_number}: invalid event JSON: {exc}") from exc
+        if not isinstance(event, dict):
+            continue
+        event_type = event.get("type")
+        data = event.get("data")
+        if event_type not in {"assistant.message", "assistant.message_delta"} or not isinstance(data, dict):
+            continue
+        value = data.get("content") if event_type == "assistant.message" else data.get("deltaContent")
+        if isinstance(value, str):
+            chunks.append(value)
+    return detect_mode_text("".join(chunks))
 
 
 def is_mutation_tool(name: str) -> bool:
     lowered = name.lower()
     return any(hint in lowered for hint in MUTATION_TOOL_HINTS)
+
+
+def is_main_agent(name: str) -> bool:
+    normalized = name.strip().lower()
+    if normalized in MAIN_AGENT_NAMES:
+        return True
+    # Copilot CLI plugin agents use <plugin>:<agent-id> while VS Code exposes the display name.
+    return normalized.endswith(":over-the-luna")
 
 
 def nearest_agent(span: Span, by_span_id: dict[str, Span]) -> str:
@@ -293,8 +339,8 @@ def nearest_agent(span: Span, by_span_id: dict[str, Span]) -> str:
     return "main"
 
 
-def summarize(spans: list[Span]) -> Summary:
-    summary = Summary(span_count=len(spans), mode=detect_mode(spans))
+def summarize(spans: list[Span], *, mode_override: str | None = None) -> Summary:
+    summary = Summary(span_count=len(spans), mode=mode_override or detect_mode(spans))
     by_span_id = {span.span_id: span for span in spans if span.span_id}
 
     roots = [span for span in spans if span.operation == OP_INVOKE_AGENT and not span.parent_span_id]
@@ -332,7 +378,7 @@ def summarize(spans: list[Span]) -> Summary:
         model_usage = summary.by_model_tokens.setdefault(model, TokenUsage())
         model_usage.add_span(span)
 
-        if agent == "main" or agent.lower() in {"over the luna", "copilot", "agent"}:
+        if is_main_agent(agent):
             summary.main_tokens.add_span(span)
         else:
             summary.council_tokens.add_span(span)
@@ -373,12 +419,18 @@ def render_markdown(summary: Summary) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("trace", type=Path, help="VS Code Copilot OTel JSONL file")
+    parser.add_argument("trace", type=Path, help="VS Code/Copilot OTel JSONL file")
+    parser.add_argument(
+        "--events",
+        type=Path,
+        help="optional Copilot CLI event JSONL used only to recover visible Mode markers",
+    )
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     args = parser.parse_args()
 
     spans = load_spans(args.trace)
-    summary = summarize(spans)
+    mode_override = detect_mode_from_events(args.events) if args.events else None
+    summary = summarize(spans, mode_override=mode_override if mode_override != "UNKNOWN" else None)
     if args.json:
         print(json.dumps(summary.to_dict(), indent=2, ensure_ascii=False))
     else:
