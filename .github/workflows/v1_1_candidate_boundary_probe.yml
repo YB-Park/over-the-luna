@@ -1,0 +1,120 @@
+name: v1.1 candidate assurance boundary probe
+
+# ONE-SHOT RESEARCH TRIGGER. Delete immediately after jobs are queued.
+# The temporary automatic paid trigger is intentionally caught by the repository guard.
+on:
+  pull_request:
+    types: [synchronize]
+    branches: ['research/v1.1-runtime-baseline']
+    paths:
+      - .github/workflows/v1_1_candidate_boundary_probe.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  candidate:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: tiny-doc
+            prompt: >-
+              V1.1 CONTROLLED MUTATION EXPERIMENT. In
+              experiments/ASSURANCE_CANDIDATE_2026-08-19.md, change only the heading
+              `## Controlled comparison task` to `## Controlled comparison task — Sample 1`.
+              Do not alter any other wording or behavior. Verify the exact diff. Follow the installed
+              Over the Luna routing and assurance instructions normally. Do not add Council calls
+              merely because this is an experiment. Do not use or request premium review.
+          - case: assurance-detection
+            prompt: >-
+              V1.1 CONTROLLED MUTATION EXPERIMENT. Work only in scripts/analyze_otel.py and
+              tests/test_analyze_otel.py unless a tiny adjacent change is strictly required.
+              Extend the OTel experiment analyzer so the optional Copilot CLI event stream can recover
+              a visible post-mutation assurance marker (`Assurance: NONE`, `Assurance: REVIEW`, or
+              `Assurance: RISK`) independently from the existing Mode marker. Expose assurance in the
+              Summary machine-readable output and Markdown. Preserve existing Mode behavior and OTel
+              content-capture-off design. Add focused regression tests for chunked event text and the
+              UNKNOWN/default case. Run the focused analyzer tests. Follow the installed Over the Luna
+              routing and assurance instructions normally. Do not add Council calls merely because
+              this is an experiment. Do not use or request premium review.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install 'PyYAML==6.0.2'
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Preserve baseline analyzer
+        run: cp scripts/analyze_otel.py "${{ runner.temp }}/baseline-analyze-otel.py"
+
+      - name: Run candidate policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/candidate-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          TASK_PROMPT: ${{ matrix.prompt }}
+        run: |
+          set -o pipefail
+          copilot \
+            --plugin-dir=. \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$TASK_PROMPT" \
+            | tee "${{ runner.temp }}/candidate-output.jsonl"
+
+      - name: Capture artifact
+        if: always()
+        run: |
+          git diff --no-ext-diff > "${{ runner.temp }}/candidate.diff"
+          git status --short > "${{ runner.temp }}/candidate-status.txt"
+          set +e
+          python -m unittest tests.test_analyze_otel -v > "${{ runner.temp }}/focused-validation.txt" 2>&1
+          echo "$?" > "${{ runner.temp }}/focused-validation.exit"
+          cat "${{ runner.temp }}/focused-validation.txt"
+          exit 0
+
+      - name: Summarize trace with preserved analyzer
+        if: always()
+        run: |
+          if [ -f "${{ runner.temp }}/candidate-otel.jsonl" ]; then
+            python "${{ runner.temp }}/baseline-analyze-otel.py" \
+              "${{ runner.temp }}/candidate-otel.jsonl" \
+              --events "${{ runner.temp }}/candidate-output.jsonl" \
+              | tee "${{ runner.temp }}/candidate-summary.md"
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.1-candidate-boundary-${{ matrix.case }}
+          path: |
+            ${{ runner.temp }}/candidate-output.jsonl
+            ${{ runner.temp }}/candidate-otel.jsonl
+            ${{ runner.temp }}/candidate-summary.md
+            ${{ runner.temp }}/candidate.diff
+            ${{ runner.temp }}/candidate-status.txt
+            ${{ runner.temp }}/focused-validation.txt
+            ${{ runner.temp }}/focused-validation.exit
+          if-no-files-found: warn
