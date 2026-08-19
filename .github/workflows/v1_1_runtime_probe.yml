@@ -1,11 +1,15 @@
 name: v1.1 Copilot runtime probe
 
+# Paid/runtime probes are deliberately manual-only. Do not attach this workflow
+# to push or pull_request events: repository validation is the always-on gate,
+# while Copilot probes are evidence-gathering experiments.
 on:
-  pull_request:
-    types: [synchronize]
-    branches: [main]
-    paths:
-      - .github/workflows/v1_1_runtime_probe.yml
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Read-only probe prompt'
+        required: false
+        default: 'READ-ONLY RUNTIME PROBE. Do not modify files or run shell commands. Determine how this repository currently validates custom-agent metadata, then propose the smallest regression check that would catch a handoff whose target does not resolve to an actual custom-agent name. Inspect only what you need. Follow the installed Over the Luna routing instructions normally: print the Mode line, use a council subagent only if the current rules genuinely justify it, and report which files/symbols support the conclusion.'
 
 permissions:
   contents: read
@@ -34,25 +38,32 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/over-the-luna-probe-otel.jsonl
           COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          PROBE_PROMPT: ${{ inputs.prompt }}
         run: |
           set -o pipefail
           copilot \
             --plugin-dir=. \
             --agent='over-the-luna:over-the-luna' \
             --model=gpt-5.6-luna \
-            --available-tools='view,grep,glob,task,list_agents,read_agent' \
+            --available-tools='view,glob,task,list_agents,read_agent' \
             --allow-all-tools \
             --max-ai-credits=30 \
             --no-remote-export \
             --output-format=json \
-            --prompt='READ-ONLY RUNTIME PROBE. Do not modify files or run shell commands. Determine how this repository currently validates custom-agent metadata, then propose the smallest regression check that would catch a handoff whose target does not resolve to an actual custom-agent name. Inspect only what you need. Follow the installed Over the Luna routing instructions normally: print the Mode line, use a council subagent only if the current rules genuinely justify it, and report which files/symbols support the conclusion.' \
+            --prompt="$PROBE_PROMPT" \
             | tee "${{ runner.temp }}/over-the-luna-probe-output.jsonl"
 
       - name: Summarize OTel trace
         if: always()
         run: |
           if [ -f "${{ runner.temp }}/over-the-luna-probe-otel.jsonl" ]; then
-            python scripts/analyze_otel.py "${{ runner.temp }}/over-the-luna-probe-otel.jsonl" \
+            EVENTS_ARG=()
+            if [ -f "${{ runner.temp }}/over-the-luna-probe-output.jsonl" ]; then
+              EVENTS_ARG=(--events "${{ runner.temp }}/over-the-luna-probe-output.jsonl")
+            fi
+            python scripts/analyze_otel.py \
+              "${{ runner.temp }}/over-the-luna-probe-otel.jsonl" \
+              "${EVENTS_ARG[@]}" \
               | tee "${{ runner.temp }}/over-the-luna-probe-summary.md"
           else
             echo 'OTel trace file was not produced.' | tee "${{ runner.temp }}/over-the-luna-probe-summary.md"
