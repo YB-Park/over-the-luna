@@ -1,0 +1,190 @@
+name: v1.1 one-shot dependency-closure Reviewer replication
+
+# ONE-SHOT PAID RESEARCH WORKFLOW. Delete after artifact collection.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v1_1_dependency_review_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  copilot-requests: write
+
+jobs:
+  dependency-review:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        repeat: [1, 2]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install 'PyYAML==6.0.2'
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Download fixed completed-patch artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bounded-mutation-boundary
+          path: ${{ runner.temp }}/source-artifact
+          github-token: ${{ github.token }}
+          repository: YB-Park/over-the-luna
+          run-id: 32230688692
+
+      - name: Prepare exact reviewed fixture and dependency Reviewer
+        env:
+          FIXTURE_SHA: fcf0c568ba5bf41f69f6c9594359842c473d8946
+        run: |
+          set -euo pipefail
+          git worktree add --detach "${RUNNER_TEMP}/fixture" "$FIXTURE_SHA"
+          git -C "${RUNNER_TEMP}/fixture" apply "${RUNNER_TEMP}/source-artifact/candidate.diff"
+          cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin"
+          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_dependency_reviewer.agent.md" \
+             "${RUNNER_TEMP}/plugin/agents/luna-reviewer.agent.md"
+          git -C "${RUNNER_TEMP}/fixture" diff --no-ext-diff > "${RUNNER_TEMP}/exact.diff"
+
+      - name: Capture visible validation evidence
+        run: |
+          set +e
+          cd "${RUNNER_TEMP}/fixture"
+          python -m unittest discover -s tests -v > "${RUNNER_TEMP}/validation.txt" 2>&1
+          echo "$?" > "${RUNNER_TEMP}/validation.exit"
+          python scripts/validate_plugin.py >> "${RUNNER_TEMP}/validation.txt" 2>&1
+          echo "$?" > "${RUNNER_TEMP}/plugin-validation.exit"
+          set -e
+
+      - name: Build identical review prompt
+        run: |
+          {
+            cat <<'EOF'
+          V1.1 EXACT-PATCH REVIEW ABLATION. Perform one independent read-only review of this completed patch.
+
+          Original requirement / acceptance criteria:
+          Integrate standalone tool-ownership analysis into scripts/analyze_otel.py without breaking
+          existing consumers. Preserve the existing top-level global `tools` counts. Add top-level JSON
+          `tool_ownership` with `main`, `council`, and `by_agent` maps attributed to the nearest invoking
+          agent. Orphan tool spans count as Main. Add Markdown `## Tool ownership`.
+          Make scripts/analyze_tool_ownership.py reuse the same ownership implementation while preserving
+          its existing `main`, `leaf`, and `by_agent` JSON contract. Add focused nested-leaf and
+          orphan/Main regressions.
+
+          Rubric:
+          1. semantic correctness of nearest-agent ownership;
+          2. compatibility of existing analyzer and standalone consumers/imports;
+          3. global `tools` behavior remains unchanged;
+          4. JSON/Markdown contracts are coherent;
+          5. focused tests meaningfully cover the requested behavior.
+
+          The exact completed patch and visible validation evidence follow. Do not edit files, run commands,
+          delegate, or request premium review. Return PASS or only concrete actionable findings.
+
+          Visible validation:
+          EOF
+            cat "${RUNNER_TEMP}/validation.txt"
+            echo
+            echo 'Exact completed patch:'
+            cat "${RUNNER_TEMP}/exact.diff"
+          } > "${RUNNER_TEMP}/review-prompt.txt"
+
+      - name: Run exactly one dependency-closure Reviewer
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set -o pipefail
+          cd "${RUNNER_TEMP}/fixture"
+          copilot \
+            --plugin-dir="${RUNNER_TEMP}/plugin" \
+            --agent='over-the-luna:luna-reviewer' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$(cat "${RUNNER_TEMP}/review-prompt.txt")" \
+            | tee "${RUNNER_TEMP}/output.jsonl"
+
+      - name: Classify review output
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          messages = []
+          path = Path(os.environ['RUNNER_TEMP']) / 'output.jsonl'
+          if path.exists():
+              for line in path.read_text(encoding='utf-8').splitlines():
+                  try:
+                      event = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get('type') == 'assistant.message':
+                      data = event.get('data')
+                      if isinstance(data, dict) and isinstance(data.get('content'), str):
+                          messages.append(data['content'])
+          text = max(messages, key=len) if messages else ''
+          lowered = text.lower()
+          trace_signal = ('trace' in lowered and ('span id' in lowered or 'span_id' in lowered or 'trace_id' in lowered))
+          dependency_marker = 'dependencies_checked:' in lowered
+          speculative_reexport = ('re-export' in lowered or 'reexport' in lowered or 'op_execute_tool' in lowered)
+          result = [
+              f'cross_trace_signal={str(trace_signal).lower()}',
+              f'dependency_marker={str(dependency_marker).lower()}',
+              f'speculative_reexport_signal={str(speculative_reexport).lower()}',
+              f'final_message_chars={len(text)}',
+          ]
+          (Path(os.environ['RUNNER_TEMP']) / 'review-signals.txt').write_text('\n'.join(result) + '\n', encoding='utf-8')
+          PY
+
+      - name: Summarize trace and prove read-only
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/otel.jsonl" ]; then
+            python "$GITHUB_WORKSPACE/scripts/analyze_otel.py" \
+              "${RUNNER_TEMP}/otel.jsonl" --events "${RUNNER_TEMP}/output.jsonl" \
+              > "${RUNNER_TEMP}/summary.md"
+            python "$GITHUB_WORKSPACE/scripts/analyze_tool_ownership.py" \
+              "${RUNNER_TEMP}/otel.jsonl" > "${RUNNER_TEMP}/tool-ownership.json"
+          fi
+          git -C "${RUNNER_TEMP}/fixture" diff --no-ext-diff > "${RUNNER_TEMP}/post-review.diff"
+          cmp -s "${RUNNER_TEMP}/exact.diff" "${RUNNER_TEMP}/post-review.diff"
+
+      - name: Upload dependency-review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-review-${{ matrix.repeat }}
+          path: |
+            ${{ runner.temp }}/output.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/summary.md
+            ${{ runner.temp }}/tool-ownership.json
+            ${{ runner.temp }}/review-signals.txt
+            ${{ runner.temp }}/validation.txt
+            ${{ runner.temp }}/validation.exit
+            ${{ runner.temp }}/plugin-validation.exit
+            ${{ runner.temp }}/exact.diff
+            ${{ runner.temp }}/post-review.diff
+            ${{ runner.temp }}/review-prompt.txt
+          if-no-files-found: warn
