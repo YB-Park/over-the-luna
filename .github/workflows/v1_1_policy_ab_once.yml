@@ -1,4 +1,4 @@
-name: v1.1 one-shot policy A/B
+name: v1.1 one-shot minimal late-review A/B
 
 # ONE-SHOT RESEARCH WORKFLOW.
 # This intentionally has a PR trigger so the connected research harness can collect one live A/B run.
@@ -15,7 +15,7 @@ permissions:
   copilot-requests: write
 
 jobs:
-  direct-assurance-ab:
+  minimal-late-review-ab:
     runs-on: ubuntu-latest
     steps:
       - name: Check out research branch
@@ -41,7 +41,7 @@ jobs:
           set -euo pipefail
           cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin-baseline"
           cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin-candidate"
-          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_direct_assurance.agent.md" \
+          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_minimal_late_review.agent.md" \
             "${RUNNER_TEMP}/plugin-candidate/agents/over-the-luna.agent.md"
 
           mkdir -p "${RUNNER_TEMP}/fixture-template/tests"
@@ -173,7 +173,7 @@ jobs:
             --events "${RUNNER_TEMP}/baseline-output.jsonl" \
             | tee "${RUNNER_TEMP}/baseline-summary.md"
 
-      - name: Run v1.1 direct-assurance candidate
+      - name: Run minimal late-review candidate
         env:
           GITHUB_TOKEN: ${{ github.token }}
           COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/candidate-otel.jsonl
@@ -210,7 +210,7 @@ jobs:
         if: always()
         run: |
           {
-            echo '# v1.1 direct-assurance live A/B'
+            echo '# v1.1 minimal late-review live A/B'
             echo
             echo '## Released-policy baseline'
             cat "${RUNNER_TEMP}/baseline-summary.md" 2>/dev/null || true
@@ -229,7 +229,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v1.1-direct-assurance-ab
+          name: v1.1-minimal-late-review-ab
           path: |
             ${{ runner.temp }}/baseline-output.jsonl
             ${{ runner.temp }}/baseline-otel.jsonl
