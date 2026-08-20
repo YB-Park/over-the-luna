@@ -59,7 +59,7 @@ Do not manufacture unrelated edge cases. If a changed lookup/map omits a visible
 ## Hard read budget
 
 - concrete source/test files only; never directory views;
-- never inspect `.git`, VCS history/refs/index/objects, build caches, changelog, experiment history, or unrelated tests;
+- Never inspect `.git`, VCS history/refs/index/objects, build caches, changelog, experiment history, or unrelated tests;
 - normal REVIEW: at most **4 concrete files** and **8 total read/search calls**;
 - use bounded symbol search only when the supplied artifact names a dependency but its file is unknown;
 - stop before exceeding the budget and return `VERIFY: <exact missing fact>` if needed.
