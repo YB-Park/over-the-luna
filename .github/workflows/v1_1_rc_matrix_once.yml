@@ -1,0 +1,112 @@
+name: v1.1 one-shot automated-core RC matrix
+on:
+  pull_request:
+    paths: ['.github/workflows/v1_1_rc_matrix_once.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  rc:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        case: [tiny, local, broad, risk]
+        repeat: [1, 2]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v6
+        with: {node-version: '22'}
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+      - name: Prepare RC and fixture
+        run: |
+          set -euo pipefail
+          cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin"
+          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_rc.agent.md" "${RUNNER_TEMP}/plugin/agents/over-the-luna.agent.md"
+          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_architect_packet_v3.agent.md" "${RUNNER_TEMP}/plugin/agents/luna-architect.agent.md"
+          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_invariant_reviewer_v2.agent.md" "${RUNNER_TEMP}/plugin/agents/luna-reviewer.agent.md"
+          python "$GITHUB_WORKSPACE/experiments/v1_1_release_gate_fixture.py" prepare \
+            --case '${{ matrix.case }}' --root "${RUNNER_TEMP}/fixture" --task-file "${RUNNER_TEMP}/task.txt"
+          cd "${RUNNER_TEMP}/fixture"
+          git init -q
+          git config user.name fixture
+          git config user.email fixture@example.invalid
+          git add .
+          git commit -qm baseline
+      - name: Run RC trajectory
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set -o pipefail
+          cd "${RUNNER_TEMP}/fixture"
+          copilot --plugin-dir="${RUNNER_TEMP}/plugin" --agent='over-the-luna:over-the-luna' --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' --allow-all-tools \
+            --max-ai-credits=30 --no-remote-export --output-format=json --prompt="$(cat "${RUNNER_TEMP}/task.txt")" \
+            | tee "${RUNNER_TEMP}/output.jsonl"
+      - name: Capture and validate
+        if: always()
+        run: |
+          set +e
+          git -C "${RUNNER_TEMP}/fixture" diff --no-ext-diff > "${RUNNER_TEMP}/candidate.diff"
+          git -C "${RUNNER_TEMP}/fixture" status --short > "${RUNNER_TEMP}/status.txt"
+          cd "${RUNNER_TEMP}/fixture"
+          python -m unittest discover -s tests -v > "${RUNNER_TEMP}/visible.txt" 2>&1
+          echo $? > "${RUNNER_TEMP}/visible.exit"
+          python "$GITHUB_WORKSPACE/experiments/v1_1_release_gate_fixture.py" hidden \
+            --case '${{ matrix.case }}' --root "${RUNNER_TEMP}/fixture" > "${RUNNER_TEMP}/hidden.txt" 2>&1
+          echo $? > "${RUNNER_TEMP}/hidden.exit"
+          exit 0
+      - name: Analyze RC policy
+        if: always()
+        run: |
+          set +e
+          if [ -f "${RUNNER_TEMP}/otel.jsonl" ] && [ -f "${RUNNER_TEMP}/output.jsonl" ]; then
+            python "$GITHUB_WORKSPACE/scripts/analyze_otel.py" \
+              "${RUNNER_TEMP}/otel.jsonl" --events "${RUNNER_TEMP}/output.jsonl" > "${RUNNER_TEMP}/summary.md"
+            python "$GITHUB_WORKSPACE/scripts/analyze_tool_ownership.py" \
+              "${RUNNER_TEMP}/otel.jsonl" > "${RUNNER_TEMP}/ownership.json"
+            python "$GITHUB_WORKSPACE/experiments/v1_1_release_gate_evaluator_rc.py" \
+              --case '${{ matrix.case }}' --events "${RUNNER_TEMP}/output.jsonl" --ownership "${RUNNER_TEMP}/ownership.json" \
+              > "${RUNNER_TEMP}/policy.txt" 2>&1
+            echo $? > "${RUNNER_TEMP}/policy.exit"
+          else
+            echo "missing trajectory artifacts" > "${RUNNER_TEMP}/policy.txt"
+            echo 99 > "${RUNNER_TEMP}/policy.exit"
+          fi
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-${{ matrix.case }}-${{ matrix.repeat }}
+          path: |
+            ${{ runner.temp }}/task.txt
+            ${{ runner.temp }}/output.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/candidate.diff
+            ${{ runner.temp }}/status.txt
+            ${{ runner.temp }}/visible.txt
+            ${{ runner.temp }}/visible.exit
+            ${{ runner.temp }}/hidden.txt
+            ${{ runner.temp }}/hidden.exit
+            ${{ runner.temp }}/summary.md
+            ${{ runner.temp }}/ownership.json
+            ${{ runner.temp }}/policy.txt
+            ${{ runner.temp }}/policy.exit
+          if-no-files-found: warn
+      - name: Enforce automated-core RC gate
+        if: always()
+        run: |
+          visible="$(cat "${RUNNER_TEMP}/visible.exit" 2>/dev/null || echo 99)"
+          hidden="$(cat "${RUNNER_TEMP}/hidden.exit" 2>/dev/null || echo 99)"
+          policy="$(cat "${RUNNER_TEMP}/policy.exit" 2>/dev/null || echo 99)"
+          echo "visible=$visible hidden=$hidden policy=$policy"
+          test "$visible" = 0
+          test "$hidden" = 0
+          test "$policy" = 0
