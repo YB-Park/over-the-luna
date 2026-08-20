@@ -1,0 +1,73 @@
+name: v1.1 one-shot explicit Opus availability probe
+
+# ONE-SHOT PAID PREMIUM RESEARCH WORKFLOW. Delete immediately after artifact collection.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v1_1_opus_explicit_probe_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  explicit-opus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version | tee "${RUNNER_TEMP}/copilot-version.txt"
+      - name: Run explicit Opus 4.8 model probe
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set +e
+          mkdir -p "${RUNNER_TEMP}/empty-workspace"
+          cd "${RUNNER_TEMP}/empty-workspace"
+          start="$(date +%s)"
+          copilot \
+            --model=claude-opus-4.8 \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt='Return exactly OPUS_OK and nothing else. Do not use tools.' \
+            > "${RUNNER_TEMP}/output.jsonl" 2> "${RUNNER_TEMP}/stderr.txt"
+          code=$?
+          end="$(date +%s)"
+          echo "$code" > "${RUNNER_TEMP}/copilot.exit"
+          echo "$((end-start))" > "${RUNNER_TEMP}/elapsed-seconds.txt"
+          cat "${RUNNER_TEMP}/output.jsonl" || true
+          cat "${RUNNER_TEMP}/stderr.txt" >&2 || true
+          exit 0
+      - name: Summarize trace
+        if: always()
+        run: |
+          set +e
+          if [ -s "${RUNNER_TEMP}/otel.jsonl" ]; then
+            python scripts/analyze_otel.py "${RUNNER_TEMP}/otel.jsonl" --json \
+              > "${RUNNER_TEMP}/trace-summary.json" 2> "${RUNNER_TEMP}/trace-summary.err"
+          fi
+          exit 0
+      - name: Upload probe artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: explicit-opus-probe
+          path: |
+            ${{ runner.temp }}/copilot-version.txt
+            ${{ runner.temp }}/output.jsonl
+            ${{ runner.temp }}/stderr.txt
+            ${{ runner.temp }}/copilot.exit
+            ${{ runner.temp }}/elapsed-seconds.txt
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/trace-summary.json
+            ${{ runner.temp }}/trace-summary.err
+          if-no-files-found: warn
