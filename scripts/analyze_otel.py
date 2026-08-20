@@ -99,6 +99,9 @@ class Span:
         return value if isinstance(value, str) else "unknown"
 
 
+SpanKey = tuple[str | None, str]
+
+
 @dataclass
 class TokenUsage:
     input: int = 0
@@ -325,12 +328,29 @@ def is_main_agent(name: str) -> bool:
     return normalized.endswith(":over-the-luna")
 
 
-def nearest_agent(span: Span, by_span_id: dict[str, Span]) -> str:
+def span_key(span: Span) -> SpanKey | None:
+    if not span.span_id:
+        return None
+    return (span.trace_id, span.span_id)
+
+
+def parent_key(span: Span) -> SpanKey | None:
+    if not span.parent_span_id:
+        return None
+    # OTel parent/child relationships remain inside one trace, so the child's
+    # trace identity qualifies the parent span ID.
+    return (span.trace_id, span.parent_span_id)
+
+
+def nearest_agent(span: Span, by_span_key: dict[SpanKey, Span]) -> str:
     cursor = span
-    visited: set[str] = set()
-    while cursor.parent_span_id and cursor.parent_span_id not in visited:
-        visited.add(cursor.parent_span_id)
-        parent = by_span_id.get(cursor.parent_span_id)
+    visited: set[SpanKey] = set()
+    while True:
+        key = parent_key(cursor)
+        if key is None or key in visited:
+            break
+        visited.add(key)
+        parent = by_span_key.get(key)
         if parent is None:
             break
         if parent.operation == OP_INVOKE_AGENT:
@@ -341,17 +361,17 @@ def nearest_agent(span: Span, by_span_id: dict[str, Span]) -> str:
 
 def summarize(spans: list[Span], *, mode_override: str | None = None) -> Summary:
     summary = Summary(span_count=len(spans), mode=mode_override or detect_mode(spans))
-    by_span_id = {span.span_id: span for span in spans if span.span_id}
+    by_span_key = {key: span for span in spans if (key := span_key(span)) is not None}
 
     roots = [span for span in spans if span.operation == OP_INVOKE_AGENT and not span.parent_span_id]
-    root_ids = {span.span_id for span in roots if span.span_id}
+    root_keys = {key for span in roots if (key := span_key(span)) is not None}
 
     for span in spans:
         if span.operation == OP_INVOKE_AGENT:
             summary.invoke_agent_count += 1
             agent = span.agent_name or "unknown"
             summary.agents[agent] += 1
-            if span.span_id not in root_ids:
+            if span_key(span) not in root_keys:
                 summary.subagent_count += 1
             if any(hint in agent.lower() for hint in REVIEW_AGENT_HINTS):
                 summary.reviewer_invocations += 1
@@ -370,7 +390,7 @@ def summarize(spans: list[Span], *, mode_override: str | None = None) -> Summary
 
         summary.chat_count += 1
         summary.total_tokens.add_span(span)
-        agent = nearest_agent(span, by_span_id)
+        agent = nearest_agent(span, by_span_key)
         model = span.model
 
         agent_usage = summary.by_agent_tokens.setdefault(agent, TokenUsage())
