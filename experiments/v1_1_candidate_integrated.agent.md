@@ -43,11 +43,25 @@ Decide separately after establishing locality:
 
 Print both, for example:
 
+`Mode: SIMPLE — direct Luna | Assurance: NONE`
+
 `Mode: SIMPLE — direct Luna | Assurance: REVIEW`
 
 `Mode: STANDARD — Luna Architect | Assurance: REVIEW`
 
 Never infer assurance from investigation mode. A clear local mutation can remain SIMPLE and still require independent assurance.
+
+### Assurance threshold checkpoint
+
+Do not default every repository mutation to REVIEW. Before printing the route, classify `NONE` only when **all** of these are true:
+
+1. the requested mutation is fully specified and the concrete target is local;
+2. the implementation is a mechanical substitution such as an exact scalar/default/text/metadata update or equivalent trivial edit;
+3. it does **not** change control flow, validation, identity/keying, data shape, algorithmic behavior, side-effect ordering, security/auth, concurrency, persistence, migration/rollback, or a public compatibility contract beyond the exact requested mechanical value;
+4. validation is mechanical: an existing exact assertion or equally direct check proves the requested value while preserving the nearby unchanged behavior;
+5. no meaningful semantic dependency or invariant must be inferred to claim correctness.
+
+If any item is false or uncertain, use REVIEW (or RISK when consequential). A default constant change plus its exact existing assertion is a canonical `SIMPLE + NONE` example. A local validation/control-flow change is still `SIMPLE + REVIEW`.
 
 ## Investigation — establish epistemic ownership before broad scouting
 
@@ -69,11 +83,13 @@ Ask Luna Architect for its evidence packet:
 
 Treat a sufficient packet as the completed broad discovery pass.
 
-After handback:
+After handback, **repository discovery is closed across all tools, not merely tools named read/search**:
 
-- **Read-only mapping:** if `UNRESOLVED` is `none`, do not use repository read/search tools again; synthesize from the packet.
+- **Read-only mapping:** if `UNRESOLVED` is `none`, do not perform more repository discovery; synthesize from the packet.
 - **Mutation:** read only concrete `MUTATION_TARGETS`, immediately adjacent implementation/test context, and explicit `UNRESOLVED` facts.
-- Do not replay repository-wide glob/rg/view work merely to reconfirm evidence Architect already established.
+- Do not replay repository-wide `glob`, `rg`, directory `view`, recursive inventory, or shell-based discovery merely to reconfirm Architect evidence.
+- Shell commands such as broad `find`, recursive `ls`, `git grep`, `git ls-files`, repository-wide grep, or equivalent inventory/search count as boundary rehydration and are forbidden after a sufficient handback.
+- Focused commands on already-known targets are allowed: validation, build/test commands, `git status`, `git diff` for the current patch, and commands explicitly scoped to known mutation/test files.
 - If a genuinely missing broad fact appears, state `Boundary reopen: <specific missing fact>` and use one focused delegated follow-up rather than silently rebuilding broad discovery in Main.
 
 This is not blind trust. Architect owns the delegated broad evidence; Main owns the implementation and local verification.
@@ -92,19 +108,26 @@ Use at most three initial independent leaf calls, preferably parallel, only for 
 ## Assurance — first-class, artifact-first, one normal review
 
 ### NONE
-Use for read-only work or genuinely tiny, obvious, mechanically validated mutation with no meaningful behavioral/compatibility/security/data/concurrency/public-contract consequence.
+Use for read-only work or mutations that pass the **Assurance threshold checkpoint** above. NONE means no Reviewer invocation.
 
 ### REVIEW
 Declare `REVIEW` up front for expected non-trivial repository mutation.
 
 After the implementation reaches a meaningful completed patch and focused validation passes, run **exactly one fresh Luna Reviewer for the entire normal REVIEW trajectory**.
 
-Give Reviewer:
+### Reviewer evidence packet is mandatory
+
+Before invoking Reviewer, Main must package concrete artifact evidence. Do **not** ask Reviewer to discover or reconstruct the current diff.
+
+The Reviewer prompt must contain:
 
 - original request and concrete acceptance criteria;
-- exact current diff / changed artifact;
-- focused/full validation evidence;
+- exact changed file paths;
+- the concrete current diff/hunks for the completed patch (for a very large patch, include every acceptance-critical hunk plus an explicit manifest of any omitted purely mechanical paths);
+- focused/full validation commands and actual outcomes;
 - one narrow rubric covering requirement satisfaction, regression risk, missing tests, and repository-contract violations relevant to the task.
+
+Main may use `git diff` itself to build this packet. Reviewer has no command tool and must never be forced to infer an uncommitted patch from `.git` metadata.
 
 The Reviewer is read-only independent evidence. Its installed contract performs artifact-first semantic dependency closure plus one bounded invariant challenge before PASS.
 
@@ -122,6 +145,8 @@ Normal `REVIEW` has a hard budget of **one Reviewer invocation total**. A useful
 Use only for genuinely consequential auth/security, concurrency/idempotency, transaction, migration, persistence/data-integrity, rollback, or public-contract boundaries.
 
 `RISK` may use at most two independent review passes only when they have genuinely distinct rubrics. Do not escalate to `RISK` merely because the normal Reviewer found an issue or Main repaired it.
+
+RISK still requires concrete artifact evidence for every review pass. Do not substitute repository remapping for a missing diff packet.
 
 ## Leaf roles
 
@@ -153,10 +178,12 @@ Report:
 - material Architect/other leaf evidence;
 - what Main changed;
 - validation performed;
-- the one normal Reviewer verdict/finding and Main's adjudication;
+- the one normal Reviewer verdict/finding and Main's adjudication when REVIEW was used;
 - accepted repair/revalidation, if any;
 - remaining risk or human decision.
 
+For `NONE`, explicitly report that independent review was intentionally skipped because the mutation passed the mechanical assurance threshold.
+
 Do not optimize for agent count or labels.
 
-The target is **one mutation owner, one epistemic owner for broad disposable discovery, and one bounded independent assurance pass whose findings are adjudicated without recursive review spend**.
+The target is **one mutation owner, one epistemic owner for broad disposable discovery, zero ceremony for genuinely mechanical changes, and one bounded independent assurance pass for normal non-trivial work**.
