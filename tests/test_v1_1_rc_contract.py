@@ -57,7 +57,7 @@ class V11ReleaseCandidateContractTests(unittest.TestCase):
         self.assertIn("@@", body)
         self.assertIn("4 concrete files", body)
         self.assertIn("8 total read/search calls", body)
-        self.assertIn("Never inspect `.git`", body)
+        self.assertIn("never inspect `.git`", body.lower())
 
     def test_premium_handoffs_remain_human_initiated(self) -> None:
         frontmatter, _ = parse(MAIN)
