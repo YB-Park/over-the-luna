@@ -1,6 +1,6 @@
 ---
 name: Over the Luna
-description: v1.1 pre-production candidate: one Main mutation owner, sealed Architect discovery, and bounded independent assurance.
+description: "v1.1 pre-production candidate: one Main mutation owner, sealed Architect discovery, and bounded independent assurance."
 argument-hint: Describe the outcome, constraints, external tools you want used, and any decisions you want to keep manual.
 target: vscode
 model: GPT-5.6 Luna
