@@ -1,0 +1,462 @@
+name: v1.1 one-shot release gate matrix
+
+# ONE-SHOT PAID RESEARCH WORKFLOW. Delete after artifact collection.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v1_1_release_gate_matrix_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  release-gate:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        case: [tiny, local, broad, risk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Prepare integrated candidate plugin
+        run: |
+          set -euo pipefail
+          cp -a "$GITHUB_WORKSPACE" "${RUNNER_TEMP}/plugin"
+          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_integrated.agent.md" \
+             "${RUNNER_TEMP}/plugin/agents/over-the-luna.agent.md"
+          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_architect_packet.agent.md" \
+             "${RUNNER_TEMP}/plugin/agents/luna-architect.agent.md"
+          cp "$GITHUB_WORKSPACE/experiments/v1_1_candidate_invariant_reviewer.agent.md" \
+             "${RUNNER_TEMP}/plugin/agents/luna-reviewer.agent.md"
+
+      - name: Generate case fixture
+        env:
+          CASE_NAME: ${{ matrix.case }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import textwrap
+
+          case = os.environ['CASE_NAME']
+          root = Path(os.environ['RUNNER_TEMP']) / 'fixture'
+          root.mkdir(parents=True, exist_ok=True)
+
+          def write(path: str, content: str) -> None:
+              p = root / path
+              p.parent.mkdir(parents=True, exist_ok=True)
+              p.write_text(textwrap.dedent(content).lstrip(), encoding='utf-8')
+
+          if case == 'tiny':
+              write('app/__init__.py', '')
+              write('app/config.py', '''
+                  DEFAULT_PAGE_SIZE = 50
+
+                  def resolve_page_size(explicit: int | None = None) -> int:
+                      return DEFAULT_PAGE_SIZE if explicit is None else explicit
+              ''')
+              write('tests/test_config.py', '''
+                  import unittest
+                  from app.config import resolve_page_size
+
+                  class ConfigTests(unittest.TestCase):
+                      def test_default_page_size(self):
+                          self.assertEqual(resolve_page_size(), 50)
+
+                      def test_explicit_page_size_is_preserved(self):
+                          self.assertEqual(resolve_page_size(25), 25)
+
+                  if __name__ == '__main__':
+                      unittest.main()
+              ''')
+              task = '''
+              Change the default page size from 50 to 64 and update the exact regression test.
+              Preserve explicit page-size overrides and the public function signature. Run the focused/full tests.
+              Follow the installed Over the Luna policy naturally. Main remains the only mutation owner.
+              Do not use premium review.
+              '''
+
+          elif case == 'local':
+              write('client/__init__.py', '')
+              write('client/ids.py', '''
+                  def normalize_request_id(value: str) -> str:
+                      if not isinstance(value, str):
+                          raise TypeError('request_id must be a string')
+                      normalized = value.strip()
+                      if not normalized:
+                          raise ValueError('request_id must not be blank')
+                      return normalized
+              ''')
+              write('client/headers.py', '''
+                  from .ids import normalize_request_id
+
+                  def create_headers(token: str, request_id: str | None = None) -> dict[str, str]:
+                      headers = {'Authorization': f'Bearer {token}'}
+                      if request_id is not None:
+                          headers['X-Request-ID'] = normalize_request_id(request_id)
+                      return headers
+
+                  def update_headers(token: str, request_id: str | None = None) -> dict[str, str]:
+                      headers = {'Authorization': f'Bearer {token}'}
+                      if request_id:
+                          headers['X-Request-ID'] = request_id
+                      return headers
+              ''')
+              write('tests/test_headers.py', '''
+                  import unittest
+                  from client.headers import create_headers, update_headers
+
+                  class HeaderTests(unittest.TestCase):
+                      def test_create_normalizes_request_id(self):
+                          self.assertEqual(create_headers('t', '  abc  ')['X-Request-ID'], 'abc')
+
+                      def test_update_without_request_id_preserves_auth(self):
+                          self.assertEqual(update_headers('t'), {'Authorization': 'Bearer t'})
+
+                  if __name__ == '__main__':
+                      unittest.main()
+              ''')
+              task = '''
+              Align update_headers request-ID behavior with the established create_headers contract.
+              Explicit non-None IDs must use the shared normalization/validation behavior; blank IDs must be rejected;
+              absence must still omit X-Request-ID; Authorization behavior must not change. Add focused regression tests
+              and run the focused/full tests. Follow the installed Over the Luna policy naturally. Main remains the only
+              mutation owner. Do not use premium review.
+              '''
+
+          elif case == 'broad':
+              write('accounts/__init__.py', '')
+              write('accounts/core/__init__.py', '')
+              write('accounts/core/identity.py', '''
+                  def normalize_account_id(raw: str) -> str:
+                      if not isinstance(raw, str):
+                          raise TypeError('account_id must be a string')
+                      value = raw.strip().lower()
+                      if not value:
+                          raise ValueError('account_id must not be blank')
+                      return value
+              ''')
+              write('accounts/api.py', '''
+                  from .core.identity import normalize_account_id
+
+                  def account_resource(account_id: str) -> str:
+                      return f'/accounts/{normalize_account_id(account_id)}'
+              ''')
+              write('accounts/model.py', '''
+                  from dataclasses import dataclass
+
+                  @dataclass(frozen=True)
+                  class Event:
+                      account_id: str
+                      amount: int
+              ''')
+              write('accounts/storage.py', '''
+                  from .model import Event
+
+                  def load_rows(rows: list[tuple[str, int]]) -> list[Event]:
+                      return [Event(account_id, amount) for account_id, amount in rows]
+              ''')
+              write('accounts/reporting/__init__.py', '')
+              write('accounts/reporting/summary.py', '''
+                  from collections import OrderedDict
+                  from ..model import Event
+
+                  def summarize(events: list[Event]) -> list[tuple[str, int]]:
+                      totals: OrderedDict[str, int] = OrderedDict()
+                      for event in events:
+                          totals[event.account_id] = totals.get(event.account_id, 0) + event.amount
+                      return list(totals.items())
+              ''')
+              write('tests/test_accounts.py', '''
+                  import unittest
+                  from accounts.api import account_resource
+                  from accounts.model import Event
+                  from accounts.reporting.summary import summarize
+
+                  class AccountTests(unittest.TestCase):
+                      def test_resource_uses_canonical_identity(self):
+                          self.assertEqual(account_resource('  ACME  '), '/accounts/acme')
+
+                      def test_summary_preserves_first_seen_order(self):
+                          events = [Event('a', 1), Event('b', 2), Event('a', 3)]
+                          self.assertEqual(summarize(events), [('a', 4), ('b', 2)])
+
+                  if __name__ == '__main__':
+                      unittest.main()
+              ''')
+              task = '''
+              Fix exported account summaries so account identifiers equivalent under the repository's established
+              account-ID contract are grouped under the same canonical identity. Preserve order by first canonical
+              appearance and reject invalid identifiers exactly like account creation/resource handling. Discover where
+              the established identity contract lives rather than duplicating it. Add focused regression tests and run
+              the focused/full tests. Follow the installed Over the Luna policy naturally. Main remains the only mutation
+              owner. Do not use premium review.
+              '''
+
+          elif case == 'risk':
+              write('payments/__init__.py', '')
+              write('payments/service.py', '''
+                  class PaymentService:
+                      def __init__(self, charger):
+                          self._charger = charger
+                          self._receipts: dict[str, object] = {}
+
+                      def charge_once(self, idempotency_key: str, amount: int):
+                          existing = self._receipts.get(idempotency_key)
+                          if existing is not None:
+                              return existing
+                          receipt = self._charger.charge(amount)
+                          self._receipts[idempotency_key] = receipt
+                          return receipt
+              ''')
+              write('tests/test_service.py', '''
+                  import unittest
+                  from payments.service import PaymentService
+
+                  class Charger:
+                      def __init__(self):
+                          self.calls = 0
+                      def charge(self, amount):
+                          self.calls += 1
+                          return f'receipt-{self.calls}-{amount}'
+
+                  class PaymentTests(unittest.TestCase):
+                      def test_sequential_retry_is_idempotent(self):
+                          charger = Charger()
+                          service = PaymentService(charger)
+                          first = service.charge_once('k', 10)
+                          second = service.charge_once('k', 10)
+                          self.assertEqual(first, second)
+                          self.assertEqual(charger.calls, 1)
+
+                      def test_distinct_keys_charge_independently(self):
+                          charger = Charger()
+                          service = PaymentService(charger)
+                          service.charge_once('a', 10)
+                          service.charge_once('b', 10)
+                          self.assertEqual(charger.calls, 2)
+
+                  if __name__ == '__main__':
+                      unittest.main()
+              ''')
+              task = '''
+              Make PaymentService.charge_once linearizable for concurrent retries of the same idempotency key.
+              The external charger must be invoked at most once for a successful same-key operation and all concurrent
+              callers must observe the same receipt. A charger exception must not poison/cache the key so a later retry
+              can succeed. Preserve distinct-key and public API behavior. This is an idempotency/concurrency correctness
+              boundary. Add focused regression tests and run the focused/full tests. Follow the installed Over the Luna
+              policy naturally. Main remains the only mutation owner. Do not use premium review.
+              '''
+          else:
+              raise SystemExit(f'unknown case: {case}')
+
+          (Path(os.environ['RUNNER_TEMP']) / 'task.txt').write_text(textwrap.dedent(task).strip(), encoding='utf-8')
+          PY
+          cd "${RUNNER_TEMP}/fixture"
+          git init -q
+          git config user.name fixture
+          git config user.email fixture@example.invalid
+          git add .
+          git commit -qm baseline
+
+      - name: Run candidate trajectory
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set -o pipefail
+          cd "${RUNNER_TEMP}/fixture"
+          TASK_PROMPT="$(cat "${RUNNER_TEMP}/task.txt")"
+          copilot \
+            --plugin-dir="${RUNNER_TEMP}/plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$TASK_PROMPT" \
+            | tee "${RUNNER_TEMP}/output.jsonl"
+
+      - name: Capture final patch
+        if: always()
+        run: |
+          git -C "${RUNNER_TEMP}/fixture" diff --no-ext-diff > "${RUNNER_TEMP}/candidate.diff"
+          git -C "${RUNNER_TEMP}/fixture" status --short > "${RUNNER_TEMP}/fixture-status.txt"
+
+      - name: Run visible tests
+        if: always()
+        run: |
+          set +e
+          cd "${RUNNER_TEMP}/fixture"
+          python -m unittest discover -s tests -v > "${RUNNER_TEMP}/visible-tests.txt" 2>&1
+          echo "$?" > "${RUNNER_TEMP}/visible-tests.exit"
+          cat "${RUNNER_TEMP}/visible-tests.txt"
+          exit 0
+
+      - name: Run hidden acceptance oracle
+        if: always()
+        env:
+          CASE_NAME: ${{ matrix.case }}
+        run: |
+          set +e
+          cd "${RUNNER_TEMP}/fixture"
+          python - <<'PY' > "${RUNNER_TEMP}/hidden-tests.txt" 2>&1
+          import os
+          import threading
+          import time
+
+          case = os.environ['CASE_NAME']
+
+          if case == 'tiny':
+              from app.config import DEFAULT_PAGE_SIZE, resolve_page_size
+              assert DEFAULT_PAGE_SIZE == 64
+              assert resolve_page_size() == 64
+              assert resolve_page_size(25) == 25
+
+          elif case == 'local':
+              from client.headers import update_headers
+              assert update_headers('t', '  abc  ') == {
+                  'Authorization': 'Bearer t', 'X-Request-ID': 'abc'
+              }
+              assert update_headers('t') == {'Authorization': 'Bearer t'}
+              for bad in ('', '   '):
+                  try:
+                      update_headers('t', bad)
+                  except ValueError:
+                      pass
+                  else:
+                      raise AssertionError('blank request id was not rejected')
+
+          elif case == 'broad':
+              from accounts.model import Event
+              from accounts.reporting.summary import summarize
+              events = [
+                  Event('  ACME  ', 2),
+                  Event('beta', 4),
+                  Event('acme', 3),
+                  Event(' BETA ', 1),
+              ]
+              assert summarize(events) == [('acme', 5), ('beta', 5)]
+              try:
+                  summarize([Event('   ', 1)])
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError('invalid account id was not rejected')
+
+          elif case == 'risk':
+              from payments.service import PaymentService
+
+              class SlowCharger:
+                  def __init__(self):
+                      self.calls = 0
+                      self.started = threading.Event()
+                      self.release = threading.Event()
+                      self._lock = threading.Lock()
+                  def charge(self, amount):
+                      with self._lock:
+                          self.calls += 1
+                          call_no = self.calls
+                      self.started.set()
+                      self.release.wait(2)
+                      return f'receipt-{call_no}-{amount}'
+
+              charger = SlowCharger()
+              service = PaymentService(charger)
+              results = []
+              errors = []
+              def invoke():
+                  try:
+                      results.append(service.charge_once('same', 10))
+                  except BaseException as exc:
+                      errors.append(exc)
+
+              t1 = threading.Thread(target=invoke)
+              t1.start()
+              assert charger.started.wait(1), 'first charge never started'
+              t2 = threading.Thread(target=invoke)
+              t2.start()
+              time.sleep(0.08)
+              charger.release.set()
+              t1.join(2); t2.join(2)
+              assert not t1.is_alive() and not t2.is_alive(), 'concurrent calls deadlocked'
+              assert not errors, errors
+              assert charger.calls == 1, charger.calls
+              assert len(results) == 2 and results[0] == results[1], results
+
+              class FlakyCharger:
+                  def __init__(self): self.calls = 0
+                  def charge(self, amount):
+                      self.calls += 1
+                      if self.calls == 1:
+                          raise RuntimeError('temporary failure')
+                      return 'ok'
+
+              flaky = FlakyCharger()
+              service = PaymentService(flaky)
+              try:
+                  service.charge_once('retry', 5)
+              except RuntimeError:
+                  pass
+              else:
+                  raise AssertionError('expected first failure')
+              assert service.charge_once('retry', 5) == 'ok'
+              assert flaky.calls == 2
+
+          print(f'hidden {case} contract passed')
+          PY
+          status=$?
+          echo "$status" > "${RUNNER_TEMP}/hidden-tests.exit"
+          cat "${RUNNER_TEMP}/hidden-tests.txt"
+          exit 0
+
+      - name: Summarize policy trace
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/otel.jsonl" ]; then
+            python "$GITHUB_WORKSPACE/scripts/analyze_otel.py" \
+              "${RUNNER_TEMP}/otel.jsonl" --events "${RUNNER_TEMP}/output.jsonl" \
+              > "${RUNNER_TEMP}/policy-summary.md"
+            python "$GITHUB_WORKSPACE/scripts/analyze_tool_ownership.py" \
+              "${RUNNER_TEMP}/otel.jsonl" > "${RUNNER_TEMP}/policy-tool-ownership.json"
+          fi
+
+      - name: Upload release-gate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-${{ matrix.case }}
+          path: |
+            ${{ runner.temp }}/task.txt
+            ${{ runner.temp }}/output.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/policy-summary.md
+            ${{ runner.temp }}/policy-tool-ownership.json
+            ${{ runner.temp }}/candidate.diff
+            ${{ runner.temp }}/fixture-status.txt
+            ${{ runner.temp }}/visible-tests.txt
+            ${{ runner.temp }}/visible-tests.exit
+            ${{ runner.temp }}/hidden-tests.txt
+            ${{ runner.temp }}/hidden-tests.exit
+          if-no-files-found: warn
