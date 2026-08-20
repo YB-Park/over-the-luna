@@ -43,7 +43,7 @@ Allowed orientation budget:
 - at most **one build/test metadata file** such as `pyproject.toml`, `pytest.ini`, `setup.cfg`, `tox.ini`, `Makefile`, package metadata, or requirements file;
 - one visible adjacent import/helper may be followed within the same semantic-file budget.
 
-This budget answers only **“where is this already-specified local thing and its immediate contract?”** It does not authorize repository inventory. Do not use recursive `find`, `tree`, `git ls-files`, `git grep`, directory-wide listing, recursive grep, or open-ended multi-concept search.
+This budget answers only **“where is this already-specified local thing and its immediate contract?”** It does not authorize repository inventory. Do not use recursive `find`, `tree`, `git ls-files`, `git grep`, directory-wide listing, recursive grep, or open-ended multi-concept search. Generic inventory globs such as `*`, `**`, `**/*`, or equivalent root/directory sweeps are forbidden; use a specific symbol/value/test/config pattern instead.
 
 If the budget would be exceeded, locator hits are unrelated/broad, or correctness requires discovering/tracing an **unknown** repository contract, pattern, consumer, or dependency rather than following an already-visible adjacent helper, stop and choose STANDARD before consuming more evidence.
 
@@ -55,10 +55,11 @@ Examples:
 
 ## Route = investigation + assurance
 
-After bounded orientation, print both:
+After bounded orientation, print one route line in this literal shape before implementation:
 
-- Investigation: `SIMPLE | STANDARD | DEEP`
-- Assurance: `NONE | REVIEW | RISK`
+`Mode: <SIMPLE|STANDARD|DEEP> — <short route> | Assurance: <NONE|REVIEW|RISK>`
+
+Do not replace `Mode:` with another label.
 
 Examples:
 
@@ -159,7 +160,7 @@ Normal REVIEW budget = one Reviewer total.
 
 RISK may use a pre-change Luna Skeptic or Architect when they answer a real independent risk question, but those calls **do not substitute for final artifact assurance**.
 
-After the final meaningful patch and focused validation, **at least one fresh Luna Reviewer is mandatory** using the artifact protocol above.
+After the final meaningful patch and focused validation, **at least one fresh Luna Reviewer is mandatory** using the artifact protocol above. Invoke the named `Luna Reviewer`; a generic or built-in code-review agent does not satisfy this contract.
 
 Default RISK budget is one post-change Reviewer. A second independent post-change pass is allowed only when there is a named residual consequential risk with a genuinely distinct rubric that the first pass/tests cannot close. State that distinct residual risk before buying the second pass.
 
