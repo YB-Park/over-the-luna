@@ -10,6 +10,7 @@ EXPERIMENTS = ROOT / "experiments"
 MAIN = EXPERIMENTS / "v1_1_candidate_rc2.agent.md"
 ARCHITECT = EXPERIMENTS / "v1_1_candidate_architect_packet_v3.agent.md"
 REVIEWER = EXPERIMENTS / "v1_1_candidate_reviewer_rc.agent.md"
+PREMIUM = EXPERIMENTS / "v1_1_candidate_premium_review.agent.md"
 
 
 def parse(path: Path) -> tuple[dict, str]:
@@ -41,6 +42,7 @@ class V11ReleaseCandidateContractTests(unittest.TestCase):
         self.assertIn("exactly once total", body)
         self.assertIn("never retry Luna Reviewer", body)
         self.assertIn("at least one post-change named Luna Reviewer is mandatory", body)
+        self.assertIn("one visible **human decision**", body)
 
     def test_leaf_contracts_are_non_recursive_and_read_only(self) -> None:
         for path, expected_name in ((ARCHITECT, "Luna Architect"), (REVIEWER, "Luna Reviewer")):
@@ -62,11 +64,25 @@ class V11ReleaseCandidateContractTests(unittest.TestCase):
         self.assertIn("never inspect `.git`", body.lower())
         self.assertIn("Cosmetic whitespace", body)
 
-    def test_premium_handoffs_remain_human_initiated(self) -> None:
-        frontmatter, _ = parse(MAIN)
+    def test_premium_handoff_is_one_human_initiated_sonnet_decision(self) -> None:
+        frontmatter, body = parse(MAIN)
         handoffs = frontmatter["handoffs"]
-        self.assertEqual([item["agent"] for item in handoffs], ["Sonnet Reviewer", "Opus Critical Reviewer"])
-        self.assertTrue(all(item.get("send") is False for item in handoffs))
+        self.assertEqual(len(handoffs), 1)
+        self.assertEqual(handoffs[0]["label"], "Premium Review")
+        self.assertEqual(handoffs[0]["agent"], "Premium Review")
+        self.assertIs(handoffs[0].get("send"), False)
+        self.assertEqual(handoffs[0]["model"], "Claude Sonnet 5 (copilot)")
+        self.assertNotIn("Opus Critical Reviewer", str(handoffs))
+        self.assertIn("surface that fact rather than silently substituting another model", body)
+
+        premium_frontmatter, premium_body = parse(PREMIUM)
+        self.assertEqual(premium_frontmatter["name"], "Premium Review")
+        self.assertEqual(premium_frontmatter["model"], "Claude Sonnet 5")
+        self.assertTrue(premium_frontmatter["disable-model-invocation"])
+        self.assertEqual(premium_frontmatter["tools"], ["read", "search"])
+        self.assertEqual(premium_frontmatter["agents"], [])
+        self.assertIn("human-selected premium review", premium_body)
+        self.assertIn("Do not recommend or invoke another premium model", premium_body)
 
 
 if __name__ == "__main__":
