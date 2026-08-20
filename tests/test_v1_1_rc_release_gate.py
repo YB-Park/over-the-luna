@@ -20,13 +20,20 @@ def load(name: str, filename: str):
 
 BASE = load("v1_1_release_gate_evaluator_v6", "v1_1_release_gate_evaluator_v6.py")
 
-# The RC wrapper imports the base module by filename, so make the experiments directory importable for this test.
 import sys
 sys.path.insert(0, str(EXPERIMENTS))
 try:
-    RC = load("v1_1_release_gate_evaluator_rc", "v1_1_release_gate_evaluator_rc.py")
+    RC2 = load("v1_1_release_gate_evaluator_rc2", "v1_1_release_gate_evaluator_rc2.py")
 finally:
     sys.path.pop(0)
+
+
+def write_events(requests: list[dict]) -> Path:
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False, encoding="utf-8")
+    event = {"type": "assistant.message", "data": {"toolRequests": requests}}
+    tmp.write(json.dumps(event) + "\n")
+    tmp.close()
+    return Path(tmp.name)
 
 
 class RcReleaseGateTests(unittest.TestCase):
@@ -40,37 +47,40 @@ class RcReleaseGateTests(unittest.TestCase):
             {"accounts/reporting/summary.py", "tests/test_accounts.py"},
         )
 
-    def test_local_generic_root_glob_is_rejected(self) -> None:
-        event = {
-            "type": "assistant.message",
-            "data": {
-                "toolRequests": [
-                    {"name": "glob", "arguments": {"pattern": "*"}},
-                    {"name": "apply_patch", "arguments": {}},
-                ]
-            },
-        }
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "events.jsonl"
-            path.write_text(json.dumps(event) + "\n", encoding="utf-8")
-            failures = RC.generic_inventory_failures("local", str(path))
+    def test_any_simple_orientation_glob_is_rejected(self) -> None:
+        path = write_events([
+            {"name": "glob", "arguments": {"pattern": "**/*test*"}},
+            {"name": "apply_patch", "arguments": {}},
+        ])
+        try:
+            failures = RC2.extra_failures("local", str(path))
+        finally:
+            path.unlink(missing_ok=True)
         self.assertEqual(len(failures), 1)
-        self.assertIn("generic inventory glob", failures[0])
+        self.assertIn("glob is forbidden", failures[0])
 
-    def test_focused_test_glob_is_allowed(self) -> None:
-        event = {
-            "type": "assistant.message",
-            "data": {
-                "toolRequests": [
-                    {"name": "glob", "arguments": {"pattern": "**/*test*"}},
-                    {"name": "apply_patch", "arguments": {}},
-                ]
-            },
-        }
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "events.jsonl"
-            path.write_text(json.dumps(event) + "\n", encoding="utf-8")
-            failures = RC.generic_inventory_failures("local", str(path))
+    def test_readme_is_rejected_during_simple_orientation(self) -> None:
+        path = write_events([
+            {"name": "view", "arguments": {"path": "/tmp/fixture/README.md"}},
+            {"name": "apply_patch", "arguments": {}},
+        ])
+        try:
+            failures = RC2.extra_failures("local", str(path))
+        finally:
+            path.unlink(missing_ok=True)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("background prose", failures[0])
+
+    def test_narrow_rg_and_direct_reads_are_allowed(self) -> None:
+        path = write_events([
+            {"name": "rg", "arguments": {"pattern": "update_headers"}},
+            {"name": "view", "arguments": {"path": "/tmp/fixture/client/headers.py"}},
+            {"name": "apply_patch", "arguments": {}},
+        ])
+        try:
+            failures = RC2.extra_failures("local", str(path))
+        finally:
+            path.unlink(missing_ok=True)
         self.assertEqual(failures, [])
 
     def test_verbatim_diff_markers_are_required(self) -> None:
