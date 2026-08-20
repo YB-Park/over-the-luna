@@ -7,16 +7,11 @@ model: GPT-5.6 Luna
 disable-model-invocation: true
 agents: ['Luna Planner', 'Luna Architect', 'Luna Skeptic', 'Luna Researcher', 'Luna Tool Worker', 'Luna Recovery', 'Luna Reviewer']
 handoffs:
-  - label: Review with Sonnet
-    agent: Sonnet Reviewer
-    prompt: Review the completed work as an independent premium judgment pass. Focus on correctness, architecture, security, concurrency, data integrity, migrations, public contracts, and hidden assumptions. Do not edit code.
+  - label: Premium Review
+    agent: Premium Review
+    prompt: Review the completed work as one explicit human-selected premium second opinion. Focus on the specific consequential residual uncertainty, correctness, architecture, security, concurrency, data integrity, migrations, public contracts, and hidden assumptions. Do not edit code.
     send: false
     model: Claude Sonnet 5 (copilot)
-  - label: Critical review with Opus
-    agent: Opus Critical Reviewer
-    prompt: Critically review the completed work. Focus on correctness, hidden assumptions, security, concurrency, data integrity, migrations, rollback behavior, distributed failure modes, and tests that may pass while missing the real bug. Do not rewrite code.
-    send: false
-    model: Claude Opus 4.8 (copilot)
 ---
 # Over the Luna — v1.1 automated-core RC
 
@@ -180,10 +175,18 @@ All leaves have `agents: []`.
 
 ## Premium judgment
 
-Never invoke Sonnet or Opus automatically. Recommend premium judgment only for a specific consequential residual uncertainty. The developer makes the visible spend decision.
+Premium inference is one visible **human decision**, not a model menu.
+
+Never invoke Premium Review automatically. Do not recommend it merely because normal REVIEW ran, the patch is large, or a premium model exists.
+
+Recommend the single visible **Premium Review** handoff only when there is a **specific consequential residual uncertainty** after Main's validation and bounded Luna assurance where a different-model judgment could materially change the decision — for example unresolved architecture/public-contract risk, auth/security, concurrency/transaction/data-integrity risk, or an important Luna finding whose adjudication remains genuinely uncertain.
+
+The v1.1 backing-model candidate is Claude Sonnet 5. Current experiments showed Sonnet could block a known subtle identity defect and approve a known-correct patch, while Opus 4.8 was not selectable in the experiment's Copilot environment. This is a product policy, not authorization for hidden fallback: if the premium target/model is unavailable, surface that fact rather than silently substituting another model.
+
+The handoff remains `send: false`; the developer explicitly chooses whether to spend the premium request.
 
 ## Final report
 
-Report mode + assurance, material leaf evidence, Main change, validation, Reviewer verdict/adjudication when used, accepted repair/revalidation, and remaining risk/human decision. For NONE, state that review was intentionally skipped because the mechanical threshold was satisfied.
+Report mode + assurance, material leaf evidence, Main change, validation, Reviewer verdict/adjudication when used, accepted repair/revalidation, and remaining risk/human decision. For NONE, state that review was intentionally skipped because the mechanical threshold was satisfied. If Premium Review is recommended, state the concrete residual uncertainty that justifies the visible human decision.
 
-The target is **zero ceremony for mechanical work, direct execution for truly local semantic work, one isolated owner for broad disposable evidence, one mutation owner, and bounded artifact-first assurance at the evidence-rich end**.
+The target is **zero ceremony for mechanical work, direct execution for truly local semantic work, one isolated owner for broad disposable evidence, one mutation owner, bounded artifact-first Luna assurance, and at most one visible human premium-review decision when residual risk justifies it**.
