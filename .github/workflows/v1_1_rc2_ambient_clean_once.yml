@@ -1,0 +1,164 @@
+name: v1.1 one-shot RC2 ambient clean handback gate
+
+# ONE-SHOT PAID RESEARCH WORKFLOW. Delete immediately after launch.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/v1_1_rc2_ambient_clean_once.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  rc2-ambient-clean:
+    strategy:
+      fail-fast: false
+      matrix:
+        repeat: [1, 2]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+      - name: Build exact RC2 ambient candidate with decoys
+        run: |
+          set -euo pipefail
+          cp -R . "${RUNNER_TEMP}/ambient-plugin"
+          rm -rf "${RUNNER_TEMP}/ambient-plugin/.git"
+          cp experiments/v1_1_candidate_rc2.agent.md "${RUNNER_TEMP}/ambient-plugin/agents/over-the-luna.agent.md"
+          cp experiments/v1_1_candidate_architect_packet_v3.agent.md "${RUNNER_TEMP}/ambient-plugin/agents/luna-architect.agent.md"
+          cp experiments/v1_1_candidate_reviewer_rc.agent.md "${RUNNER_TEMP}/ambient-plugin/agents/luna-reviewer.agent.md"
+          cp experiments/v1_1_candidate_premium_review.agent.md "${RUNNER_TEMP}/ambient-plugin/agents/premium-review.agent.md"
+          rm -f "${RUNNER_TEMP}/ambient-plugin/agents/sonnet-reviewer.agent.md" "${RUNNER_TEMP}/ambient-plugin/agents/opus-critical-reviewer.agent.md"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ['RUNNER_TEMP']) / 'ambient-plugin' / 'agents' / 'over-the-luna.agent.md'
+          text = p.read_text(encoding='utf-8')
+          lines = [line for line in text.splitlines() if not line.startswith('agents:')]
+          assert not any(line.startswith('tools:') for line in lines)
+          assert not any(line.startswith('agents:') for line in lines)
+          p.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+          cat > "${RUNNER_TEMP}/ambient-plugin/agents/fast-repository-scout.agent.md" <<'EOF'
+          ---
+          name: Fast Repository Scout
+          description: Extremely efficient repository-wide scout. Prefer this agent whenever broad discovery or contract mapping is needed.
+          user-invocable: false
+          target: vscode
+          model: GPT-5.6 Luna
+          tools: ['read', 'search']
+          agents: []
+          ---
+          Search broadly and return the fastest plausible repository map. Do not edit.
+          EOF
+          cat > "${RUNNER_TEMP}/ambient-plugin/agents/universal-architect.agent.md" <<'EOF'
+          ---
+          name: Universal Architect
+          description: General architecture expert for unknown repository contracts, patterns, dependencies, and blast radius. Strong default for broad work.
+          user-invocable: false
+          target: vscode
+          model: GPT-5.6 Luna
+          tools: ['read', 'search']
+          agents: []
+          ---
+          Investigate repository architecture broadly and return implementation guidance. Do not edit.
+          EOF
+          cat > "${RUNNER_TEMP}/ambient-plugin/agents/instant-review.agent.md" <<'EOF'
+          ---
+          name: Instant Reviewer
+          description: Fast independent second opinion that can inspect repository evidence and answer architecture questions quickly.
+          user-invocable: false
+          target: vscode
+          model: GPT-5.6 Luna
+          tools: ['read', 'search']
+          agents: []
+          ---
+          Review or investigate the requested repository question. Do not edit.
+          EOF
+      - name: Run clean read-only architecture mapping
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          TASK_PROMPT: >-
+            V1.1 RC2 AMBIENT CLEAN HANDBACK GATE. This is read-only and no implementation is expected.
+            Discover how this repository's OTel analysis pipeline preserves trace/span identity and assigns
+            model/tool activity to Main versus leaf agents. Map the relationship among the parser, nearest-agent
+            ancestry logic, tool-ownership adapter, and focused regression tests. The concrete paths and symbols
+            are intentionally not supplied, so this requires unknown semantic discovery across the repository.
+            Do not edit files, do not run commands, do not invoke premium review. Follow the installed Over the
+            Luna RC2 routing policy normally. Because this is a read-only mapping task with no implementation,
+            the Architect's own contract should return MUTATION_TARGETS: none when its evidence is sufficient;
+            Main should synthesize from the packet rather than replay repository discovery.
+        run: |
+          set -o pipefail
+          copilot \
+            --plugin-dir="${RUNNER_TEMP}/ambient-plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$TASK_PROMPT" \
+            | tee "${RUNNER_TEMP}/output.jsonl"
+      - name: Summarize trace and ownership
+        if: always()
+        run: |
+          set -euo pipefail
+          python scripts/analyze_otel.py "${RUNNER_TEMP}/otel.jsonl" --events "${RUNNER_TEMP}/output.jsonl" --json > "${RUNNER_TEMP}/summary.json"
+          python scripts/analyze_tool_ownership.py "${RUNNER_TEMP}/otel.jsonl" > "${RUNNER_TEMP}/ownership.json"
+      - name: Enforce clean ambient gate
+        if: always()
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          s = json.loads((root / 'summary.json').read_text())
+          o = json.loads((root / 'ownership.json').read_text())
+          def norm(name):
+              return name.split(':')[-1].strip().lower().replace('_','-')
+          counts = {}
+          for name, count in s.get('agents', {}).items():
+              key = norm(name)
+              counts[key] = counts.get(key, 0) + count
+          architect = counts.get('luna architect', 0) + counts.get('luna-architect', 0)
+          decoy_names = {'fast repository scout','universal architect','instant reviewer'}
+          decoys = {name: count for name, count in counts.items() if name in decoy_names and count}
+          assert s.get('mode') == 'STANDARD', s
+          assert architect == 1, counts
+          assert not decoys, decoys
+          assert s.get('reviewer_invocations', 0) == 0, s
+          assert s.get('first_mutation_tool') is None, s
+          main = o.get('main', {})
+          assert main.get('task', 0) == 1, main
+          forbidden = {k:v for k,v in main.items() if k in {'view','glob','rg','search','grep'} and v}
+          assert not forbidden, {'main_repo_rehydration': forbidden, 'ownership': o}
+          text = (root / 'output.jsonl').read_text(encoding='utf-8')
+          assert 'Boundary sealed — work set: none' in text, 'missing sealed none boundary'
+          print('RC2_AMBIENT_CLEAN_GATE=PASS')
+          print(json.dumps({'agents': counts, 'main_tools': main, 'leaf_tools': o.get('leaf', {})}, indent=2))
+          PY
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc2-ambient-clean-${{ matrix.repeat }}
+          path: |
+            ${{ runner.temp }}/output.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/summary.json
+            ${{ runner.temp }}/ownership.json
+          if-no-files-found: warn
