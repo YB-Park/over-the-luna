@@ -1,0 +1,89 @@
+V1.1 PREMIUM REVIEW COMPARISON — ARTIFACT B (CORRECT ORACLE)
+
+You are evaluating a completed read-only engineering artifact. Do not use tools, browse a repository, or assume facts not present below. Review only the supplied requirement, code/diff evidence, validation evidence, and rubric.
+
+Use this exact rubric:
+1. acceptance/correctness mismatch;
+2. identity, scope, ordering, fallback, concurrency, or compatibility invariant actually implied by the artifact;
+3. tests that pass while missing a real failure mode;
+4. avoid style-only or speculative findings.
+
+Return only:
+- PASS, or
+- up to 3 findings labeled MUST-FIX / VERIFY / OPTIONAL, each with the concrete failure condition and evidence.
+Then end with one line:
+VERDICT: APPROVE | APPROVE WITH VERIFICATION | BLOCK
+
+Original requirement:
+Fix exported account summaries so account identifiers equivalent under the repository's established account-ID contract are grouped under the same canonical identity. Preserve output order by first canonical appearance and reject invalid identifiers exactly like account resource handling. Reuse the established identity contract instead of duplicating it.
+
+Established unchanged identity contract:
+
+```python
+def normalize_account_id(raw: str) -> str:
+    if not isinstance(raw, str):
+        raise TypeError('account_id must be a string')
+    value = raw.strip().lower()
+    if not value:
+        raise ValueError('account_id must not be blank')
+    return value
+
+
+def account_resource(account_id: str) -> str:
+    return f'/accounts/{normalize_account_id(account_id)}'
+
+@dataclass(frozen=True)
+class Event:
+    account_id: str
+    amount: int
+```
+
+Completed patch under review:
+
+```diff
+diff --git a/accounts/reporting/summary.py b/accounts/reporting/summary.py
+index dde03f1..056f7f8 100644
+--- a/accounts/reporting/summary.py
++++ b/accounts/reporting/summary.py
+@@ -1,8 +1,10 @@
+ from collections import OrderedDict
++from ..core.identity import normalize_account_id
+ from ..model import Event
+ 
+ def summarize(events: list[Event]) -> list[tuple[str, int]]:
+     totals: OrderedDict[str, int] = OrderedDict()
+     for event in events:
+-        totals[event.account_id] = totals.get(event.account_id, 0) + event.amount
++        account_id = normalize_account_id(event.account_id)
++        totals[account_id] = totals.get(account_id, 0) + event.amount
+     return list(totals.items())
+diff --git a/tests/test_accounts.py b/tests/test_accounts.py
+index 6a5b500..377d7fe 100644
+--- a/tests/test_accounts.py
++++ b/tests/test_accounts.py
+@@ -8,8 +8,14 @@ class AccountTests(unittest.TestCase):
+         self.assertEqual(account_resource('  ACME  '), '/accounts/acme')
+ 
+     def test_summary_preserves_first_seen_order(self):
+-        events = [Event('a', 1), Event('b', 2), Event('a', 3)]
+-        self.assertEqual(summarize(events), [('a', 4), ('b', 2)])
++        events = [Event(' B ', 1), Event('A', 2), Event('b', 3), Event(' a ', 4)]
++        self.assertEqual(summarize(events), [('b', 4), ('a', 6)])
++
++    def test_summary_rejects_invalid_account_identifiers(self):
++        with self.assertRaisesRegex(TypeError, 'account_id must be a string'):
++            summarize([Event(None, 1)])
++        with self.assertRaisesRegex(ValueError, 'account_id must not be blank'):
++            summarize([Event('  ', 1)])
+ 
+ if __name__ == '__main__':
+     unittest.main()
+```
+
+Visible validation evidence:
+- full visible test suite passes;
+- a hidden oracle checks mixed spellings `"  ACME  "`, `"acme"`, `"beta"`, `" BETA "`, first canonical order, and invalid blank identifiers;
+- hidden oracle passes;
+- the same patch passed two independent bounded Luna Reviewer runs without findings.
+
+Judge whether there is a concrete reason to block or verify this artifact. Speculative external consumers or style preferences are not findings.

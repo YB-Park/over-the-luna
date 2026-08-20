@@ -241,8 +241,8 @@ def main() -> int:
             fail(errors, f"{path}: handoffs must be a list")
         else:
             expected = {
-                ("sonnet-reviewer", "Claude Sonnet 5"),
-                ("opus-critical-reviewer", "Claude Opus 4.8"),
+                ("Sonnet Reviewer", "Claude Sonnet 5"),
+                ("Opus Critical Reviewer", "Claude Opus 4.8"),
             }
             actual: set[tuple[str, str]] = set()
             for handoff in handoffs:
@@ -286,7 +286,7 @@ def main() -> int:
         if "manual premium review handoff" not in body:
             fail(errors, f"{path}: Sonnet must remain manual premium review only")
         handoffs = fm.get("handoffs", []) or []
-        if len(handoffs) != 1 or handoffs[0].get("agent") != "opus-critical-reviewer" or handoffs[0].get("send") is not False:
+        if len(handoffs) != 1 or handoffs[0].get("agent") != "Opus Critical Reviewer" or handoffs[0].get("send") is not False:
             fail(errors, f"{path}: Sonnet may only suggest a manual Opus handoff")
 
     if errors:

@@ -1,0 +1,99 @@
+name: v1.1 Copilot runtime probe
+
+# Paid runtime probes are deliberately manual-only. The baseline PR-triggered
+# runs have been captured; normal pushes and pull requests must not consume
+# Copilot AI credits.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: broad-core-contract
+            prompt: >-
+              READ-ONLY BASELINE PROBE. Do not modify files or run shell commands.
+              Suppose a future version were considering adding one non-Luna model to the automatic core.
+              Trace every repository contract that currently enforces or documents the Luna-only automatic core,
+              and return the smallest coherent set of files/symbols that would need reconsideration.
+              Do not recommend making the change; this is blast-radius analysis only.
+              Follow the installed Over the Luna routing instructions normally: print the Mode line,
+              use a council subagent only if the current rules genuinely justify it,
+              and keep the final evidence compact.
+          - case: adversarial-contract-audit
+            prompt: >-
+              READ-ONLY BASELINE PROBE. Do not modify files or run shell commands.
+              Audit this repository for the highest-risk cases where a validator or test could stay green
+              while actual VS Code runtime semantics are broken because the test merely mirrors our own assumptions.
+              Identify at most three concrete contract gaps, rank them by practical risk, and cite the exact files/symbols.
+              Follow the installed Over the Luna routing instructions normally: print the Mode line,
+              use a council subagent only if the current rules genuinely justify it,
+              and do not invent failures without repository evidence.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install latest Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Show Copilot CLI version
+        run: copilot --version
+
+      - name: Run read-only Over the Luna probe
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/over-the-luna-probe-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          PROBE_PROMPT: ${{ matrix.prompt }}
+        run: |
+          set -o pipefail
+          copilot \
+            --plugin-dir=. \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$PROBE_PROMPT" \
+            | tee "${{ runner.temp }}/over-the-luna-probe-output.jsonl"
+
+      - name: Summarize OTel trace
+        if: always()
+        run: |
+          if [ -f "${{ runner.temp }}/over-the-luna-probe-otel.jsonl" ]; then
+            EVENTS_ARG=()
+            if [ -f "${{ runner.temp }}/over-the-luna-probe-output.jsonl" ]; then
+              EVENTS_ARG=(--events "${{ runner.temp }}/over-the-luna-probe-output.jsonl")
+            fi
+            python scripts/analyze_otel.py \
+              "${{ runner.temp }}/over-the-luna-probe-otel.jsonl" \
+              "${EVENTS_ARG[@]}" \
+              | tee "${{ runner.temp }}/over-the-luna-probe-summary.md"
+          else
+            echo 'OTel trace file was not produced.' | tee "${{ runner.temp }}/over-the-luna-probe-summary.md"
+          fi
+
+      - name: Upload probe artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.1-runtime-probe-${{ matrix.case }}
+          path: |
+            ${{ runner.temp }}/over-the-luna-probe-output.jsonl
+            ${{ runner.temp }}/over-the-luna-probe-otel.jsonl
+            ${{ runner.temp }}/over-the-luna-probe-summary.md
+          if-no-files-found: warn

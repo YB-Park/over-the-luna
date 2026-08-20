@@ -9,7 +9,7 @@ tools: ['read', 'search']
 agents: []
 handoffs:
   - label: Critical review with Opus
-    agent: opus-critical-reviewer
+    agent: Opus Critical Reviewer
     prompt: Perform an additional high-stakes skeptical review of the work and the Sonnet review above. Focus on credible correctness, security, concurrency, data-integrity, migration, rollback, and distributed failure risks. Do not edit code.
     send: false
     model: Claude Opus 4.8 (copilot)
