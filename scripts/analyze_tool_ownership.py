@@ -8,18 +8,21 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from analyze_otel import OP_EXECUTE_TOOL, is_main_agent, load_spans, nearest_agent
+try:
+    from .analyze_otel import OP_EXECUTE_TOOL, is_main_agent, load_spans, nearest_agent, span_key
+except ImportError:  # direct-script execution
+    from analyze_otel import OP_EXECUTE_TOOL, is_main_agent, load_spans, nearest_agent, span_key
 
 
 def summarize_tool_ownership(path: Path) -> dict:
     spans = load_spans(path)
-    by_span_id = {span.span_id: span for span in spans if span.span_id}
+    by_span_key = {key: span for span in spans if (key := span_key(span)) is not None}
     by_agent: dict[str, Counter[str]] = defaultdict(Counter)
 
     for span in spans:
         if span.operation != OP_EXECUTE_TOOL:
             continue
-        agent = nearest_agent(span, by_span_id)
+        agent = nearest_agent(span, by_span_key)
         tool = span.tool_name or "unknown"
         by_agent[agent][tool] += 1
 
