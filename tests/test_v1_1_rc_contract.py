@@ -7,9 +7,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPERIMENTS = ROOT / "experiments"
-MAIN = EXPERIMENTS / "v1_1_candidate_rc.agent.md"
+MAIN = EXPERIMENTS / "v1_1_candidate_rc2.agent.md"
 ARCHITECT = EXPERIMENTS / "v1_1_candidate_architect_packet_v3.agent.md"
-REVIEWER = EXPERIMENTS / "v1_1_candidate_invariant_reviewer_v2.agent.md"
+REVIEWER = EXPERIMENTS / "v1_1_candidate_reviewer_rc.agent.md"
 
 
 def parse(path: Path) -> tuple[dict, str]:
@@ -31,14 +31,16 @@ class V11ReleaseCandidateContractTests(unittest.TestCase):
         self.assertNotIn("tools", frontmatter)
         self.assertTrue(frontmatter["disable-model-invocation"])
         self.assertIn("agent/runSubagent", body)
-        self.assertIn("three narrow locator operations", body)
+        self.assertIn("three narrow `rg` locator calls total", body)
         self.assertIn("three semantic source/test files", body)
-        self.assertIn("one build/test metadata file", body)
+        self.assertIn("one such file", body)
+        self.assertIn("do not call `glob` at all", body)
         self.assertIn("Boundary sealed", body)
         self.assertIn("BEGIN_UNIFIED_DIFF", body)
         self.assertIn("END_UNIFIED_DIFF", body)
-        self.assertIn("at least one fresh Luna Reviewer is mandatory", body)
-        self.assertIn("Normal REVIEW budget = one Reviewer total", body)
+        self.assertIn("exactly once total", body)
+        self.assertIn("never retry Luna Reviewer", body)
+        self.assertIn("at least one post-change named Luna Reviewer is mandatory", body)
 
     def test_leaf_contracts_are_non_recursive_and_read_only(self) -> None:
         for path, expected_name in ((ARCHITECT, "Luna Architect"), (REVIEWER, "Luna Reviewer")):
@@ -49,7 +51,7 @@ class V11ReleaseCandidateContractTests(unittest.TestCase):
                 self.assertEqual(frontmatter["tools"], ["read", "search"])
                 self.assertEqual(frontmatter["agents"], [])
 
-    def test_reviewer_requires_verbatim_artifact_and_has_hard_budget(self) -> None:
+    def test_reviewer_requires_concrete_artifact_and_has_hard_budget(self) -> None:
         _, body = parse(REVIEWER)
         self.assertIn("BEGIN_UNIFIED_DIFF", body)
         self.assertIn("END_UNIFIED_DIFF", body)
@@ -58,6 +60,7 @@ class V11ReleaseCandidateContractTests(unittest.TestCase):
         self.assertIn("4 concrete files", body)
         self.assertIn("8 total read/search calls", body)
         self.assertIn("never inspect `.git`", body.lower())
+        self.assertIn("Cosmetic whitespace", body)
 
     def test_premium_handoffs_remain_human_initiated(self) -> None:
         frontmatter, _ = parse(MAIN)
