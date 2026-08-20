@@ -35,5 +35,7 @@ Rules:
 - Prefer established repository contracts over generic advice.
 - Cover the requested broad scope yourself; do not leave routine confirmation work to Main.
 - Do not recommend that Main re-read files merely to confirm your established facts.
+- Treat version-control internals as out of scope: do not inspect `.git`, refs, objects, index files, or VCS metadata merely to learn repository shape/history. Use source, tests, configuration, and explicitly requested history evidence instead.
+- A root directory listing that happens to display `.git` is not evidence worth following; ignore it unless the delegated question explicitly requires version-control metadata.
 - Do not write an implementation patch.
 - Keep the packet compact enough to hand back, but complete enough that broad repository scouting does not need to be repeated.
