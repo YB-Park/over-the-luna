@@ -1,7 +1,7 @@
 {
   "name": "over-the-luna",
   "description": "A VS Code-native, cost-aware GPT-5.6 Luna coding harness for GitHub Copilot with human-selected premium review.",
-  "version": "1.1.0-rc.1",
+  "version": "1.1.0",
   "author": {
     "name": "YB-Park",
     "url": "https://github.com/YB-Park"

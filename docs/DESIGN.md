@@ -1,223 +1,82 @@
-# Design notes
+# Design notes — v1.1
 
 Over the Luna is a **thin, human-guided context-isolation harness** for GitHub Copilot in VS Code.
 
-The automatic core uses GPT-5.6 Luna only. Claude Sonnet 5 and Claude Opus 4.8 exist outside that automatic core as visible, user-selected review handoffs.
+The automatic core uses **GPT-5.6 Luna only**. Claude Sonnet 5 exists outside that automatic core as the backing model for one visible, human-selected **Premium Review**.
 
-The central design question is:
+## Product invariants
 
-> **Where does a fresh Luna context buy enough independent evidence, context isolation, or adversarial thinking to justify another call?**
+1. **Parallelize thinking; serialize mutation.** Main Luna is the only automatic repository mutation owner.
+2. **Main owns the work, not all of the thinking.** Leaf calls must buy independent evidence, context isolation, verification, or materially lower rework/risk.
+3. **Investigation and assurance are separate decisions.** Routing uses SIMPLE / STANDARD / DEEP plus NONE / REVIEW / RISK.
+4. **Broad unknown semantic discovery belongs in Architect.** Main gets only bounded local orientation before STANDARD becomes mandatory.
+5. **A sufficient Architect packet seals discovery.** `MUTATION_TARGETS` is the complete post-handback work set; Main does not replay broad discovery before mutation.
+6. **Normal semantic review is artifact-first and bounded.** REVIEW means exactly one named Luna Reviewer trajectory after focused validation; RISK requires at least one post-change named Reviewer.
+7. **Premium is one human decision.** Premium Review uses Claude Sonnet 5, is never automatic, and keeps `send: false`.
+8. **VS Code owns ambient tools.** Main and Luna Tool Worker omit fixed `tools`; strict leaves keep narrow explicit tool lists.
+9. **All leaves are non-recursive.** Council and review agents use `agents: []`.
+10. **External side effects are never inferred.** Tool visibility does not authorize remote mutation.
 
-The economic objective is **not minimum token count**. The harness may intentionally spend more low-cost Luna inference when another independent pass can improve engineering judgment or reduce reliance on premium inference. The target is better cost/quality trade-offs, not the smallest transcript.
+## Routing model
 
-Over the Luna also treats the developer's available VS Code/Copilot surface, tools, and model catalog as hard runtime inputs. Organization or enterprise policy is a boundary to operate within, not something the harness attempts to bypass.
+### Investigation
 
-## Goals
+**SIMPLE** is for a known local implementation neighborhood. Main may use direct user-named paths or a very small exact-symbol/literal orientation budget. If that budget is insufficient or an unknown repository contract must be discovered, stop and choose STANDARD.
 
-- Keep one coherent mutable implementation trajectory.
-- Spend cheap Luna inference on independent evidence when it can improve quality or protect context.
-- Improve engineering judgment per unit of AI spend rather than minimize token count mechanically.
-- Keep context hops short and outputs compact.
-- Make premium-model use visible and human-selected.
-- Preserve the developer's existing VS Code tool ecosystem instead of replacing it.
-- Work cleanly inside managed Copilot feature/model boundaries when those are present.
+**STANDARD** delegates the broad evidence pass to Luna Architect. Architect returns:
 
-## Non-goals
+- `DECISION`
+- `EVIDENCE`
+- `RELATIONSHIPS`
+- `MUTATION_TARGETS`
+- `UNRESOLVED`
 
-- Parallel agents competing to edit the same repository state.
-- Deep manager hierarchies or recursive delegation chains.
-- Hidden premium escalation.
-- Bundled MCP servers, credentials, trust policy, or a second editor UI.
-- Circumventing organization or enterprise Copilot feature/model policy.
-- Maximizing agent count or minimizing raw token count for its own sake.
+A sufficient packet causes Main to print `Boundary sealed — work set: ...`. Until mutation begins, Main stays inside that work set and does not perform broad repository rehydration.
 
-## Core principles
+**DEEP** is reserved for several independent uncertainties or cross-cutting risks. At most three initial advisory calls are used, with distinct questions.
 
-### 1. Parallelize thinking; serialize mutation
+### Assurance
 
-Repository mutation has one owner: **Main Luna**.
+**NONE** is only for genuinely mechanical, locally bounded work with a direct validation assertion and no semantic invariant to infer.
 
-Council agents do not compete on implementation. They contribute independent planning, repository evidence, skepticism, research, recovery diagnosis, or review.
+**REVIEW** is the default for semantic changes. After focused validation, Main captures the current unified diff and invokes **Luna Reviewer exactly once** for the normal trajectory. Main adjudicates findings and may repair/revalidate without recursive review.
 
-### 2. Main Luna owns the work, not all of the thinking
-
-Main Luna keeps:
-
-- the mutable implementation trajectory;
-- edits and commands;
-- focused validation and fix loops;
-- final synthesis and user-facing state.
-
-Council roles absorb read-only work when isolation has a clear benefit:
-
-- broad repository scouting whose intermediate details do not need to remain in the implementation context;
-- independent challenges that reduce anchoring;
-- public/private external evidence that would otherwise expand the main context;
-- failure diagnosis after concrete evidence exists;
-- independent post-change verification.
-
-A task can justify a STANDARD route even when the eventual edit is simple. **Uncertainty, context pollution, and anchoring risk are all routing signals.**
-
-### 3. Star topology, not management chains
-
-Good:
-
-```text
-Planner ─┐
-Architect ├── Main Luna ── implementation
-Skeptic ─┘
-```
-
-Avoid:
-
-```text
-Main → Manager → Planner → Architect → Worker
-```
-
-All hidden council/review agents are leaf nodes with `agents: []`.
-
-### 4. Think widely inside the leaf; speak narrowly back
-
-A council agent may inspect deeply, but its result should contain only decision-changing facts, constraints, risks, or diagnosis.
-
-This prevents management traffic from becoming the dominant workload and keeps Main Luna's context focused on the mutable implementation state.
-
-### 5. Scale compute by uncertainty and context value, not file count
-
-Main Luna chooses a bounded mode:
-
-- **SIMPLE** — zero subagents by default when the path is clear and local after focused inspection.
-- **STANDARD** — one or at most two advisory calls when a real uncertainty exists or isolation prevents unnecessary context growth.
-- **DEEP** — at most three initial advisory calls for several independent questions or meaningful cross-cutting risk.
-
-A multi-file mechanical change can still be SIMPLE. A two-file concurrency change can be DEEP. A one-line edit can still be STANDARD when finding the correct pattern requires broad repository exploration.
-
-Main Luna gets a small locality budget. If focused inspection turns into broad search, dependency tracing, or distant pattern comparison, prefer Luna Architect rather than continuously expanding the main context.
-
-### 6. Evidence-triggered iteration
-
-Do not repeat councils because more thinking might help.
-
-Use **Luna Recovery** only after concrete failure evidence exists. Recovery receives the attempted path and exact failure, then returns one bounded diagnosis and next attempt.
-
-Maximum default recovery budget: two Recovery calls for the same bounded task.
-
-### 7. Rubric-driven verification
-
-Tiny, obvious, mechanically validated changes may finish without a separate reviewer.
-
-For normal **non-trivial** work, one Luna Reviewer receives one explicit rubric. Passing tests or Main Luna confidence is not by itself a reason to skip independent review.
-
-For DEEP/high-risk work, Main Luna may run two independent reviewers in parallel only when their rubrics are distinct, for example:
-
-- acceptance/correctness;
-- regression/compatibility;
-- security/auth;
-- concurrency/ordering;
-- persistence/data integrity;
-- migration/rollback.
-
-### 8. Premium judgment is a human-visible decision
-
-Automatic core agents never include Sonnet or Opus.
-
-Main Luna or Luna Reviewer can emit:
-
-`RECOMMEND_SONNET: <specific reason>`
-
-or:
-
-`RECOMMEND_OPUS: <specific reason>`
-
-The developer then chooses a visible handoff. Premium handoffs use `send: false`.
+**RISK** covers consequential auth/security, concurrency/idempotency, transactions, migrations, persistence/data integrity, rollback, or important public contracts. At least one named post-change Luna Reviewer is mandatory. A second Reviewer is allowed only for one explicitly named residual risk with a distinct rubric.
 
 ## Runtime roles
 
-### Main Luna
+- **Over the Luna / Main Luna** — conversational context, routing, mutation, commands, tests, synthesis, Reviewer adjudication, final report.
+- **Luna Planner** — acceptance criteria and constraints; no tools.
+- **Luna Architect** — read/search repository evidence and sealed work set.
+- **Luna Skeptic** — read/search challenge of one consequential assumption.
+- **Luna Researcher** — read/search/web for one current public-docs/API/specification question.
+- **Luna Tool Worker** — bounded use of developer-selected MCP/extension tools; no repository mutation ownership.
+- **Luna Recovery** — read/search diagnosis after concrete failure evidence.
+- **Luna Reviewer** — read/search artifact-first review with bounded dependency closure and one invariant challenge.
+- **Premium Review** — visible, human-invoked Claude Sonnet 5 second opinion; read/search only, no delegation.
 
-Main Luna is simultaneously:
-
-- the user's conversational context owner;
-- locality/uncertainty/risk classifier;
-- council selector;
-- Work Contract synthesizer;
-- repository implementer;
-- test/validation owner;
-- final reporter.
-
-It owns implementation directly so normal work stays in one mutable execution trajectory.
-
-### Luna Planner
-
-No tools. Converts one bounded request into acceptance criteria, constraints, work units, human decisions, and unknowns. It deliberately does not inspect repository facts.
-
-### Luna Architect
-
-Read/search only. Grounds the work in repository structure, dependency paths, existing patterns, tests, and blast radius. It is the preferred pressure-release valve when broad scouting would otherwise fill Main Luna with disposable search context.
-
-### Luna Skeptic
-
-Read/search only. Tries to falsify consequential assumptions using concrete counterexamples or repository evidence.
-
-### Luna Researcher
-
-Read/search/web only. Handles one current public-docs/API/specification question.
-
-### Luna Tool Worker
-
-Omits `tools` to inherit the developer's selected VS Code tools. Isolates one bounded MCP/extension-tool question or explicit external action.
-
-### Luna Recovery
-
-Read/search only. Exists only after failure evidence and provides diagnosis, not a second implementation trajectory.
-
-### Luna Reviewer
-
-Read/search only. Reviews against a specific rubric. It can request external evidence with `NEEDS_EXTERNAL_VERIFICATION` and recommend a manual Sonnet handoff with `RECOMMEND_SONNET`.
-
-### Sonnet Reviewer / Opus Critical Reviewer
-
-Visible, `disable-model-invocation: true`, non-mutating premium review profiles outside the automatic Luna core.
+Only **Over the Luna** and **Premium Review** are intended to be user-visible.
 
 ## Tool inheritance
 
-Main Luna and Luna Tool Worker intentionally omit `tools` so the current VS Code selected-tool environment can flow through the native inheritance path.
+Main intentionally omits both `tools` and `agents` in frontmatter. Omitting `tools` preserves the developer's VS Code-owned selected built-in/MCP/extension environment. Omitting `agents` avoids coupling ambient tool behavior to an explicit Main tool list; the exact seven Council names are sealed in instructions instead.
 
-Strict council/review roles explicitly declare narrow tool lists and therefore do not inherit arbitrary ambient integrations.
+Luna Tool Worker also omits `tools` so a bounded selected integration can remain VS Code-owned. Planner/Architect/Skeptic/Researcher/Recovery/Reviewer/Premium Review declare explicit narrow tool sets and therefore do not inherit arbitrary mutation-capable integrations.
 
-The plugin does not bundle `.mcp.json`, `mcpServers`, credentials, or service-specific configuration.
+The plugin does not bundle `.mcp.json`, `mcpServers`, credentials, OAuth, or service-specific configuration.
+
+## Premium boundary
+
+Premium inference never runs automatically. The one visible handoff targets exact custom agent **Premium Review**, pins Claude Sonnet 5 when available, and uses `send: false` so the developer decides whether the premium request is sent.
+
+The handoff and Premium Review agent preserve the user's current natural language. Stable verdict labels and code/path/command literals remain unchanged for machine readability.
+
+If the backing model is unavailable, surface that fact rather than silently claiming the requested premium judgment occurred.
 
 ## External side effects
 
-Tool visibility is not authorization.
-
 External reads may be inferred when clearly necessary for the requested outcome. External mutation is never inferred. Updating tickets, sending messages, pushing, deploying, creating PRs, changing databases, or modifying cloud resources requires an explicit request for that effect.
 
-## Thinking effort
+## Success criteria
 
-Do not encode undocumented per-agent reasoning-effort fields. The harness controls work through observable mechanisms instead:
-
-- task mode and context-isolation triggers;
-- maximum initial council fan-out;
-- compact output contracts;
-- one mutation owner;
-- evidence-triggered recovery;
-- reviewer count/rubric;
-- explicit stop conditions;
-- human premium gates.
-
-## Operational success criteria
-
-The architecture is healthy when:
-
-- Main Luna preserves implementation continuity without monopolizing broad read-only exploration;
-- council calls frequently change a decision, compress useful evidence, diagnose a real failure, or catch a real issue;
-- council outputs stay compact enough that management traffic does not dominate Main context;
-- low-cost Luna calls earn their overhead through useful reasoning, context isolation, or premium-inference avoidance rather than raw token reduction;
-- non-trivial work gets genuinely independent review;
-- recovery loops remain bounded;
-- premium handoffs are rare, specific, and human-selected;
-- existing user-selected MCP/extension tools remain usable through the intended roles;
-- organization/enterprise Copilot feature and model boundaries remain intact.
-
-A council role should be removed or merged if it mostly returns predictable restatements that Main Luna could have produced just as efficiently in the same context.
+The architecture is healthy when Main keeps implementation continuity, broad disposable discovery is isolated rather than replayed, semantic changes receive bounded artifact-first review, selected developer tools remain available through intended ambient roles, strict leaves stay least-privilege, premium use remains rare and human-selected, and organization/enterprise Copilot boundaries remain intact.

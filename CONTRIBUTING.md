@@ -6,46 +6,20 @@ Contributions are welcome, especially evidence from real VS Code/Copilot usage.
 
 Preserve these constraints unless a change is backed by clear runtime evidence:
 
-- human-guided, not swarm-by-default;
 - **automatic core is GPT-5.6 Luna only**;
-- premium Sonnet/Opus use requires visible human choice;
 - Main Luna is the single automatic repository mutation owner;
-- council agents are independent leaf contexts, not a management chain;
-- extra calls must answer a real uncertainty, isolate useful read-only context, diagnose a real failure, or verify a concrete rubric;
-- optimize the overall cost/quality trade-off, not minimum raw token count; cheap Luna calls still need to earn their overhead;
-- council outputs stay compact;
-- preserve the developer's existing VS Code MCP/extension tool selection;
-- treat organization/enterprise Copilot feature and model policy as a hard runtime boundary, never as something to bypass;
+- routing separates SIMPLE / STANDARD / DEEP investigation from NONE / REVIEW / RISK assurance;
+- broad unknown semantic discovery goes to Luna Architect before Main accumulates repository-wide scouting context;
+- a sufficient Architect packet seals the complete `MUTATION_TARGETS` work set and Main does not replay broad discovery before mutation;
+- normal semantic REVIEW uses exactly one named artifact-first Luna Reviewer trajectory;
+- RISK gets at least one named post-change Luna Reviewer;
+- Council/review agents are independent leaf contexts, not a management chain;
+- extra calls must answer a real uncertainty, isolate useful context, diagnose concrete failure evidence, or verify a completed artifact;
+- preserve the developer's existing VS Code selected built-in/MCP/extension tools;
+- treat organization/enterprise Copilot feature and model policy as a hard runtime boundary, never something to bypass;
 - do not bundle credentials, OAuth, MCP servers, or trust policy;
 - external side effects are never inferred;
-- current VS Code runtime behavior outranks assumptions from other products or older platform behavior.
-
-## Council-role burden of proof
-
-Do not add a new Luna role merely because Luna inference is inexpensive.
-
-A role should provide a repeatable benefit that Main Luna cannot get as efficiently in the same context, such as:
-
-- independent requirement decomposition;
-- broad repository evidence isolated from implementation state;
-- adversarial assumption checking;
-- failure-anchored diagnosis;
-- independent rubric verification;
-- bounded external-context isolation.
-
-Remove or merge a role if it mostly restates predictable information.
-
-## Routing budget
-
-Changes must preserve:
-
-- SIMPLE → zero default subagents;
-- STANDARD → one or at most two justified advisory calls;
-- DEEP → at most three initial independent advisory calls;
-- Recovery → concrete failure evidence first, default maximum two calls;
-- review → one reviewer for normal non-trivial work, at most two distinct-rubric reviewers for DEEP/high-risk work.
-
-There is no target subagent-usage percentage. Optimize for useful context isolation and independent judgment, not agent count.
+- premium inference is one visible human-selected **Premium Review**, not an automatic path or model menu.
 
 ## Tool boundaries
 
@@ -53,8 +27,6 @@ There is no target subagent-usage percentage. Optimize for useful context isolat
 
 - Over the Luna
 - Luna Tool Worker
-
-This preserves the VS Code selected-tool inheritance path. Do not replace omission with a generic `tools: ['*']` assumption.
 
 **Strict roles** keep explicit tool lists:
 
@@ -64,10 +36,11 @@ This preserves the VS Code selected-tool inheritance path. Do not replace omissi
 - Luna Researcher → read/search/web
 - Luna Recovery → read/search
 - Luna Reviewer → read/search
-- Sonnet Reviewer → read/search
-- Opus Critical Reviewer → read/search/web
+- Premium Review → read/search
 
-All council/review agents remain `agents: []`.
+All leaves remain `agents: []`.
+
+Main intentionally omits `agents` as well. The exact permitted Council names are sealed in the instruction contract. Do not add arbitrary installed custom agents merely because their descriptions look relevant.
 
 ## Model boundaries
 
@@ -75,25 +48,25 @@ Automatic core:
 
 - GPT-5.6 Luna only.
 
-Manual visible premium profiles:
+Manual visible premium profile:
 
-- Claude Sonnet 5
-- Claude Opus 4.8
+- Premium Review → Claude Sonnet 5.
 
-Adding any non-Luna automatic model requires a new evidence-backed architecture review rather than a convenience fallback.
+Adding any non-Luna automatic model or additional premium menu requires new evidence-backed architecture review rather than a convenience fallback.
 
-Do not describe the harness as acquiring, substituting, or routing around models that are unavailable under the developer's Copilot policy. If Luna is unavailable, that is an explicit unsupported environment rather than a policy-avoidance problem to solve.
+## Premium handoff
 
-## Premium handoffs
-
-Sonnet and Opus must remain:
+Premium Review must remain:
 
 - user visible;
 - `disable-model-invocation: true`;
-- non-mutating;
-- absent from Main Luna's automatic `agents` allow-list.
+- read/search only;
+- non-recursive (`agents: []`);
+- absent from the automatic Council path;
+- targeted by exactly one visible handoff with `send: false`;
+- language-continuous with the user's latest substantive request.
 
-Handoffs use `send: false` so the developer explicitly chooses whether premium execution happens.
+If the backing model is unavailable, surface that fact rather than silently claiming the requested premium judgment occurred.
 
 ## External side effects
 
@@ -101,18 +74,7 @@ Reading external context does not authorize mutation. Pushing, deploying, creati
 
 ## Reporting orchestration changes
 
-When proposing a routing or role change, report:
-
-1. task type and mode;
-2. council/review roles invoked;
-3. whether those calls changed a decision, compressed useful context, or caught a real issue;
-4. wall-clock effect;
-5. token/credit effect when visible;
-6. correctness/rework effect;
-7. tool/MCP environment;
-8. what evidence would cause the new role or budget to be removed again.
-
-Prompt tokens, latency, and management traffic are part of the product cost. A change can be economically better while using more Luna tokens if it materially reduces rework or premium-model dependence; do not claim token minimization unless measurements actually support it.
+When proposing a routing or role change, report the task type, Mode + Assurance, leaf roles invoked, whether those calls changed a decision or isolated useful context, wall-clock/token effect when visible, correctness/rework effect, tool/MCP environment, and the evidence that would cause the added complexity to be removed again.
 
 ## Before opening a PR
 

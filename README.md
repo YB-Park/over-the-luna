@@ -4,23 +4,11 @@
 
 > **Use more Luna. Pay for judgment only when it earns its place.**
 
-**Over the Luna is a VS Code-native GPT-5.6 Luna coding harness for GitHub Copilot.** It runs inside the Copilot/VS Code agent environment you already use; it is not a standalone CLI, a second agent runtime, or an alternative editor.
+**Over the Luna is a VS Code-native GPT-5.6 Luna coding harness for GitHub Copilot.** It keeps one Main Luna responsible for implementation while using short-lived Luna leaf contexts for planning, repository discovery, skepticism, research, recovery, and review.
 
-Within that boundary, Over the Luna starts from a simple economic idea: **when capable inference becomes cheap enough, the best optimization is not always to use fewer tokens.** Sometimes the better trade is to spend more low-cost inference on independent planning, repository analysis, skepticism, recovery, research, and review — while keeping premium-model inference deliberate and rare.
+**v1.1 is the current stable contract.** It adds evidence-backed routing and assurance boundaries, an ambient-tools Main that preserves the developer's VS Code tool environment, a sealed Architect handback, artifact-first review, and one human-selected **Premium Review** backed by Claude Sonnet 5.
 
-That is what GPT-5.6 Luna makes interesting. Over the Luna uses Luna's cost profile as a test-time compute budget: spend inexpensive Luna calls where another independent pass can improve engineering judgment, but keep one Main Luna responsible for the actual implementation. The goal is **more useful reasoning per AI coding budget**, not the smallest possible token count.
-
-The harness is intentionally thin: no daemon, no bundled MCP server, no hidden premium escalation, and no swarm of agents competing to edit the same code. Simple work stays simple. Harder work can fan out into small isolated Luna contexts, then return compact evidence to the same Main Luna.
-
-This is especially useful in **managed development environments** where GitHub Copilot is the standard or approved AI coding interface and the available model catalog is controlled by organization or enterprise policy. Over the Luna does not bypass those controls; it tries to get more engineering value from the models and tools already available inside them.
-
-If Luna decides that a stronger second opinion would materially reduce risk, it can recommend **Claude Sonnet 5** or **Claude Opus 4.8**. Those models never run automatically; the developer chooses a visible handoff. In other words: **use affordable compute generously, and use expensive judgment deliberately.**
-
-**Over the Luna 1.0 defines the stable harness contract.** VS Code Agent Plugins themselves are still a Preview feature, so platform behavior can continue to evolve.
-
-> Model pricing changes. Check GitHub's current [Copilot model pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) before making cost assumptions.
-
----
+VS Code Agent Plugins are still a Preview feature, so platform behavior can evolve independently of this project.
 
 ## Install
 
@@ -29,7 +17,7 @@ If Luna decides that a stronger second opinion would materially reduce risk, it 
 - A current VS Code build with GitHub Copilot enabled.
 - Agent Plugins enabled by your organization (`chat.plugins.enabled`).
 - **GPT-5.6 Luna** available in your Copilot model policy.
-- **Claude Sonnet 5** and **Claude Opus 4.8** are optional and used only for manual premium review handoffs.
+- **Claude Sonnet 5** is optional and used only when you explicitly choose Premium Review.
 
 ### Install from Git
 
@@ -44,13 +32,7 @@ If Luna decides that a stronger second opinion would materially reduce risk, it 
 4. Reload VS Code if needed.
 5. In Copilot Chat, select **Over the Luna**.
 
-VS Code installs agent plugins directly from Git repositories. See the official [Agent Plugins documentation](https://code.visualstudio.com/docs/agent-customization/agent-plugins).
-
----
-
-## How it works
-
-The automatic core is **GPT-5.6 Luna only**. The visible **Over the Luna** agent is both the main worker and the coordinator.
+## v1.1 in one picture
 
 ```text
                               You
@@ -58,9 +40,9 @@ The automatic core is **GPT-5.6 Luna only**. The visible **Over the Luna** agent
                                ▼
                         Over the Luna
                         GPT-5.6 Luna
-                  main worker + coordinator
+                  Main implementation owner
                                │
-                 locality / uncertainty / risk
+                 investigation + assurance
                                │
        ┌───────────────────────┼───────────────────────┐
        │                       │                       │
@@ -84,177 +66,92 @@ The automatic core is **GPT-5.6 Luna only**. The visible **Over the Luna** agent
                          Main Luna reports
                                  │
                      premium judgment useful?
-                         │                 │
-                         ▼                 ▼
-                  Review with Sonnet   Critical with Opus
-                     HUMAN CLICK          HUMAN CLICK
+                                 │
+                                 ▼
+                         Premium Review
+                       Claude Sonnet 5
+                          HUMAN CLICK
 ```
 
-Two additional evidence lanes are available when needed:
+Two additional evidence lanes are available when useful:
 
-- **Luna Researcher** — current public documentation, specifications, release notes, and version-sensitive facts.
+- **Luna Researcher** — current public documentation, specifications, and release notes.
 - **Luna Tool Worker** — bounded use of the developer's already configured VS Code MCP and extension tools.
 
-### SIMPLE — direct Luna
+## Routing = investigation + assurance
 
-A clear local change with an obvious nearby pattern should stay direct:
+v1.1 separates **how much discovery is needed** from **how much post-change assurance is needed**.
 
-```text
-Mode: SIMPLE — direct Luna
-```
+### Investigation
 
-Main Luna inspects the local context, edits, validates, and reports. No planner or reviewer is added merely because one exists.
+- **SIMPLE** — the implementation neighborhood is clear after bounded local orientation. Main works directly.
+- **STANDARD** — an unknown repository contract, dependency, or broad semantic pattern must be discovered. Main delegates that disposable discovery to **Luna Architect** before broad self-scouting.
+- **DEEP** — several independent uncertainties or consequential cross-cutting risks justify up to three distinct initial Luna advisory calls.
 
-### STANDARD — isolate useful read-only work
+When Architect returns sufficient evidence, it also returns the complete `MUTATION_TARGETS` work set. Main prints `Boundary sealed — work set: ...` and does not replay broad repository discovery before mutation.
 
-A task becomes STANDARD when one or two isolated perspectives can materially help. That includes uncertainty, but also **context pollution**: a mechanically simple edit can still justify Luna Architect if finding the correct pattern requires broad repository scouting.
+### Assurance
 
-```text
-Mode: STANDARD — Luna Architect
-```
+- **NONE** — only for genuinely mechanical, locally bounded changes with a direct validation assertion.
+- **REVIEW** — normal semantic work gets exactly one named **Luna Reviewer** pass after focused validation.
+- **RISK** — auth/security, concurrency/idempotency, transactions, migrations, persistence/data integrity, rollback, or important public contracts require at least one post-change named Luna Reviewer.
 
-Main Luna keeps the mutable implementation context. The Architect searches broadly in a clean context and returns only decision-changing file/symbol evidence.
-
-### DEEP — spend more Luna compute where it matters
-
-When several independent uncertainties or risk boundaries matter, Main Luna can use up to three initial advisory calls, preferably in parallel:
-
-```text
-Mode: DEEP — Luna Planner ∥ Luna Architect ∥ Luna Skeptic
-```
-
-Planner clarifies acceptance and constraints. Architect grounds the work in repository reality. Skeptic tries to falsify consequential assumptions. Their outputs are compressed before Main Luna implements anything.
-
-### Recovery — diagnose from evidence
-
-Luna Recovery is not speculative reflection. It is used only after concrete failure evidence exists, such as a focused test that still fails after a meaningful attempt or repository behavior that contradicts the current plan. Recovery returns one bounded diagnosis and next attempt; Main Luna performs the mutation.
-
-### Review — independent, rubric-driven
-
-Tiny mechanically validated changes may finish without a separate reviewer. **Non-trivial completed changes get one Luna Reviewer** with a specific rubric such as correctness, regression, security, concurrency, data integrity, or migration safety. DEEP/high-risk work may use two reviewers only when the rubrics are genuinely different.
-
-### Premium judgment — visible human choice
-
-For architecture-sensitive, security/auth, concurrency, transactionality, migration, data-integrity, public-contract, or unusually subtle uncertainty, Luna can return:
-
-```text
-RECOMMEND_SONNET: <specific reason>
-```
-
-For unusually consequential uncertainty:
-
-```text
-RECOMMEND_OPUS: <specific reason>
-```
-
-The recommendation does **not** run the premium model. VS Code shows a handoff and the developer decides whether to use it.
-
----
-
-## The architecture in one sentence
-
-> **Parallelize thinking; serialize mutation.**
-
-And one companion rule:
-
-> **Main Luna owns the work, not all of the thinking.**
-
-Main Luna is the single automatic repository mutation owner. Council agents are short-lived leaf contexts that gather independent evidence, not autonomous coworkers editing the same branch.
-
----
-
-## Why this design
-
-The research below does not benchmark GPT-5.6 Luna or prove that this exact harness is optimal. It informs the design choices, which are also checked against real VS Code runtime behavior.
-
-### Cheap inference can change the algorithm
-
-Low inference cost makes extra independent passes practical. Research on [test-time compute scaling for LLM agents](https://arxiv.org/abs/2506.12928) shows that additional compute can improve agent performance, while also showing that **when** and **how** the compute is spent matters. Over the Luna therefore scales advisory work with SIMPLE / STANDARD / DEEP instead of always fanning out.
-
-The economic target is not minimum token usage. A well-justified Council pass may increase total Luna tokens while still improving the overall cost/quality trade-off by reducing wrong-direction work or avoiding premium inference as the default.
-
-### Managed boundaries are design inputs, not obstacles to bypass
-
-GitHub Copilot Business and Enterprise can control feature and model availability through [organization and enterprise policies](https://docs.github.com/en/copilot/concepts/policies). Over the Luna treats those boundaries as part of the runtime environment. It does not acquire models outside the available Copilot catalog, install a second agent runtime, or attempt to evade organization controls.
-
-This makes the harness relevant when the practical question is not "which AI stack can I adopt?" but **"how much agentic coding can I get from the VS Code, Copilot, and model catalog I already have?"**
-
-### More agents are not automatically better
-
-OpenAI's [practical guide to building agents](https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/) recommends maximizing a single agent before introducing multi-agent complexity. TeamBench likewise reports cases where teams or verifiers hurt instead of help ([TeamBench](https://arxiv.org/abs/2605.07073)). That is why Main Luna implements directly and every extra call needs a concrete reason.
-
-### Coding benefits from isolation more than competing writers
-
-Anthropic's [multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) shows the value of breadth-first parallel research while noting the higher coordination/token cost and the fact that coding has fewer naturally independent tasks. VS Code itself describes subagents as isolated focused contexts that return results to the main agent ([VS Code Subagents](https://code.visualstudio.com/docs/agents/subagents)). Over the Luna parallelizes read-only thinking, not competing code mutation.
-
-### Compress context instead of forwarding everything
-
-Microsoft's [SWE-Edit](https://www.microsoft.com/en-us/research/publication/swe-edit-rethinking-code-editing-for-efficient-swe-agent/) and [CORPGEN](https://www.microsoft.com/en-us/research/blog/corpgen-advances-ai-agents-for-real-work/) both support the value of role/context separation and controlled context transfer. Council agents can explore widely, but they return compact evidence to Main Luna.
-
-### Failure should trigger diagnosis, not blind persistence
-
-Microsoft's [PROBE](https://www.microsoft.com/en-us/research/publication/debugging-the-debuggers-failure-anchored-structured-recovery-for-software-engineering-agents/) motivates an evidence → diagnosis → bounded recovery pattern. Luna Recovery follows that shape and has a bounded retry budget.
-
-### Verification needs a specific lens
-
-A generic "review everything" pass is easy to over-trust. Microsoft's [AgentLens](https://www.microsoft.com/en-us/research/publication/agentlens-revealing-the-lucky-pass-problem-in-swe-agent-evaluation/) highlights process failures that can hide behind passing outcomes. Over the Luna uses explicit reviewer rubrics and keeps premium judgment visible to the human.
-
----
+Reviewer receives the current unified diff plus acceptance criteria and validation evidence. Main remains the only mutation owner and adjudicates any finding.
 
 ## Agent map
 
 | Agent | Model | Visible | Tool boundary | Purpose |
 |---|---|---:|---|---|
-| **Over the Luna** | GPT-5.6 Luna | ✅ | inherits active selection | main worker + coordinator |
-| Luna Planner | GPT-5.6 Luna | ❌ | no tools | acceptance / work contract |
-| Luna Architect | GPT-5.6 Luna | ❌ | read/search | repository structure / impact |
+| **Over the Luna** | GPT-5.6 Luna | ✅ | VS Code-owned selected tools | Main worker + coordinator |
+| Luna Planner | GPT-5.6 Luna | ❌ | no tools | acceptance / constraints |
+| Luna Architect | GPT-5.6 Luna | ❌ | read/search | repository evidence + sealed work set |
 | Luna Skeptic | GPT-5.6 Luna | ❌ | read/search | challenge consequential assumptions |
 | Luna Researcher | GPT-5.6 Luna | ❌ | read/search/web | current public evidence |
-| Luna Tool Worker | GPT-5.6 Luna | ❌ | inherits active selection | bounded MCP / extension evidence |
-| Luna Recovery | GPT-5.6 Luna | ❌ | read/search | failure diagnosis |
-| Luna Reviewer | GPT-5.6 Luna | ❌ | read/search | independent rubric review |
-| **Sonnet Reviewer** | Claude Sonnet 5 | ✅ | read/search | manual premium second opinion |
-| **Opus Critical Reviewer** | Claude Opus 4.8 | ✅ | read/search/web | manual highest-stakes review |
+| Luna Tool Worker | GPT-5.6 Luna | ❌ | inherits selected tools | bounded MCP / extension evidence |
+| Luna Recovery | GPT-5.6 Luna | ❌ | read/search | failure-anchored diagnosis |
+| Luna Reviewer | GPT-5.6 Luna | ❌ | read/search | artifact-first independent review |
+| **Premium Review** | Claude Sonnet 5 | ✅ | read/search | human-selected different-model judgment |
 
-All automatic subagents are leaf nodes (`agents: []`). Sonnet and Opus are manual-only profiles and are never invoked by the automatic core.
+All automatic leaf agents are non-recursive (`agents: []`). Only **Over the Luna** and **Premium Review** are intended to appear in the normal user-selectable agent UI.
 
----
+## VS Code-owned tools
 
-## MCP and extension tools
+Over the Luna does **not** install or own MCP servers. Main intentionally omits a fixed `tools` list so the developer's selected built-in, MCP, and extension tools remain VS Code-owned. Luna Tool Worker uses the same ambient path for a bounded external-tool question when isolation is useful.
 
-Over the Luna does **not** install or own MCP servers. Main Luna and Luna Tool Worker preserve the developer's active VS Code selected-tool environment, while strict council/review roles use narrow explicit tool lists.
+Strict read-only leaves declare narrow tool lists and do not inherit arbitrary mutation-capable integrations.
 
-Tool visibility is not authorization. External reads may be inferred when clearly necessary for the requested outcome; **external mutation is never inferred**. Updating tickets, sending messages, pushing, deploying, changing databases, creating PRs, or modifying cloud resources requires an explicit developer request for that effect.
+Tool visibility is not authorization. External mutation—sending messages, changing tickets or databases, pushing, deploying, creating PRs, or modifying cloud resources—requires an explicit developer request for that effect.
 
 See [`docs/MCP.md`](docs/MCP.md) for the runtime contract and troubleshooting guidance.
 
----
+## Premium Review
 
-## Thinking effort
+Premium inference is one visible human decision, not a model menu.
 
-Over the Luna does not encode undocumented per-agent reasoning-effort fields in `.agent.md`. Reasoning/thinking configuration is managed by VS Code/model controls. The harness instead controls observable work-shaping mechanisms:
+- Backing model: **Claude Sonnet 5**.
+- Handoff: exactly one **Premium Review** action.
+- `send: false`: the prompt is prepared but the premium request is not sent until the developer chooses to send it.
+- The premium agent is read/search only and cannot delegate.
+- The handoff and Premium Review agent preserve the natural language of the user's latest substantive request; code, paths, commands, and verdict labels remain verbatim.
+- If the requested premium model is unavailable, the product should surface that fact rather than silently claiming the requested premium judgment happened.
 
-- advisory fan-out;
-- context-isolation triggers;
-- compact output contracts;
-- one mutation owner;
-- evidence-triggered recovery;
-- reviewer count and rubric;
-- explicit stop conditions and human premium gates.
+## Design principles
 
----
+> **Parallelize thinking; serialize mutation.**
+
+> **Main Luna owns the work, not all of the thinking.**
+
+The goal is not minimum token count or maximum agent count. Cheap Luna inference is spent where an independent context can reduce wrong-direction work, keep broad disposable discovery out of Main, diagnose a concrete failure, or verify a completed artifact.
 
 ## Scope and limitations
 
-Over the Luna is an orchestration layer, not a security boundary. It relies on VS Code trust, approval, sandboxing, organization policy, and the developer's configured tools. **It does not circumvent GitHub Copilot feature or model policies, and it does not obtain models outside the catalog available to the developer.** Agent Plugins are currently a Preview VS Code feature, so runtime behavior may change across VS Code/Copilot releases.
+Over the Luna is an orchestration layer, not a security boundary. It relies on VS Code trust, approvals, sandboxing, organization policy, and the developer's configured tools. It does not bypass GitHub Copilot feature/model policy or acquire models outside the catalog available to the developer.
 
-The automatic core intentionally optimizes around **GPT-5.6 Luna**. If Luna is unavailable in your organization, the harness does not silently substitute another automatic model.
-
----
+The automatic core is intentionally **GPT-5.6 Luna only**. If Luna is unavailable, the harness does not silently substitute another automatic model.
 
 ## Project docs
 
-- [`docs/DESIGN.md`](docs/DESIGN.md) — current architecture and invariants.
+- [`docs/DESIGN.md`](docs/DESIGN.md) — v1.1 architecture and invariants.
 - [`docs/MCP.md`](docs/MCP.md) — MCP/extension-tool contract.
 - [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md) — runtime release checks.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution and architecture rules.

@@ -6,11 +6,43 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-### Documentation
+## v1.1.0 — 2026-08-20
 
-- Clarified that Over the Luna optimizes the overall AI coding cost/quality trade-off rather than minimum token count.
-- Documented managed GitHub Copilot environments and organization-controlled model catalogs as first-class use cases, while explicitly treating policy boundaries as constraints rather than something to bypass.
-- Made the intended economic pattern more explicit: spend low-cost Luna inference where independent reasoning helps, and keep premium-model inference visible and deliberate.
+### Runtime routing and ownership
+
+- Replaced the coarse v1.0 routing contract with separate **SIMPLE / STANDARD / DEEP** investigation and **NONE / REVIEW / RISK** assurance decisions.
+- Kept Main Luna as the sole automatic repository mutation owner.
+- Added bounded SIMPLE orientation so local work stays direct without root inventories or broad scouting.
+- Made broad unknown semantic discovery a Luna Architect responsibility before Main accumulates repository-wide disposable context.
+- Added the sealed Architect packet contract: `DECISION / EVIDENCE / RELATIONSHIPS / MUTATION_TARGETS / UNRESOLVED` plus `Boundary sealed — work set: ...` and no broad Main replay after sufficient handback.
+- Kept all Council/review roles as non-recursive leaf contexts.
+
+### Artifact-first assurance
+
+- Normal semantic REVIEW now uses exactly one named Luna Reviewer trajectory after focused validation.
+- Reviewer receives the current unified diff, acceptance criteria, changed paths, validation evidence, bounded dependency closure, and one consequential invariant challenge.
+- Main adjudicates findings and performs any repair/revalidation without recursive normal review.
+- RISK work requires at least one named post-change Luna Reviewer; a second Reviewer is reserved for one explicitly distinct residual consequential risk.
+
+### VS Code runtime compatibility
+
+- Main intentionally omits both `tools` and `agents`: VS Code retains ownership of the developer-selected built-in/MCP/extension tool environment while the exact seven Luna Council names remain instruction-sealed.
+- Luna Tool Worker keeps the ambient selected-tool path for bounded integration work; strict leaves retain narrow explicit tool boundaries.
+- Rejected wildcard `tools: ['*']` wiring and kept policy/unavailable integration failures visible rather than bypassing them.
+- Real VS Code Gate A confirmed ambient subagent execution, exact Luna Architect selection, VS Code built-in tool use, Architect handback reuse, and normal Reviewer execution.
+
+### Premium Review
+
+- Replaced the old Sonnet/Opus premium menu with one visible **Premium Review** backed by **Claude Sonnet 5**.
+- Premium Review is human-selected only, read/search only, non-recursive, and remains `send: false` so the premium request is not sent automatically.
+- Added response-language continuity so a handoff from a Korean (or other-language) conversation does not switch to English merely because the premium instructions are written in English.
+- Premium backing-model unavailability must be surfaced instead of silently claiming the requested judgment occurred.
+
+### Validation
+
+- Automated Luna-core release matrix passed tiny/local/broad/risk boundaries 8/8 with hidden behavior/routing/ownership gates.
+- Added static validation for the nine-agent v1.1 layout, ambient Main frontmatter, exact single Premium Review handoff, Sonnet 5 backing model, `send: false`, and language continuity.
+- Real VS Code soak confirmed the visible agent layout and key end-to-end Architect → Main → Reviewer and Premium handoff paths.
 
 ## v1.0.0 — 2026-08-12
 

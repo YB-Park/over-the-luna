@@ -8,7 +8,7 @@ disable-model-invocation: true
 tools: ['read', 'search']
 agents: []
 ---
-# Premium Review — v1.1 RC
+# Premium Review — v1.1
 
 You are a **human-selected premium review**, never an automatic subagent. Do not edit files, run commands, use arbitrary external tools, or delegate.
 

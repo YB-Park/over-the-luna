@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the v1.1 ambient-tools RC soak candidate."""
+"""Validate the Over the Luna v1.1 release contract."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS_DIR = ROOT / "agents"
-EXPECTED_VERSION = "1.1.0-rc.1"
+EXPECTED_VERSION = "1.1.0"
 EXPECTED_AGENT_IDS = {
     "over-the-luna",
     "luna-planner",
@@ -73,7 +73,7 @@ def main() -> int:
     errors: list[str] = []
     plugin = json.loads((ROOT / "plugin.json").read_text(encoding="utf-8"))
     if plugin.get("version") != EXPECTED_VERSION:
-        errors.append(f"plugin.json: RC soak branch must remain {EXPECTED_VERSION}")
+        errors.append(f"plugin.json: release version must remain {EXPECTED_VERSION}")
     if plugin.get("agents", "agents/") != "agents/":
         errors.append("plugin.json: agents path must remain agents/")
     if (ROOT / ".mcp.json").exists() or "mcpServers" in plugin or "mcp-servers" in plugin:
@@ -83,7 +83,7 @@ def main() -> int:
     actual_ids = {p.name.removesuffix(".agent.md") for p in files}
     if actual_ids != EXPECTED_AGENT_IDS:
         errors.append(
-            "agents/: ambient v1.1 RC layout mismatch; "
+            "agents/: ambient v1.1 release layout mismatch; "
             f"missing={sorted(EXPECTED_AGENT_IDS-actual_ids)} extra={sorted(actual_ids-EXPECTED_AGENT_IDS)}"
         )
 
@@ -123,7 +123,7 @@ def main() -> int:
             if not isinstance(tools, list) or not all(isinstance(x, str) for x in tools):
                 errors.append(f"{path}: tools must be a string list")
             elif "*" in tools:
-                errors.append(f"{path}: wildcard '*' is rejected on the VS Code/Copilot CLI path")
+                errors.append(f"{path}: wildcard '*' is rejected on the VS Code/Copilot path")
         if not body:
             errors.append(f"{path}: instruction body is empty")
 
@@ -213,13 +213,13 @@ def main() -> int:
         errors.append(f"agents/: missing exact Council display names: {sorted(COUNCIL_NAMES-names)}")
 
     if errors:
-        print("Over the Luna v1.1 RC validation FAILED:\n")
+        print("Over the Luna v1.1 validation FAILED:\n")
         for error in errors:
             print(f"- {error}")
         return 1
 
     print(
-        "Over the Luna v1.1 RC validation passed: "
+        "Over the Luna v1.1 validation passed: "
         f"{len(files)} agents, manifest v{plugin['version']}, ambient Main tools, instruction-sealed Council, one human Premium Review, language continuity"
     )
     return 0
