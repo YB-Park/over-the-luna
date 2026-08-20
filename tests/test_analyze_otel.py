@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from scripts.analyze_otel import detect_mode_from_events, load_spans, summarize
+from scripts.analyze_tool_ownership import summarize_tool_ownership
 
 
 def span(
@@ -14,6 +15,8 @@ def span(
     span_id: str,
     *,
     parent: str | None = None,
+    trace_id: str = "trace-1",
+    parent_trace_id: str | None = None,
     attributes: dict | None = None,
 ) -> dict:
     attrs = {"gen_ai.operation.name": operation}
@@ -21,10 +24,13 @@ def span(
     value = {
         "name": name,
         "attributes": attrs,
-        "spanContext": {"traceId": "trace-1", "spanId": span_id},
+        "spanContext": {"traceId": trace_id, "spanId": span_id},
     }
     if parent:
-        value["parentSpanContext"] = {"traceId": "trace-1", "spanId": parent}
+        value["parentSpanContext"] = {
+            "traceId": parent_trace_id or trace_id,
+            "spanId": parent,
+        }
     return value
 
 
@@ -148,6 +154,75 @@ class AnalyzeOtelTests(unittest.TestCase):
         self.assertEqual(summary.main_tokens.output, 1007)
         self.assertEqual(summary.council_tokens.input, 0)
         self.assertEqual(summary.council_tokens.output, 0)
+
+    def test_trace_qualified_ancestry_prevents_cross_trace_collisions(self) -> None:
+        events = [
+            span(
+                "invoke_agent Luna Architect",
+                "invoke_agent",
+                "shared-agent",
+                trace_id="trace-a",
+                attributes={"gen_ai.agent.name": "Luna Architect"},
+            ),
+            span(
+                "chat GPT-5.6 Luna",
+                "chat",
+                "shared-chat",
+                trace_id="trace-a",
+                parent="shared-agent",
+                attributes={
+                    "gen_ai.response.model": "GPT-5.6 Luna",
+                    "gen_ai.usage.input_tokens": 10,
+                    "gen_ai.usage.output_tokens": 1,
+                },
+            ),
+            span(
+                "execute_tool view",
+                "execute_tool",
+                "shared-tool",
+                trace_id="trace-a",
+                parent="shared-agent",
+                attributes={"gen_ai.tool.name": "view"},
+            ),
+            span(
+                "invoke_agent Luna Reviewer",
+                "invoke_agent",
+                "shared-agent",
+                trace_id="trace-b",
+                attributes={"gen_ai.agent.name": "Luna Reviewer"},
+            ),
+            span(
+                "chat GPT-5.6 Luna",
+                "chat",
+                "shared-chat",
+                trace_id="trace-b",
+                parent="shared-agent",
+                attributes={
+                    "gen_ai.response.model": "GPT-5.6 Luna",
+                    "gen_ai.usage.input_tokens": 20,
+                    "gen_ai.usage.output_tokens": 2,
+                },
+            ),
+            span(
+                "execute_tool rg",
+                "execute_tool",
+                "shared-tool",
+                trace_id="trace-b",
+                parent="shared-agent",
+                attributes={"gen_ai.tool.name": "rg"},
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "trace.jsonl"
+            path.write_text("\n".join(json.dumps(event) for event in events), encoding="utf-8")
+            summary = summarize(load_spans(path))
+            ownership = summarize_tool_ownership(path)
+
+        self.assertEqual(summary.by_agent_tokens["Luna Architect"].input, 10)
+        self.assertEqual(summary.by_agent_tokens["Luna Reviewer"].input, 20)
+        self.assertEqual(ownership["by_agent"]["Luna Architect"], {"view": 1})
+        self.assertEqual(ownership["by_agent"]["Luna Reviewer"], {"rg": 1})
 
     def test_mode_can_be_recovered_from_cli_event_stream(self) -> None:
         events = [
