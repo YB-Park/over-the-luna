@@ -1,327 +1,265 @@
-# Over the Luna v1.1 — leading design candidate
+# Over the Luna v1.1 design candidate
 
-Status: **research-backed candidate, not yet a release specification**  
-Evidence date: 2026-08-19
+Status: **automated Luna core = PRE-PRODUCTION RC2; real VS Code + premium UX gates still open**  
+Updated: **2026-08-20**
 
-This document captures the design that currently has the strongest experimental support. It exists so the v1.1 work no longer depends on reconstructing intent from experiment branches and commit history.
+This is the evidence-backed v1.1 design candidate. It is not yet the released product contract.
 
-Do not treat this as permission to merge the research branch into `main` or bump the plugin version. Real VS Code/runtime and premium-UX gates remain open.
+## v1.0 -> v1.1 objective
 
-## Product thesis
+v1.1 is not an attempt to maximize Council calls or independent reviews.
 
-Over the Luna should spend cheap independent Luna inference where it buys one of two things:
+The product objective is:
 
-1. **context isolation** — broad disposable evidence should not pollute Main Luna's mutable implementation context;
-2. **independent assurance** — a completed non-trivial artifact should receive one fresh, bounded attempt to falsify an acceptance-critical assumption.
+> **Use cheap GPT-5.6 Luna inference only where it buys context isolation or independent evidence, while preserving one Main mutation owner, direct ergonomics for genuinely local work, and explicit human control over premium spend.**
 
-The goal is not more agents, more STANDARD routes, or more Reviewer invocations.
+Operationally:
 
-> **Optimize duplicated epistemic work and verified engineering value, not agent count.**
+- parallelize thinking; serialize mutation;
+- Main Luna owns repository mutation and mutable implementation state;
+- tiny mechanical work must remain cheap;
+- local semantic work stays direct when locality and the contract are already concrete;
+- broad disposable semantic discovery is isolated before it pollutes Main context;
+- normal non-trivial mutation gets one bounded fresh Luna Reviewer at the evidence-rich end;
+- consequential RISK always gets final artifact assurance;
+- premium models never run automatically.
 
-The existing core invariants remain:
+## Canonical automated-core RC2
 
-> **Parallelize thinking; serialize mutation.**
+Use these files for the current automated-core candidate:
 
-> **Main Luna owns the work, not all of the thinking.**
+- Main: `experiments/v1_1_candidate_rc2.agent.md`
+- Architect: `experiments/v1_1_candidate_architect_packet_v3.agent.md`
+- Reviewer: `experiments/v1_1_candidate_reviewer_rc.agent.md`
 
-Main Luna remains the only automatic repository mutation owner.
+Supporting release-gate infrastructure:
 
----
+- fixtures/oracles: `experiments/v1_1_release_gate_fixture.py`
+- base policy evaluator: `experiments/v1_1_release_gate_evaluator_v6.py`
+- RC2 discipline evaluator: `experiments/v1_1_release_gate_evaluator_rc2.py`
+- parser/contract tests under `tests/test_v1_1_*`
 
-## 1. Two independent decisions
+Detailed final evidence:
 
-v1.1 should make investigation and assurance separate first-class state.
+- `experiments/PREPRODUCTION_RC2_RESULTS_2026-08-20.md`
 
-### Investigation
+## Route representation
 
-Keep the existing vocabulary:
+Keep the existing investigation vocabulary and separate assurance from it:
 
-- `SIMPLE`
-- `STANDARD`
-- `DEEP`
+- Investigation: `SIMPLE | STANDARD | DEEP`
+- Assurance: `NONE | REVIEW | RISK`
 
-These modes answer:
+The route is printed as:
 
-> How much isolated investigation or independent evidence is useful before/during implementation?
+`Mode: <SIMPLE|STANDARD|DEEP> — <short route> | Assurance: <NONE|REVIEW|RISK>`
 
-Do **not** optimize for a target SIMPLE/STANDARD/DEEP percentage.
+Examples:
 
-### Assurance
+- `SIMPLE + NONE` — exact mechanical change;
+- `SIMPLE + REVIEW` — local semantic mutation;
+- `STANDARD + REVIEW` — unknown semantic discovery isolated to Architect;
+- `SIMPLE/DEEP + RISK` — consequential assurance independent of investigation depth.
 
-Add/retain explicit state:
+## Bounded local orientation
 
-- `NONE`
-- `REVIEW`
-- `RISK`
+SIMPLE does not mean Main can explore indefinitely.
 
-This answers:
+Before routing, Main may locate an already-specified local behavior using a small budget:
 
-> How much independent assurance is justified after there is a concrete artifact and validation evidence?
+- direct user-named file reads; or
+- at most three narrow exact `rg` locators;
+- at most three semantic source/test files before mutation;
+- at most one tooling/build metadata file only when validation cannot otherwise be inferred;
+- one visible adjacent helper may be followed inside the semantic-file budget;
+- no `glob` during SIMPLE orientation;
+- no README/docs/changelog/background-prose browsing unless the task targets those files;
+- no recursive inventory, `find`, `tree`, `git ls-files`, `git grep`, recursive grep, or wildcard-only discovery.
 
-A task can therefore be:
+This budget answers only:
 
-`Mode: SIMPLE — direct Luna | Assurance: REVIEW`
+> Where is this already-specified local thing and its immediate contract?
 
-This separation is important. Experiments repeatedly showed that a SIMPLE implementation route can otherwise suppress a later Reviewer even for non-trivial mutation.
+If the budget is insufficient, or correctness requires discovering/tracing an unknown repository contract, pattern, consumer, or dependency, Main stops and chooses STANDARD.
 
----
+This distinction is a core v1.1 result:
 
-## 2. Investigation policy
+> **bounded locator orientation is not semantic discovery.**
 
-### SIMPLE
+Earlier candidates that treated all location finding as broad discovery over-routed tiny/local work and damaged ergonomics.
 
-Use SIMPLE when a focused orientation pass establishes the concrete implementation neighborhood and the local pattern is sufficient.
+## STANDARD — Architect owns unknown semantic discovery
 
-No investigative subagent is required by default.
+When the task requires broad disposable evidence, Main invokes Luna Architect before consuming that evidence itself.
 
-Do not lower the SIMPLE threshold merely to increase Council usage. External TTL-cache replication correctly stayed SIMPLE while still using REVIEW.
+Architect returns exactly:
 
-### STANDARD
+- `DECISION`
+- `EVIDENCE`
+- `RELATIONSHIPS`
+- `MUTATION_TARGETS`
+- `UNRESOLVED`
 
-Use STANDARD when one or two focused leaf passes have real value, especially when broad repository discovery would otherwise fill Main's context with disposable evidence.
+`MUTATION_TARGETS` is the complete post-handback work set, not merely files expected to change. It includes:
 
-Luna Architect is the preferred owner of broad repository scouting.
+- implementation files;
+- focused tests;
+- unchanged acceptance-critical helper/contract definitions Main must inspect locally.
 
-### DEEP
+### Sealed handback
 
-Use DEEP for multiple independent uncertainties or cross-cutting risk boundaries, not for file count alone. Keep the initial fan-out bounded.
+After a sufficient packet, Main emits:
 
----
+`Boundary sealed — work set: <exact concrete paths>`
 
-## 3. Architect evidence boundary
+Then, before mutation:
 
-The important v1.1 change is not “call Architect more often.”
+- first repository action is a concrete read inside the work set;
+- all Main reads remain inside the work set;
+- no repository inventory/search replay via read, search, shell, or VCS commands;
+- focused validation/build commands, `git status`, and current-patch `git diff` remain allowed;
+- one genuinely missing broad fact requires an explicit `Boundary reopen: <fact>` and one focused Architect follow-up rather than silent Main rehydration.
 
-It is **epistemic ownership**.
+The final broad RC2 fixture reproduced this shape 2/2.
 
-When broad disposable discovery is justified:
-
-1. Main performs only enough orientation to recognize that the implementation/evidence neighborhood is not local.
-2. Main delegates before consuming the broad details itself.
-3. Luna Architect owns that broad read-only pass.
-4. Architect returns a compact handback packet:
-   - `DECISION`
-   - `EVIDENCE`
-   - `RELATIONSHIPS`
-   - `MUTATION_TARGETS`
-   - `UNRESOLVED`
-5. Main treats a sufficient packet as the completed broad discovery pass.
-
-### Tool-closed handback
-
-For a read-only mapping task with `UNRESOLVED: none`, Main should normally synthesize without reopening repository read/search tools.
-
-For mutation, Main may inspect:
-
-- concrete `MUTATION_TARGETS`;
-- immediately adjacent implementation/test context;
-- explicitly `UNRESOLVED` facts.
-
-Main should **not** replay repository-wide discovery merely to reconfirm evidence Architect already established.
-
-If a material broad fact is missing, reopen the boundary for that **specific fact** rather than silently rebuilding the broad investigation in Main.
-
-### Why this shape
-
-Scouting experiments falsified these alternatives:
-
-- increasing STANDARD usage by itself;
-- counting Architect invocation as successful isolation;
-- improving only Architect output format while leaving Main free to rehydrate broad evidence;
-- optimizing agent count rather than duplicated context.
-
-The simpler evidence-packet Architect is currently preferred over the more elaborate bounded-packet prompt. Direct A/B replication did not show a stable read/token advantage for the more complex prompt.
-
----
-
-## 4. Assurance policy
+## Assurance
 
 ### NONE
 
-Use NONE for:
+Use only when the mutation is fully specified, mechanical, mechanically validated, and carries no semantic/control-flow/validation/identity/data-shape/security/concurrency/persistence/public-contract inference.
 
-- read-only work;
-- genuinely tiny, obvious, mechanically validated mutations with no meaningful behavioral/compatibility/security/data/concurrency/public-contract consequence.
+NONE means no Reviewer call.
 
-This should remain cheap and Reviewer-free.
+The final tiny RC2 fixture reproduced `SIMPLE + NONE`, Architect 0, Reviewer 0, hidden PASS **2/2**.
 
 ### REVIEW
 
-For expected non-trivial mutation, declare REVIEW **early**, before implementation anchors the task as “direct.”
+Normal non-trivial mutation buys **exactly one named Luna Reviewer task call total**.
 
-After there is a meaningful completed patch and focused validation evidence, run **exactly one fresh Luna Reviewer for the entire normal REVIEW trajectory**.
+Before the call Main:
 
-Give Reviewer:
+1. runs focused validation;
+2. captures the current unified diff;
+3. puts the concrete artifact between `BEGIN_UNIFIED_DIFF` and `END_UNIFIED_DIFF`;
+4. preflights that the artifact contains `diff --git`, `@@`, and every changed path;
+5. includes acceptance criteria, changed paths, validation outcomes, and one narrow rubric.
 
-- original request and acceptance criteria;
-- exact completed patch/artifact;
-- focused/full validation evidence;
-- a concrete task-specific rubric.
+Hard normal-review budget:
 
-#### Reviewer evidence selection
+- no artifact-format retry;
+- no retry after `VERIFY`;
+- no re-review after accepted repair;
+- no substitution with a generic/built-in code-review agent.
 
-Normal Reviewer should be **artifact-first**, not repository-first.
+If the single Reviewer returns `VERIFY`, Main reports that unresolved fact instead of buying another pass.
 
-Before PASS it should:
+The Reviewer itself:
 
-1. identify acceptance-critical unchanged semantic dependencies used by changed behavior;
-2. inspect only those bounded local definitions/callers needed to close the dependency;
-3. challenge **one consequential semantic invariant** implied by the changed artifact and that dependency closure.
-
-Useful invariant categories include, only when actually relevant:
-
-- identity/key uniqueness;
-- scope/partitioning;
-- ordering/ancestry;
-- sentinel/fallback semantics;
-- compatibility boundary.
-
-This is not permission for generic adversarial brainstorming. The challenge must come from the changed artifact plus concrete dependency evidence.
-
-#### One-review trajectory bound
-
-Normal REVIEW has a hard budget of **one Reviewer invocation total**.
-
-If Reviewer reports a supported finding:
-
-1. Main adjudicates it;
-2. Main performs any accepted repair;
-3. Main reruns the relevant validation;
-4. **do not automatically invoke Reviewer again because the patch changed.**
-
-The previous four-review experiment demonstrated that recursive review can dominate trajectory cost even when findings are useful.
+- starts from the concrete artifact;
+- closes only acceptance-critical unchanged dependencies;
+- challenges one consequential invariant before PASS;
+- reads at most four concrete files / eight read-search calls;
+- never inspects `.git`/history/background prose;
+- returns at most three material findings.
 
 ### RISK
 
-Reserve RISK for genuinely consequential boundaries such as:
+RISK covers consequential auth/security, concurrency/idempotency, transaction, migration, persistence/data-integrity, rollback, and important public-contract boundaries.
 
-- auth/security;
-- concurrency/idempotency;
-- transactions;
-- migrations;
-- persistence/data integrity;
-- rollback;
-- important public contracts.
+Pre-change Architect/Skeptic calls may help, but they do not substitute for final assurance.
 
-RISK may use at most two independent review passes only when they have genuinely different rubrics.
+After the final meaningful patch and validation, at least one **post-change named Luna Reviewer** is mandatory.
 
-Do not escalate to RISK merely because the normal Reviewer found an issue or Main repaired it.
+Default budget is one. A second pass is allowed only if Main first names one distinct residual consequential risk with a genuinely different rubric that the first Reviewer and tests could not close.
 
----
+The final risk RC2 fixture passed 2/2 with exactly one post-change named Reviewer in both runs.
 
-## 5. Reviewer finding standard
+## Automated-core release evidence
 
-Reviewer findings are evidence, not commands.
+Final RC2 matrix: **8 / 8 PASS**.
 
-Main must adjudicate them against the actual code/tests/contracts.
+| Boundary | Repetitions | Expected shape | Result |
+| --- | ---: | --- | --- |
+| tiny | 2 | `SIMPLE + NONE`, no leaves | 2/2 PASS |
+| local | 2 | `SIMPLE + REVIEW`, Reviewer 1 | 2/2 PASS |
+| broad | 2 | `STANDARD + Architect + REVIEW`, sealed work set | 2/2 PASS |
+| risk | 2 | `RISK`, post-change named Reviewer >= 1 | 2/2 PASS |
 
-A useful normal Reviewer should prefer:
+Every run also passed its hidden behavioral oracle and automatic-premium count was zero.
 
-- concrete must-fix correctness/compatibility violations;
-- supported test/validation gaps that could hide an acceptance failure;
-- precise `VERIFY` when an acceptance-critical fact cannot be established within the bounded read budget.
+The significance is not merely 8/8 correctness. Earlier hidden-PASS trajectories were intentionally failed when they violated cost/context discipline, including:
 
-Avoid:
+- unnecessary Reviewer on tiny work;
+- generic root globs;
+- README/tooling over-scouting on local work;
+- shell/VCS broad rehydration after Architect;
+- repeated normal Reviewer calls;
+- RISK that skipped final Reviewer;
+- RISK that substituted built-in `code-review`.
 
-- speculative public-consumer claims without evidence;
-- style preferences promoted to correctness issues;
-- generic “add more tests” advice;
-- broad repository inventory for confidence.
+RC2 is the first candidate to close all four boundaries together in the controlled CLI matrix.
 
----
+## Main tool wiring — unresolved real VS Code blocker
 
-## 6. Recovery remains evidence-triggered
+The automated CLI core deliberately kept Main's `tools` field omitted so experiments could preserve the ambient tool set and configured MCP/extension tools.
 
-Luna Recovery is not a general self-reflection pass.
+This assumption is **not yet product-safe**.
 
-Use it only after concrete failure evidence, such as a focused validation failure or repository behavior contradicting the current plan.
+Current VS Code documentation states that when a custom agent specifies an `agents` allowlist, the `agent` / `agent/runSubagent` capability must be enabled/included. At the same time, explicitly specifying a custom-agent `tools` list defines the tools available to that agent, which can conflict with the v1.1 goal of preserving the developer's selected arbitrary MCP/extension tools.
 
-Main remains responsible for the repair.
+Therefore productization requires a real VS Code Gate A comparison before changing the released `agents/` files.
 
-Do not treat a Reviewer finding by itself as a Recovery trigger; Main first adjudicates whether the finding is supported.
+Two wiring candidates must be tested interactively:
 
----
+### Wiring A — schema-strict subagent allowlist
 
-## 7. Automatic model boundary
+- keep explicit `agents: [...]`;
+- explicitly include `agent` in Main's tool configuration;
+- confirm what built-in/MCP/extension tools remain available and whether developer selections can still be preserved without hardcoding integrations.
 
-The automatic core remains GPT-5.6 Luna only in this candidate.
+Strength: structural subagent allowlist.
 
-No evidence collected in the v1.1 routing/assurance work justifies adding a hidden automatic premium/non-Luna call.
+Risk: fixed custom-agent tools may replace/narrow ambient developer-selected tools.
 
-Premium inference remains human-selected.
+### Wiring B — ambient-tool preservation
 
----
+- omit Main `tools`;
+- remove the frontmatter `agents` allowlist if required by VS Code semantics;
+- enforce the allowed Luna leaf names in Main instructions;
+- confirm `agent/runSubagent` remains available from the user's tool selection and no unintended agents are selected.
 
-## 8. Premium UX is deliberately unresolved
+Strength: preserves ambient tool configuration.
 
-The v1.0 handoff execution defect has a known cause and a research-branch regression fix: handoff targets must resolve to actual custom-agent names rather than filename-style slugs.
+Risk: leaf allowlist becomes behavioral rather than frontmatter-enforced.
 
-That functional repair does **not** decide the v1.1 product UX.
+Do not choose between A/B from CLI behavior alone.
 
-Still open:
+## Premium UX remains a separate product decision
 
-- keep two visible Sonnet/Opus choices;
-- expose one `Premium Review` affordance and choose the backing policy internally;
-- whether a static handoff is the right interaction at all.
+Normal Luna assurance is now stable enough that premium review can be evaluated incrementally instead of compensating for a missing base reviewer.
 
-Constraints that remain non-negotiable:
+Open question:
 
-- no premium model auto-runs;
-- one explicit human decision at most should be the design target;
-- plan/model availability must be considered;
-- `send: true` must not accidentally create an automatic premium path.
+> Keep separate Sonnet/Opus handoffs, or expose one human `Premium Review` decision?
 
----
+Requirements that are already fixed:
 
-## 9. Evidence summary
+- premium never auto-runs;
+- `send: false` remains the baseline;
+- developer explicitly authorizes the extra judgment/spend;
+- evaluate unique actionable findings, false positives, latency, plan/model availability, and user decision count.
 
-### Investigation
+## Productization gate
 
-Read-only evidence-boundary replications showed that a full packet + Main handback rule could reduce Main repository read/search after Architect to zero.
+Do not port RC2 into released `agents/` or bump to `1.1.0` until:
 
-Packet-only improved behavior but did not fully close Main rehydration.
+1. **Gate A — real VS Code** closes Main tool/subagent wiring, actual plugin loading, Agent Debug/OTel shape, leaf restrictions, and handoffs;
+2. **Gate B — premium UX** makes the one-vs-two premium affordance decision;
+3. then port the accepted RC2 contract into product agents, update tests/docs/smoke coverage, and perform the version/changelog/release work.
 
-Direct Architect A/B showed no stable advantage for the more elaborate bounded-packet prompt over the simpler packet contract.
+Current status:
 
-### Assurance
-
-- early first-class assurance state produced reliable Reviewer adherence where late textual gates did not;
-- strict artifact-only review missed an acceptance-critical cross-trace identity defect;
-- dependency reads alone also missed it;
-- dependency closure + explicit invariant challenge found the same defect in **2/2** exact-patch replications with only 3–4 local reads;
-- integrated self-hosted runs found and repaired the defect in **2/2** trajectories with exactly one Reviewer each and passed the strengthened hidden contract;
-- external TTL-cache runs stayed SIMPLE, used exactly one Reviewer each, and produced correct exact patches on a strengthened hidden oracle; one Reviewer returned PASS and one found a concrete MRU test-contamination gap.
-
-### Cost
-
-The design does not claim minimum token use.
-
-It does claim a better target:
-
-> spend cheap inference where it prevents duplicated broad context or buys a bounded independent falsification attempt, while hard-bounding recursive assurance trajectories.
-
----
-
-## 10. Remaining release gates
-
-The automated Luna-core evidence is strong enough to call this the **leading design candidate**, but not enough to ship v1.1.
-
-Before converting this document into a release specification:
-
-1. **Real VS Code integration/manual runtime**
-   - Agent Plugin discovery/loading;
-   - visible mode/assurance behavior in representative sessions;
-   - handoff rendering and switching;
-   - selected MCP/extension-tool inheritance;
-   - actual subagent/debug trace shape.
-2. **Premium UX decision**
-   - one affordance vs two model choices;
-   - backing model/policy and plan availability;
-   - explicit human gate remains intact.
-3. **Productization pass**
-   - update real `agents/` contracts from the research candidate;
-   - update README / README.ko / DESIGN / SMOKE_TEST / CONTRIBUTING as required;
-   - version/changelog only after runtime gates;
-   - remove/retain research artifacts intentionally rather than accidentally shipping experiment infrastructure.
-
-Until those gates close, `main` remains v1.0.0 and PR #13 remains a research PR.
+- automated Luna core: **PRE-PRODUCTION RC2 — stable**;
+- real VS Code runtime: **PENDING**;
+- premium UX: **PENDING**;
+- v1.1 release: **NOT READY YET**.
