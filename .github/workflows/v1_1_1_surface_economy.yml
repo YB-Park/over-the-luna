@@ -1,0 +1,148 @@
+name: v1.1.1 surface economy screening
+
+# Paid experiment. Manual-only by design.
+on:
+  workflow_dispatch:
+    inputs:
+      experiment_ref:
+        description: Branch/ref containing the experiment harness
+        required: true
+        default: research/v1.1.1-surface-economy
+        type: string
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  screen:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: [control, naive, semantic, economy]
+        case: [tiny, broad, detail]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.experiment_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Build isolated prompt variant
+        env:
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          python experiments/v1_1_1_surface_variants.py \
+            --source "$GITHUB_WORKSPACE" \
+            --output "$RUNNER_TEMP/plugin" \
+            --variant "$VARIANT"
+
+      - name: Prepare fresh fixture repository
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          python experiments/v1_1_1_surface_fixture.py prepare \
+            --case "$CASE" \
+            --root "$RUNNER_TEMP/work" \
+            --task-file "$RUNNER_TEMP/task.txt"
+          cd "$RUNNER_TEMP/work"
+          git init -q
+          git config user.email 'surface-economy@example.invalid'
+          git config user.name 'Surface Economy Experiment'
+          git add -- .
+          git commit -qm 'fixture baseline'
+
+      - name: Run Luna candidate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP/work"
+          copilot \
+            --plugin-dir="$RUNNER_TEMP/plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=20 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$(cat "$RUNNER_TEMP/task.txt")" \
+            | tee "$RUNNER_TEMP/events.jsonl"
+
+      - name: Run hidden correctness gate
+        if: always()
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set +e
+          if [ "$CASE" = detail ]; then
+            code=0
+          else
+            python "$GITHUB_WORKSPACE/experiments/v1_1_1_surface_fixture.py" hidden \
+              --case "$CASE" \
+              --root "$RUNNER_TEMP/work"
+            code=$?
+          fi
+          echo "$code" > "$RUNNER_TEMP/hidden.exit"
+          exit 0
+
+      - name: Measure surface and trajectory
+        if: always()
+        env:
+          VARIANT: ${{ matrix.variant }}
+          CASE: ${{ matrix.case }}
+        run: |
+          set +e
+          python experiments/v1_1_1_surface_metrics.py \
+            --variant "$VARIANT" \
+            --case "$CASE" \
+            --events "$RUNNER_TEMP/events.jsonl" \
+            --otel "$RUNNER_TEMP/otel.jsonl" \
+            --hidden-exit "$RUNNER_TEMP/hidden.exit" \
+            --json-out "$RUNNER_TEMP/metrics.json" \
+            --md-out "$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" 2>/dev/null || true
+          exit 0
+
+      - name: Capture resulting patch
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/work"
+          git diff --no-ext-diff > "$RUNNER_TEMP/result.diff" || true
+          git status --short > "$RUNNER_TEMP/status.txt" || true
+
+      - name: Upload experiment artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surface-${{ matrix.variant }}-${{ matrix.case }}
+          path: |
+            ${{ runner.temp }}/task.txt
+            ${{ runner.temp }}/events.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/hidden.exit
+            ${{ runner.temp }}/metrics.json
+            ${{ runner.temp }}/summary.md
+            ${{ runner.temp }}/result.diff
+            ${{ runner.temp }}/status.txt
+          if-no-files-found: warn
