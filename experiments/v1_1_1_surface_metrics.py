@@ -65,6 +65,15 @@ def as_int(value: Any) -> int:
         return 0
 
 
+def read_exit(path: Path | None) -> int | None:
+    if path is None or not path.exists():
+        return None
+    try:
+        return int(path.read_text(encoding="utf-8").strip())
+    except ValueError:
+        return 99
+
+
 def main_messages(events: list[dict[str, Any]]) -> list[str]:
     messages = []
     for event in events:
@@ -113,6 +122,7 @@ def main() -> int:
     p.add_argument("--case", choices=EXPECTED, required=True)
     p.add_argument("--events", type=Path, required=True)
     p.add_argument("--otel", type=Path, required=True)
+    p.add_argument("--candidate-exit", type=Path)
     p.add_argument("--hidden-exit", type=Path)
     p.add_argument("--json-out", type=Path, required=True)
     p.add_argument("--md-out", type=Path, required=True)
@@ -129,15 +139,17 @@ def main() -> int:
     reviewer = sum(n for name, n in agents.items() if "luna-reviewer" in name.lower())
     architect = sum(n for name, n in agents.items() if "luna-architect" in name.lower())
 
-    hidden_exit = None
-    if a.hidden_exit and a.hidden_exit.exists():
-        try:
-            hidden_exit = int(a.hidden_exit.read_text().strip())
-        except ValueError:
-            hidden_exit = 99
+    candidate_exit = read_exit(a.candidate_exit)
+    hidden_exit = read_exit(a.hidden_exit)
 
     expected_mode, expected_assurance = EXPECTED[a.case]
     failures = []
+    if candidate_exit is None:
+        failures.append("candidate process exit code missing")
+    elif candidate_exit != 0:
+        failures.append(f"candidate process exit={candidate_exit}")
+    if not messages:
+        failures.append("candidate produced no main assistant output")
     if expected_mode and mode != expected_mode:
         failures.append(f"mode expected {expected_mode}, got {mode}")
     if expected_assurance and assurance != expected_assurance:
@@ -157,6 +169,7 @@ def main() -> int:
         "case": a.case,
         "gate_pass": not failures,
         "gate_failures": failures,
+        "candidate_exit": candidate_exit,
         "mode": mode,
         "assurance": assurance,
         "main_message_count": len(messages),
@@ -175,6 +188,7 @@ def main() -> int:
     md = [
         f"# {a.variant} / {a.case}", "",
         f"- Gate: {'PASS' if not failures else 'FAIL'}",
+        f"- Candidate exit: {candidate_exit}",
         f"- Route: {mode} / {assurance}",
         f"- Main visible messages: {len(messages)}",
         f"- Visible chars: {len(joined)}",
