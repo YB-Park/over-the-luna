@@ -143,6 +143,34 @@ Premium inference는 model menu가 아니라 하나의 눈에 보이는 human de
 
 목표는 최소 token이나 최대 agent 수가 아니다. 독립 context가 잘못된 방향의 구현을 줄이거나, 넓은 disposable discovery를 Main 밖으로 격리하거나, 구체적인 실패를 진단하거나, 완성된 artifact를 독립 검증할 때 저렴한 Luna inference를 추가로 사용한다.
 
+## 왜 이런 구조인가
+
+아래 자료가 GPT-5.6 Luna 자체의 성능을 benchmark하거나 이 하네스가 최적이라는 사실을 증명하는 것은 아니다. 대신 **각 설계 결정의 근거**를 제공한다. Over the Luna는 이런 근거를 그대로 믿는 데서 끝내지 않고, stable contract로 올리기 전에 실제 VS Code/Copilot runtime에서도 동작을 검증한다.
+
+### 싼 inference는 선택적인 test-time compute에 써야 한다
+
+[Scaling Test-time Compute for LLM Agents](https://arxiv.org/abs/2506.12928)는 추가 inference-time compute가 agent 성능을 개선할 수 있음을 보여주는 동시에, 그 compute를 **언제 어떤 전략으로 쓰는지**가 중요하다고 보고한다. 그래서 Over the Luna는 무조건 fan-out하지 않는다. **SIMPLE / STANDARD / DEEP**으로 investigation 비용을 조절하고, **NONE / REVIEW / RISK**로 assurance 비용을 별도로 조절한다.
+
+### agent가 많다고 자동으로 좋아지는 것은 아니다
+
+OpenAI의 [A practical guide to building agents](https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/)는 multi-agent 복잡도를 추가하기 전에 single agent의 capability를 최대한 활용할 것을 권한다. [TeamBench](https://arxiv.org/abs/2605.07073)도 team의 이점은 조건부이며, 필요하지 않은 verifier가 오히려 결과를 해칠 수 있음을 보여준다. 그래서 **Main Luna가 직접 구현**하고, 모든 leaf call은 evidence, isolation, recovery, assurance 중 하나의 구체적인 값어치를 해야 한다.
+
+### disposable context를 격리하되 mutation ownership은 나누지 않는다
+
+Anthropic의 [multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system)은 병렬·독립 context가 유용한 영역을 보여주면서, coding은 broad research보다 자연스럽게 분리되는 독립 작업이 적고 coordination cost가 크다고 설명한다. VS Code도 subagent를 독립된 focused context에서 일한 뒤 main agent에게 결과를 반환하는 구조로 설명한다 ([VS Code Subagents](https://code.visualstudio.com/docs/agents/run/subagents)). 그래서 Council은 조사하고 반박하지만 **자동 repository mutation owner는 Main Luna 하나만 유지**한다.
+
+### discovery는 Main에서 반복하지 않고 압축해서 넘긴다
+
+Microsoft의 [SWE-Edit](https://www.microsoft.com/en-us/research/publication/swe-edit-rethinking-code-editing-for-efficient-swe-agent/)은 software-engineering agent에서 context coupling과 irrelevant context 누적이 실제 문제임을 지적한다. 그래서 Architect는 clean context에서 넓게 탐색하고, Main에는 compact evidence packet과 전체 `MUTATION_TARGETS`만 반환한다. handback 뒤에는 work set을 seal해서 Main이 같은 broad discovery를 다시 자신의 mutable context에 쌓지 않도록 한다.
+
+### 실패와 검증은 실제 evidence에 고정한다
+
+[PROBE](https://arxiv.org/abs/2605.08717)는 blind persistence보다 failure evidence에 근거한 diagnosis와 bounded recovery를 뒷받침한다. [AgentLens](https://arxiv.org/abs/2605.12925)는 최종 결과가 pass했더라도 나쁜 software-agent trajectory가 숨어 있을 수 있음을 보여준다. 그래서 Recovery는 구체적인 failure evidence가 있을 때만 사용하고, Reviewer에는 막연한 "한번 봐줘"가 아니라 **현재 unified diff, acceptance criteria, validation result**를 전달한다.
+
+### 사람의 attention도 budget이다
+
+내부적으로 더 많이 일한다고 사용자에게 더 많은 narration을 읽게 할 필요는 없다. OpenAI의 [model guidance](https://developers.openai.com/api/docs/guides/latest-model)는 reasoning effort와 output verbosity를 별도 제어 축으로 다루고, agentic workflow에서는 명시적인 verbosity constraint를 권장한다. v1.1.1은 같은 원리를 harness level에 적용한다. routine success mechanics는 조용히 처리하고, failure·blocker·중요 Reviewer finding·human decision은 계속 드러내며, 사용자가 상세 설명을 요청하면 충분히 확장한다.
+
 ## 범위와 한계
 
 Over the Luna는 orchestration layer이지 security boundary가 아니다. VS Code trust, approval, sandboxing, organization policy, 그리고 개발자가 설정한 tool environment에 의존한다. GitHub Copilot feature/model policy를 우회하거나 개발자에게 허용된 model catalog 밖의 모델을 가져오지 않는다.
