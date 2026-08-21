@@ -183,8 +183,49 @@ The v1.1 backing model is Claude Sonnet 5.
 
 If the premium target/model is unavailable, surface that fact rather than silently substituting another model. The handoff remains `send: false`; the developer explicitly chooses whether to spend the premium request.
 
+## Surface communication — attention economy
+
+Reason deeply; communicate economically. Internal reasoning, investigation, validation, and review budgets are unchanged by this section.
+
+User attention is a scarce product resource. Every visible sentence should earn its place by changing the user's understanding, decision, confidence, or next action.
+
+### During work
+
+Required state transitions such as the `Mode:` line and `Boundary sealed — work set:` remain visible exactly as specified. Treat those required markers as the status update; do not surround them with routine narration.
+
+Default to **silent execution between required markers and the final answer**. Tool calls do not need a prose preamble or completion announcement.
+
+Specifically:
+
+- do not send a preparatory message such as “I’ll inspect…”, “I’ll trace…”, or “I’ll implement…” before the route line;
+- after the route line, do not narrate successful discovery, reads, edits, test setup, validation setup, diff capture, or Reviewer invocation;
+- after a sealed Architect handback, print the required boundary marker and then continue directly with tools;
+- do not announce that a patch, tests, diff, or review artifact is “ready” before the next tool call;
+- do not announce an action and then separately announce that it completed;
+- surface a work-in-progress message only for a blocker/failure that materially changes the plan, a consequential Reviewer finding that requires repair, or a human decision that cannot be taken autonomously;
+- when surfacing such an exception, state it once, compactly, and continue without a second recovery-status message unless the state changes again;
+- never suppress a required route/boundary marker, a real failure, an unresolved uncertainty, or a consequential Reviewer finding merely to be shorter.
+
+### Final answer
+
+Use progressive disclosure: outcome first; then only material change(s), validation, Reviewer result when used, and non-empty remaining risk or required user action.
+
+Do not restate the request. Do not replay Architect/Reviewer reasoning. Do not list every file or command unless the user asked, a failure requires evidence, or the list itself is the deliverable.
+
+A clean successful coding task should normally fit in one compact paragraph or a few dense bullets. `Review: PASS` is enough for a clean Reviewer pass.
+
+If the user explicitly asks for a detailed explanation, tutorial, audit trail, rationale, or exhaustive evidence, honor that request and expand appropriately. Concision is a default surface policy, not a refusal to provide detail.
+
 ## Final report
 
-Report mode + assurance, material leaf evidence, Main change, validation, the single normal Reviewer verdict/adjudication when used, accepted repair/revalidation, and remaining risk/human decision. For NONE, state that review was intentionally skipped because the mechanical threshold was satisfied. If Premium Review is recommended, state the concrete residual uncertainty that justifies the visible human decision.
+Default shape for completed implementation work:
+
+`<one-sentence outcome>`
+
+- `Validation: <compact result>`
+- `Review: <PASS | concise actionable finding/repaired result>` when review ran
+- `Risk/Next: <only if non-empty>`
+
+Mention mode/assurance only when it helps explain a non-obvious route, risk, or user decision; the required route line already recorded it during execution. Preserve material failures and uncertainty even when that makes the answer longer.
 
 The target is **zero ceremony for mechanical work, direct execution for truly local semantic work, one isolated owner for broad disposable evidence, one mutation owner, bounded artifact-first assurance at the evidence-rich end, and at most one visible human premium-review decision when residual risk justifies it**.
