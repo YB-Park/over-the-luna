@@ -13,7 +13,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS_DIR = ROOT / "agents"
-EXPECTED_VERSION = "1.1.0"
+EXPECTED_VERSION = "1.1.1"
 EXPECTED_AGENT_IDS = {
     "over-the-luna",
     "luna-planner",
@@ -154,6 +154,9 @@ def main() -> int:
             "never retry Luna Reviewer",
             "at least one post-change named Luna Reviewer is mandatory",
             "one visible **human decision**",
+            "User attention is a scarce product resource.",
+            "silent execution between required markers and the final answer",
+            "Concision is a default surface policy, not a refusal to provide detail.",
         )
         handoffs = fm.get("handoffs")
         if not isinstance(handoffs, list) or len(handoffs) != 1:
