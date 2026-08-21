@@ -32,7 +32,8 @@ jobs:
           python -m py_compile \
             experiments/v1_1_1_surface_variants.py \
             experiments/v1_1_1_surface_fixture.py \
-            experiments/v1_1_1_surface_metrics.py
+            experiments/v1_1_1_surface_metrics.py \
+            experiments/v1_1_1_surface_aggregate.py
           python scripts/validate_plugin.py
           for variant in control naive semantic economy; do
             python experiments/v1_1_1_surface_variants.py \
@@ -177,3 +178,37 @@ jobs:
             ${{ runner.temp }}/result.diff
             ${{ runner.temp }}/status.txt
           if-no-files-found: warn
+
+  aggregate:
+    if: always()
+    needs: screen
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.experiment_ref }}
+
+      - name: Download screening artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: surface-*
+          path: ${{ runner.temp }}/surface-results
+
+      - name: Build comparison table
+        run: |
+          python experiments/v1_1_1_surface_aggregate.py \
+            --root "$RUNNER_TEMP/surface-results" \
+            --json-out "$RUNNER_TEMP/phase1.json" \
+            --md-out "$RUNNER_TEMP/phase1.md"
+          cat "$RUNNER_TEMP/phase1.md"
+
+      - name: Upload aggregate
+        uses: actions/upload-artifact@v4
+        with:
+          name: surface-phase1-aggregate
+          path: |
+            ${{ runner.temp }}/phase1.json
+            ${{ runner.temp }}/phase1.md
