@@ -1,0 +1,227 @@
+name: Run final surface economy candidate gates
+
+on:
+  push:
+    branches:
+      - run/v1.1.1-surface-economy-final
+    paths:
+      - .github/workflows/run_surface_economy_final.yml
+
+permissions:
+  contents: read
+
+jobs:
+  marker:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Record this run id
+        run: |
+          printf '%s\n' '${{ github.run_id }}' > surface_economy_final_run_id.txt
+          printf 'https://github.com/${{ github.repository }}/actions/runs/%s\n' '${{ github.run_id }}' > surface_economy_final_run_url.txt
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add -- surface_economy_final_run_id.txt surface_economy_final_run_url.txt
+          git commit -m 'Record final surface economy run' || exit 0
+          git push
+
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: research/v1.1.1-surface-economy-phase2
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'PyYAML==6.0.2'
+      - name: Validate candidate harness
+        run: |
+          python -m py_compile \
+            experiments/v1_1_1_surface_variants.py \
+            experiments/v1_1_1_surface_fixture.py \
+            experiments/v1_1_1_surface_metrics.py
+          python scripts/validate_plugin.py
+          python experiments/v1_1_1_surface_variants.py \
+            --source "$GITHUB_WORKSPACE" \
+            --output "$RUNNER_TEMP/plugin-economy" \
+            --variant economy
+          grep -F 'silent execution between required markers and the final answer' \
+            "$RUNNER_TEMP/plugin-economy/agents/over-the-luna.agent.md"
+
+  screen:
+    needs: preflight
+    permissions:
+      contents: read
+      copilot-requests: write
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        case: [tiny, broad, broad_ko, detail, risk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: research/v1.1.1-surface-economy-phase2
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+      - name: Build economy candidate
+        run: |
+          python experiments/v1_1_1_surface_variants.py \
+            --source "$GITHUB_WORKSPACE" \
+            --output "$RUNNER_TEMP/plugin" \
+            --variant economy
+      - name: Prepare fixture
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          python experiments/v1_1_1_surface_fixture.py prepare \
+            --case "$CASE" \
+            --root "$RUNNER_TEMP/work" \
+            --task-file "$RUNNER_TEMP/task.txt"
+          cd "$RUNNER_TEMP/work"
+          git init -q
+          git config user.email 'surface-economy@example.invalid'
+          git config user.name 'Surface Economy Experiment'
+          git add -- .
+          git commit -qm 'fixture baseline'
+      - name: Run Luna candidate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set +e
+          set -o pipefail
+          cd "$RUNNER_TEMP/work"
+          date +%s%3N > "$RUNNER_TEMP/candidate.start_ms"
+          copilot \
+            --plugin-dir="$RUNNER_TEMP/plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$(cat "$RUNNER_TEMP/task.txt")" \
+            | awk -v first="$RUNNER_TEMP/candidate.first_output_ms" 'NR==1 { cmd="date +%s%3N > \"" first "\""; system(cmd) } { print; fflush() }' \
+            | tee "$RUNNER_TEMP/events.jsonl"
+          code=${PIPESTATUS[0]}
+          date +%s%3N > "$RUNNER_TEMP/candidate.end_ms"
+          echo "$code" > "$RUNNER_TEMP/candidate.exit"
+          exit 0
+      - name: Run hidden correctness gate
+        if: always()
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set +e
+          python "$GITHUB_WORKSPACE/experiments/v1_1_1_surface_fixture.py" hidden \
+            --case "$CASE" \
+            --root "$RUNNER_TEMP/work"
+          echo "$?" > "$RUNNER_TEMP/hidden.exit"
+          exit 0
+      - name: Measure candidate
+        if: always()
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set +e
+          python experiments/v1_1_1_surface_metrics.py \
+            --variant economy \
+            --case "$CASE" \
+            --run-label "economy-final-$CASE" \
+            --events "$RUNNER_TEMP/events.jsonl" \
+            --otel "$RUNNER_TEMP/otel.jsonl" \
+            --candidate-exit "$RUNNER_TEMP/candidate.exit" \
+            --hidden-exit "$RUNNER_TEMP/hidden.exit" \
+            --candidate-start-ms "$RUNNER_TEMP/candidate.start_ms" \
+            --candidate-first-output-ms "$RUNNER_TEMP/candidate.first_output_ms" \
+            --candidate-end-ms "$RUNNER_TEMP/candidate.end_ms" \
+            --json-out "$RUNNER_TEMP/metrics.json" \
+            --md-out "$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" 2>/dev/null || true
+          exit 0
+      - name: Enforce correctness and surface gate
+        if: always()
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path(os.environ['RUNNER_TEMP']) / 'metrics.json'
+          if not p.exists():
+              raise SystemExit('metrics.json missing')
+          d = json.loads(p.read_text())
+          if not d.get('gate_pass'):
+              raise SystemExit('hard gate failed: ' + '; '.join(d.get('gate_failures', [])))
+          case = os.environ['CASE']
+          messages = d['main_message_count']
+          final_chars = d['final_chars']
+          limits = {'tiny': 2, 'broad': 3, 'broad_ko': 3, 'risk': 4}
+          if case in limits and messages > limits[case]:
+              raise SystemExit(f'{case}: visible messages {messages} > {limits[case]}')
+          if case == 'detail' and final_chars < 700:
+              raise SystemExit(f'detail final too short: {final_chars} chars')
+          print(f"PASS {case}: messages={messages}, visible={d['visible_chars']}, final={final_chars}, timing={d['timing_ms']}")
+          PY
+      - name: Upload candidate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surface-economy-final-${{ matrix.case }}
+          path: |
+            ${{ runner.temp }}/events.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/candidate.exit
+            ${{ runner.temp }}/candidate.start_ms
+            ${{ runner.temp }}/candidate.first_output_ms
+            ${{ runner.temp }}/candidate.end_ms
+            ${{ runner.temp }}/hidden.exit
+            ${{ runner.temp }}/metrics.json
+            ${{ runner.temp }}/summary.md
+          if-no-files-found: warn
+
+  aggregate:
+    if: always()
+    needs: screen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: surface-economy-final-*
+          path: ${{ runner.temp }}/results
+      - name: Summarize final candidate
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'results'
+          rows=[]
+          for p in root.rglob('metrics.json'):
+              rows.append(json.loads(p.read_text()))
+          rows.sort(key=lambda x: x['case'])
+          print('# Final surface economy candidate')
+          print()
+          print('| Case | Gate | Route | Messages | Visible | Final | Startup | Active |')
+          print('|---|---:|---|---:|---:|---:|---:|---:|')
+          for d in rows:
+              t=d['timing_ms']
+              route=f"{d.get('mode')} / {d.get('assurance')}"
+              print(f"| {d['case']} | {'PASS' if d['gate_pass'] else 'FAIL'} | {route} | {d['main_message_count']} | {d['visible_chars']} | {d['final_chars']} | {t.get('startup_to_first_output')}ms | {t.get('after_first_output')}ms |")
+          print()
+          print('All per-case surface thresholds are enforced in the matrix jobs.')
+          PY
