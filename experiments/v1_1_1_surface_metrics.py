@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Any, Iterable
 
 ROUTE_RE = re.compile(r"Mode:\s*(SIMPLE|STANDARD|DEEP).*?Assurance:\s*(NONE|REVIEW|RISK)", re.S)
+HANGUL_RE = re.compile(r"[가-힣]")
 EXPECTED = {
     "tiny": ("SIMPLE", "NONE"),
     "broad": ("STANDARD", "REVIEW"),
+    "broad_ko": ("STANDARD", "REVIEW"),
     "risk": (None, "RISK"),
     "detail": (None, None),
 }
@@ -74,6 +76,15 @@ def read_exit(path: Path | None) -> int | None:
         return 99
 
 
+def read_ms(path: Path | None) -> int | None:
+    if path is None or not path.exists():
+        return None
+    try:
+        return int(path.read_text(encoding="utf-8").strip())
+    except ValueError:
+        return None
+
+
 def main_messages(events: list[dict[str, Any]]) -> list[str]:
     messages = []
     for event in events:
@@ -120,10 +131,14 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--variant", required=True)
     p.add_argument("--case", choices=EXPECTED, required=True)
+    p.add_argument("--run-label")
     p.add_argument("--events", type=Path, required=True)
     p.add_argument("--otel", type=Path, required=True)
     p.add_argument("--candidate-exit", type=Path)
     p.add_argument("--hidden-exit", type=Path)
+    p.add_argument("--candidate-start-ms", type=Path)
+    p.add_argument("--candidate-first-output-ms", type=Path)
+    p.add_argument("--candidate-end-ms", type=Path)
     p.add_argument("--json-out", type=Path, required=True)
     p.add_argument("--md-out", type=Path, required=True)
     a = p.parse_args()
@@ -141,6 +156,12 @@ def main() -> int:
 
     candidate_exit = read_exit(a.candidate_exit)
     hidden_exit = read_exit(a.hidden_exit)
+    start_ms = read_ms(a.candidate_start_ms)
+    first_output_ms = read_ms(a.candidate_first_output_ms)
+    end_ms = read_ms(a.candidate_end_ms)
+    startup_ms = first_output_ms - start_ms if start_ms is not None and first_output_ms is not None else None
+    total_ms = end_ms - start_ms if start_ms is not None and end_ms is not None else None
+    after_first_output_ms = end_ms - first_output_ms if first_output_ms is not None and end_ms is not None else None
 
     expected_mode, expected_assurance = EXPECTED[a.case]
     failures = []
@@ -156,15 +177,18 @@ def main() -> int:
         failures.append(f"assurance expected {expected_assurance}, got {assurance}")
     if a.case == "tiny" and (architect or reviewer):
         failures.append(f"tiny expected Architect=0 Reviewer=0, got {architect}/{reviewer}")
-    if a.case == "broad" and (architect != 1 or reviewer != 1):
-        failures.append(f"broad expected Architect=1 Reviewer=1, got {architect}/{reviewer}")
+    if a.case in ("broad", "broad_ko") and (architect != 1 or reviewer != 1):
+        failures.append(f"{a.case} expected Architect=1 Reviewer=1, got {architect}/{reviewer}")
     if a.case == "risk" and not (1 <= reviewer <= 2):
         failures.append(f"risk expected Reviewer=1..2, got {reviewer}")
+    if a.case == "broad_ko" and len(HANGUL_RE.findall(final)) < 10:
+        failures.append("broad_ko final response did not preserve Korean conversation language")
     if hidden_exit not in (None, 0):
         failures.append(f"hidden contract exit={hidden_exit}")
 
     tokens = token_totals(a.otel)
     data = {
+        "run_label": a.run_label or f"{a.variant}-{a.case}",
         "variant": a.variant,
         "case": a.case,
         "gate_pass": not failures,
@@ -181,12 +205,18 @@ def main() -> int:
         "reviewer_count": reviewer,
         "subagents": dict(agents),
         "hidden_exit": hidden_exit,
+        "hangul_chars_final": len(HANGUL_RE.findall(final)),
+        "timing_ms": {
+            "startup_to_first_output": startup_ms,
+            "after_first_output": after_first_output_ms,
+            "total": total_ms,
+        },
         "otel_chat_tokens": tokens,
         "final_text": final,
     }
     a.json_out.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     md = [
-        f"# {a.variant} / {a.case}", "",
+        f"# {data['run_label']}", "",
         f"- Gate: {'PASS' if not failures else 'FAIL'}",
         f"- Candidate exit: {candidate_exit}",
         f"- Route: {mode} / {assurance}",
@@ -196,7 +226,12 @@ def main() -> int:
         f"- OTel output tokens: {tokens['output']}",
         f"- OTel reasoning tokens: {tokens['reasoning']}",
         f"- Architect / Reviewer: {architect} / {reviewer}",
+        f"- Startup to first output: {startup_ms if startup_ms is not None else 'n/a'} ms",
+        f"- After first output: {after_first_output_ms if after_first_output_ms is not None else 'n/a'} ms",
+        f"- Candidate total: {total_ms if total_ms is not None else 'n/a'} ms",
     ]
+    if a.case == "broad_ko":
+        md.append(f"- Hangul chars in final: {data['hangul_chars_final']}")
     if failures:
         md += ["", "## Gate failures"] + [f"- {x}" for x in failures]
     md += ["", "## Final text", "", final]
