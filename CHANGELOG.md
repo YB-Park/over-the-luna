@@ -6,6 +6,21 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## v1.1.1 — 2026-08-21
+
+### Surface communication
+
+- Added an **attention-economy** surface policy: Luna keeps the same investigation, validation, and review depth while treating user-visible text as a scarce resource.
+- Required `Mode:` / `Assurance:` and sealed-boundary state transitions remain visible, but routine reads, edits, commands, successful checks, diff preparation, and Reviewer invocation no longer need narration.
+- Work-in-progress messages are reserved for plan-changing failures/blockers, consequential Reviewer findings that require repair, and human decisions that cannot be taken autonomously.
+- Successful implementation reports now default to outcome + compact validation + Reviewer result, with risk/next action only when non-empty.
+- Explicit requests for detailed explanation, tutorials, rationale, audit trails, or exhaustive evidence still expand normally; concision is a default surface policy rather than a detail cap.
+
+### Validation
+
+- Extended the static release validator to pin the v1.1.1 attention-economy markers in Main without weakening routing, Council, tool-boundary, Reviewer, Premium Review, or language-continuity checks.
+- Exercised the policy against mechanical, broad semantic, Korean-language, explicit-detail, and concurrency/idempotency tasks with hidden correctness and trajectory gates before promotion.
+
 ## v1.1.0 — 2026-08-20
 
 ### Runtime routing and ownership
