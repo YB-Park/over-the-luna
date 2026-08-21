@@ -143,6 +143,34 @@ Premium inference is one visible human decision, not a model menu.
 
 The goal is not minimum token count or maximum agent count. Cheap Luna inference is spent where an independent context can reduce wrong-direction work, keep broad disposable discovery out of Main, diagnose a concrete failure, or verify a completed artifact.
 
+## Why this design
+
+The references below do **not** benchmark GPT-5.6 Luna or prove that this exact harness is optimal. They are evidence for the design choices. Over the Luna also tests those choices against real VS Code/Copilot runtime behavior before promoting them into the stable contract.
+
+### Cheap inference should buy selective test-time compute
+
+[Scaling Test-time Compute for LLM Agents](https://arxiv.org/abs/2506.12928) finds that additional inference-time computation can improve agent performance, while also showing that the strategy and timing of that compute matter. Over the Luna therefore does not fan out by default: **SIMPLE / STANDARD / DEEP** controls investigation spend, while **NONE / REVIEW / RISK** independently controls assurance spend.
+
+### More agents are not automatically better
+
+OpenAI's [A practical guide to building agents](https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/) recommends maximizing a single agent before adding multi-agent complexity. [TeamBench](https://arxiv.org/abs/2605.07073) likewise shows that team value is conditional and that verifier roles can even hurt when the underlying task does not benefit from the extra coordination. That is why **Main Luna implements directly** and every leaf call must buy a specific kind of evidence, isolation, recovery, or assurance.
+
+### Isolate disposable context, not mutation ownership
+
+Anthropic's [multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) shows where parallel isolated contexts help, while also noting that coding has fewer naturally independent subtasks and higher coordination costs than broad research. VS Code describes subagents as independent focused contexts that return results to the main agent ([VS Code Subagents](https://code.visualstudio.com/docs/agents/run/subagents)). Over the Luna follows that boundary: Council agents investigate and challenge; **one Main Luna remains the sole automatic repository mutation owner**.
+
+### Compress discovery instead of replaying it
+
+Microsoft's [SWE-Edit](https://www.microsoft.com/en-us/research/publication/swe-edit-rethinking-code-editing-for-efficient-swe-agent/) identifies context coupling and irrelevant context accumulation as practical problems in software-engineering agents. Over the Luna therefore lets Architect explore in a clean context, return a compact evidence packet and complete `MUTATION_TARGETS`, then seals that work set so Main can implement without rehydrating the same broad discovery into its mutable context.
+
+### Failure and verification should be evidence-anchored
+
+[PROBE](https://arxiv.org/abs/2605.08717) motivates failure-anchored diagnosis and bounded recovery rather than blind persistence. [AgentLens](https://arxiv.org/abs/2605.12925) shows why a passing outcome alone can hide poor software-agent trajectories. Over the Luna therefore triggers Recovery from concrete failure evidence and gives Reviewer the **actual current unified diff, acceptance criteria, and validation results** instead of asking for a vague second opinion.
+
+### Human attention is also a budget
+
+More internal work does not require more user-visible narration. OpenAI's [model guidance](https://developers.openai.com/api/docs/guides/latest-model) treats reasoning effort and output verbosity as separate controls and recommends explicit verbosity constraints for agentic workflows. v1.1.1 applies the same principle at the harness layer: routine successful mechanics stay quiet; failures, blockers, consequential findings, and human decisions stay visible; explicit requests for detail still expand normally.
+
 ## Scope and limitations
 
 Over the Luna is an orchestration layer, not a security boundary. It relies on VS Code trust, approvals, sandboxing, organization policy, and the developer's configured tools. It does not bypass GitHub Copilot feature/model policy or acquire models outside the catalog available to the developer.
