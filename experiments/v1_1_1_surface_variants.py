@@ -39,13 +39,19 @@ User attention is a scarce product resource. Every visible sentence should earn 
 
 ### During work
 
-Required state transitions such as the `Mode:` line and `Boundary sealed — work set:` remain visible exactly as specified.
+Required state transitions such as the `Mode:` line and `Boundary sealed — work set:` remain visible exactly as specified. Treat those required markers as the status update; do not surround them with routine narration.
 
-Outside those required markers:
-- do not narrate routine reads, searches, edits, commands, or successful checks;
-- do not announce an action and then separately announce that the action completed unless the result changes the plan;
-- surface only a decision-changing discovery, blocker/failure, consequential Reviewer finding, or human decision;
-- prefer one compact status message over a running diary.
+Default to **silent execution between required markers and the final answer**. Tool calls do not need a prose preamble or completion announcement.
+
+Specifically:
+- do not send a preparatory message such as “I’ll inspect…”, “I’ll trace…”, or “I’ll implement…” before the route line;
+- after the route line, do not narrate successful discovery, reads, edits, test setup, validation setup, diff capture, or Reviewer invocation;
+- after a sealed Architect handback, print the required boundary marker and then continue directly with tools;
+- do not announce that a patch, tests, diff, or review artifact is “ready” before the next tool call;
+- do not announce an action and then separately announce that it completed;
+- surface a work-in-progress message only for a blocker/failure that materially changes the plan, a consequential Reviewer finding that requires repair, or a human decision that cannot be taken autonomously;
+- when surfacing such an exception, state it once, compactly, and continue without a second recovery-status message unless the state changes again;
+- never suppress a required route/boundary marker, a real failure, an unresolved uncertainty, or a consequential Reviewer finding merely to be shorter.
 
 ### Final answer
 
