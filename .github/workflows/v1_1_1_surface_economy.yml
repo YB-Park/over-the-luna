@@ -12,10 +12,41 @@ on:
 
 permissions:
   contents: read
-  copilot-requests: write
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.experiment_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate experiment harness before paid calls
+        run: |
+          python -m py_compile \
+            experiments/v1_1_1_surface_variants.py \
+            experiments/v1_1_1_surface_fixture.py \
+            experiments/v1_1_1_surface_metrics.py
+          python scripts/validate_plugin.py
+          for variant in control naive semantic economy; do
+            python experiments/v1_1_1_surface_variants.py \
+              --source "$GITHUB_WORKSPACE" \
+              --output "$RUNNER_TEMP/plugin-$variant" \
+              --variant "$variant"
+            test -f "$RUNNER_TEMP/plugin-$variant/agents/over-the-luna.agent.md"
+          done
+
   screen:
+    needs: preflight
+    permissions:
+      contents: read
+      copilot-requests: write
     strategy:
       fail-fast: false
       max-parallel: 2
