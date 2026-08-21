@@ -7,7 +7,7 @@ import threading
 import time
 from pathlib import Path
 
-CASES = ("tiny", "broad", "detail", "risk")
+CASES = ("tiny", "broad", "broad_ko", "detail", "risk")
 
 
 def write(root: Path, path: str, content: str) -> None:
@@ -47,7 +47,7 @@ def prepare(case: str, root: Path, task_file: Path) -> None:
             Do not use premium review.
         """
 
-    elif case == "broad":
+    elif case in ("broad", "broad_ko"):
         write(root, "accounts/__init__.py", "")
         write(root, "accounts/core/__init__.py", "")
         write(root, "accounts/core/identity.py", """
@@ -104,14 +104,23 @@ def prepare(case: str, root: Path, task_file: Path) -> None:
                     events = [Event('a', 1), Event('b', 2), Event('a', 3)]
                     self.assertEqual(summarize(events), [('a', 4), ('b', 2)])
         """)
-        task = """
-            Fix exported account summaries so account identifiers equivalent under the repository's established
-            account-ID contract are grouped under the same canonical identity. Preserve order by first canonical
-            appearance and reject invalid identifiers exactly like account creation/resource handling. Discover where
-            the established identity contract lives rather than duplicating it. Add focused regression tests and run
-            the focused/full tests. Follow the installed Over the Luna policy naturally. Main remains the only mutation
-            owner. Do not use premium review.
-        """
+        if case == "broad":
+            task = """
+                Fix exported account summaries so account identifiers equivalent under the repository's established
+                account-ID contract are grouped under the same canonical identity. Preserve order by first canonical
+                appearance and reject invalid identifiers exactly like account creation/resource handling. Discover where
+                the established identity contract lives rather than duplicating it. Add focused regression tests and run
+                the focused/full tests. Follow the installed Over the Luna policy naturally. Main remains the only mutation
+                owner. Do not use premium review.
+            """
+        else:
+            task = """
+                내보내는 계정 요약에서 저장소의 기존 account-ID 계약상 같은 식별자로 취급되는 값들을 하나의
+                canonical identity로 묶어줘. 첫 canonical 등장 순서는 보존하고, 잘못된 식별자는 계정 생성/리소스
+                처리와 정확히 같은 방식으로 거부해야 해. 기존 identity 계약이 어디 있는지 먼저 찾아서 재사용하고
+                로직을 복제하지 마. 집중 회귀 테스트를 추가하고 관련 테스트와 전체 테스트를 실행해줘.
+                설치된 Over the Luna 정책을 자연스럽게 따르고 Main만 파일을 수정해야 해. Premium Review는 쓰지 마.
+            """
 
     elif case == "detail":
         write(root, "routing.py", """
@@ -194,7 +203,7 @@ def hidden(case: str, root: Path) -> None:
         assert DEFAULT_PAGE_SIZE == 64
         assert resolve_page_size() == 64
         assert resolve_page_size(25) == 25
-    elif case == "broad":
+    elif case in ("broad", "broad_ko"):
         from accounts.model import Event
         from accounts.reporting.summary import summarize
         events = [Event('  ACME  ', 2), Event('beta', 4), Event('acme', 3), Event(' BETA ', 1)]
