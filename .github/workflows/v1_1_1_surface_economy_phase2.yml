@@ -1,0 +1,288 @@
+name: v1.1.1 surface economy Phase 2
+
+# Paid experiment. Manual-only by design.
+on:
+  workflow_dispatch:
+    inputs:
+      experiment_ref:
+        description: Branch/ref containing the Phase 2 experiment harness
+        required: true
+        default: research/v1.1.1-surface-economy-phase2
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.experiment_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install preflight dependencies
+        run: python -m pip install 'PyYAML==6.0.2'
+
+      - name: Validate Phase 2 harness before paid calls
+        run: |
+          python -m py_compile \
+            experiments/v1_1_1_surface_variants.py \
+            experiments/v1_1_1_surface_fixture.py \
+            experiments/v1_1_1_surface_metrics.py \
+            experiments/v1_1_1_surface_phase2_aggregate.py
+          python scripts/validate_plugin.py
+          for variant in control economy; do
+            python experiments/v1_1_1_surface_variants.py \
+              --source "$GITHUB_WORKSPACE" \
+              --output "$RUNNER_TEMP/plugin-$variant" \
+              --variant "$variant"
+            test -f "$RUNNER_TEMP/plugin-$variant/agents/over-the-luna.agent.md"
+          done
+          for case in broad broad_ko risk; do
+            python experiments/v1_1_1_surface_fixture.py prepare \
+              --case "$case" \
+              --root "$RUNNER_TEMP/preflight-$case" \
+              --task-file "$RUNNER_TEMP/preflight-$case.txt"
+            test -s "$RUNNER_TEMP/preflight-$case.txt"
+          done
+
+  screen:
+    needs: preflight
+    permissions:
+      contents: read
+      copilot-requests: write
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - variant: control
+            case: broad
+            run_label: control-broad
+          - variant: economy
+            case: broad
+            run_label: economy-broad-r1
+          - variant: economy
+            case: broad
+            run_label: economy-broad-r2
+          - variant: control
+            case: risk
+            run_label: control-risk
+          - variant: economy
+            case: risk
+            run_label: economy-risk
+          - variant: control
+            case: broad_ko
+            run_label: control-broad-ko
+          - variant: economy
+            case: broad_ko
+            run_label: economy-broad-ko
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.experiment_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Build isolated prompt variant
+        env:
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          python experiments/v1_1_1_surface_variants.py \
+            --source "$GITHUB_WORKSPACE" \
+            --output "$RUNNER_TEMP/plugin" \
+            --variant "$VARIANT"
+
+      - name: Prepare fresh fixture repository
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          python experiments/v1_1_1_surface_fixture.py prepare \
+            --case "$CASE" \
+            --root "$RUNNER_TEMP/work" \
+            --task-file "$RUNNER_TEMP/task.txt"
+          cd "$RUNNER_TEMP/work"
+          git init -q
+          git config user.email 'surface-economy@example.invalid'
+          git config user.name 'Surface Economy Experiment'
+          git add -- .
+          git commit -qm 'fixture baseline'
+
+      - name: Run Luna candidate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set +e
+          set -o pipefail
+          cd "$RUNNER_TEMP/work"
+          date +%s%3N > "$RUNNER_TEMP/candidate.start_ms"
+          copilot \
+            --plugin-dir="$RUNNER_TEMP/plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$(cat "$RUNNER_TEMP/task.txt")" \
+            | awk -v first="$RUNNER_TEMP/candidate.first_output_ms" 'NR==1 { cmd="date +%s%3N > \"" first "\""; system(cmd) } { print; fflush() }' \
+            | tee "$RUNNER_TEMP/events.jsonl"
+          code=${PIPESTATUS[0]}
+          date +%s%3N > "$RUNNER_TEMP/candidate.end_ms"
+          echo "$code" > "$RUNNER_TEMP/candidate.exit"
+          exit 0
+
+      - name: Run hidden correctness gate
+        if: always()
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set +e
+          python "$GITHUB_WORKSPACE/experiments/v1_1_1_surface_fixture.py" hidden \
+            --case "$CASE" \
+            --root "$RUNNER_TEMP/work"
+          code=$?
+          echo "$code" > "$RUNNER_TEMP/hidden.exit"
+          exit 0
+
+      - name: Measure surface, trajectory, and startup latency
+        if: always()
+        env:
+          VARIANT: ${{ matrix.variant }}
+          CASE: ${{ matrix.case }}
+          RUN_LABEL: ${{ matrix.run_label }}
+        run: |
+          set +e
+          python experiments/v1_1_1_surface_metrics.py \
+            --variant "$VARIANT" \
+            --case "$CASE" \
+            --run-label "$RUN_LABEL" \
+            --events "$RUNNER_TEMP/events.jsonl" \
+            --otel "$RUNNER_TEMP/otel.jsonl" \
+            --candidate-exit "$RUNNER_TEMP/candidate.exit" \
+            --hidden-exit "$RUNNER_TEMP/hidden.exit" \
+            --candidate-start-ms "$RUNNER_TEMP/candidate.start_ms" \
+            --candidate-first-output-ms "$RUNNER_TEMP/candidate.first_output_ms" \
+            --candidate-end-ms "$RUNNER_TEMP/candidate.end_ms" \
+            --json-out "$RUNNER_TEMP/metrics.json" \
+            --md-out "$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" 2>/dev/null || true
+          exit 0
+
+      - name: Capture resulting patch
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/work"
+          git diff --no-ext-diff > "$RUNNER_TEMP/result.diff" || true
+          git status --short > "$RUNNER_TEMP/status.txt" || true
+
+      - name: Upload Phase 2 run artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surface-phase2-run-${{ matrix.run_label }}
+          path: |
+            ${{ runner.temp }}/task.txt
+            ${{ runner.temp }}/events.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/candidate.exit
+            ${{ runner.temp }}/candidate.start_ms
+            ${{ runner.temp }}/candidate.first_output_ms
+            ${{ runner.temp }}/candidate.end_ms
+            ${{ runner.temp }}/hidden.exit
+            ${{ runner.temp }}/metrics.json
+            ${{ runner.temp }}/summary.md
+            ${{ runner.temp }}/result.diff
+            ${{ runner.temp }}/status.txt
+          if-no-files-found: warn
+
+      - name: Enforce experiment gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("${{ runner.temp }}/metrics.json")
+          if not p.exists():
+              raise SystemExit("metrics.json missing")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          if not data.get("gate_pass"):
+              print("Experiment gate failures:")
+              for failure in data.get("gate_failures", []):
+                  print(f"- {failure}")
+              raise SystemExit(1)
+          PY
+
+  aggregate:
+    if: always()
+    needs: screen
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.experiment_ref }}
+
+      - name: Download Phase 2 artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: surface-phase2-run-*
+          path: ${{ runner.temp }}/surface-phase2-results
+
+      - name: Build Phase 2 comparison and blind preference pack
+        run: |
+          python experiments/v1_1_1_surface_phase2_aggregate.py \
+            --root "$RUNNER_TEMP/surface-phase2-results" \
+            --json-out "$RUNNER_TEMP/phase2.json" \
+            --md-out "$RUNNER_TEMP/phase2.md" \
+            --blind-out "$RUNNER_TEMP/blind-preference.md" \
+            --key-out "$RUNNER_TEMP/blind-preference-key.json"
+          cat "$RUNNER_TEMP/phase2.md"
+
+      - name: Upload Phase 2 aggregate
+        uses: actions/upload-artifact@v4
+        with:
+          name: surface-phase2-aggregate
+          path: |
+            ${{ runner.temp }}/phase2.json
+            ${{ runner.temp }}/phase2.md
+            ${{ runner.temp }}/blind-preference.md
+            ${{ runner.temp }}/blind-preference-key.json
+
+      - name: Enforce Phase 2 promotion threshold
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("${{ runner.temp }}/phase2.json").read_text(encoding="utf-8"))
+          if data.get("status") != "READY_FOR_HUMAN_PREFERENCE":
+              raise SystemExit(f"Phase 2 status: {data.get('status')}")
+          PY
