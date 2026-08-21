@@ -110,6 +110,7 @@ jobs:
           COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
           COPILOT_OTEL_CAPTURE_CONTENT: 'false'
         run: |
+          set +e
           set -o pipefail
           cd "$RUNNER_TEMP/work"
           copilot \
@@ -118,11 +119,14 @@ jobs:
             --model=gpt-5.6-luna \
             --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
             --allow-all-tools \
-            --max-ai-credits=20 \
+            --max-ai-credits=30 \
             --no-remote-export \
             --output-format=json \
             --prompt="$(cat "$RUNNER_TEMP/task.txt")" \
             | tee "$RUNNER_TEMP/events.jsonl"
+          code=${PIPESTATUS[0]}
+          echo "$code" > "$RUNNER_TEMP/candidate.exit"
+          exit 0
 
       - name: Run hidden correctness gate
         if: always()
@@ -153,6 +157,7 @@ jobs:
             --case "$CASE" \
             --events "$RUNNER_TEMP/events.jsonl" \
             --otel "$RUNNER_TEMP/otel.jsonl" \
+            --candidate-exit "$RUNNER_TEMP/candidate.exit" \
             --hidden-exit "$RUNNER_TEMP/hidden.exit" \
             --json-out "$RUNNER_TEMP/metrics.json" \
             --md-out "$RUNNER_TEMP/summary.md"
@@ -175,12 +180,30 @@ jobs:
             ${{ runner.temp }}/task.txt
             ${{ runner.temp }}/events.jsonl
             ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/candidate.exit
             ${{ runner.temp }}/hidden.exit
             ${{ runner.temp }}/metrics.json
             ${{ runner.temp }}/summary.md
             ${{ runner.temp }}/result.diff
             ${{ runner.temp }}/status.txt
           if-no-files-found: warn
+
+      - name: Enforce experiment gate
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("${{ runner.temp }}/metrics.json")
+          if not p.exists():
+              raise SystemExit("metrics.json missing")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          if not data.get("gate_pass"):
+              print("Experiment gate failures:")
+              for failure in data.get("gate_failures", []):
+                  print(f"- {failure}")
+              raise SystemExit(1)
+          PY
 
   aggregate:
     if: always()
