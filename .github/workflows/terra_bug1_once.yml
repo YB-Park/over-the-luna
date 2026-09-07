@@ -1,0 +1,107 @@
+name: Terra paired bug eval 1 one-shot
+
+# ONE-SHOT PAID MODEL-ISOLATION PROBE.
+on:
+  push:
+    branches:
+      - experiment/terra-deep-judgment
+    paths:
+      - .github/workflows/terra_bug1_once.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  bug1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version | tee "${{ runner.temp }}/copilot-version.txt"
+
+      - name: Snapshot experiment plugin
+        run: |
+          mkdir -p "${{ runner.temp }}/otl-plugin"
+          cp plugin.json "${{ runner.temp }}/otl-plugin/plugin.json"
+          cp -R agents "${{ runner.temp }}/otl-plugin/agents"
+
+      - name: Prepare historical aiohttp workspace
+        run: |
+          cd "${{ runner.temp }}"
+          git clone --quiet https://github.com/aio-libs/aiohttp.git aiohttp-bug1
+          cd aiohttp-bug1
+          git checkout --quiet f387f620459cf5b8e0e1df2f18dc70e9c3d29909
+          git status --short > "${{ runner.temp }}/bug1-pre-status.txt"
+          test -z "$(git status --porcelain)"
+
+      - name: Run paired Luna control
+        working-directory: ${{ runner.temp }}/aiohttp-bug1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/bug1-luna-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          TASK_PROMPT: >-
+            MODEL-ISOLATION BUG JUDGMENT. READ-ONLY. Do not edit files, run shell commands,
+            inspect git history, or use external services. Historical symptom: while a
+            TCPConnector is being closed, an in-flight websocket connection can be suspended
+            during DNS-resolution tracing. After close progresses and that connection resumes,
+            the task can fail with AttributeError: 'NoneType' object has no attribute
+            'getaddrinfo' instead of the expected ClientConnectionError('Connector is closed').
+            The failure is reproducible with use_dns_cache=False and an AsyncResolver.
+            Determine the concrete causal race in this repository snapshot, discriminate the
+            plausible fix locations/orderings, and produce the smallest safe execution contract
+            including the regression behavior that must be tested. Do not implement. Do not
+            assume a later patch or PR exists. Use evidence leaves only when they materially
+            help the judgment. Follow the Deep Judgment output sections exactly.
+        run: |
+          set -o pipefail
+          copilot             --plugin-dir="${{ runner.temp }}/otl-plugin"             --agent='over-the-luna:deep-judgment-luna-control'             --model=gpt-5.6-luna             --available-tools='view,glob,rg,task,list_agents,read_agent'             --allow-all-tools             --max-ai-credits=30             --no-remote-export             --output-format=json             --prompt="$TASK_PROMPT"             | tee "${{ runner.temp }}/bug1-luna-output.jsonl"
+          test -z "$(git status --porcelain)"
+
+      - name: Run paired Terra candidate
+        working-directory: ${{ runner.temp }}/aiohttp-bug1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/bug1-terra-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          TASK_PROMPT: >-
+            MODEL-ISOLATION BUG JUDGMENT. READ-ONLY. Do not edit files, run shell commands,
+            inspect git history, or use external services. Historical symptom: while a
+            TCPConnector is being closed, an in-flight websocket connection can be suspended
+            during DNS-resolution tracing. After close progresses and that connection resumes,
+            the task can fail with AttributeError: 'NoneType' object has no attribute
+            'getaddrinfo' instead of the expected ClientConnectionError('Connector is closed').
+            The failure is reproducible with use_dns_cache=False and an AsyncResolver.
+            Determine the concrete causal race in this repository snapshot, discriminate the
+            plausible fix locations/orderings, and produce the smallest safe execution contract
+            including the regression behavior that must be tested. Do not implement. Do not
+            assume a later patch or PR exists. Use evidence leaves only when they materially
+            help the judgment. Follow the Deep Judgment output sections exactly.
+        run: |
+          set -o pipefail
+          copilot             --plugin-dir="${{ runner.temp }}/otl-plugin"             --agent='over-the-luna:deep-judgment'             --model=gpt-5.6-terra             --available-tools='view,glob,rg,task,list_agents,read_agent'             --allow-all-tools             --max-ai-credits=30             --no-remote-export             --output-format=json             --prompt="$TASK_PROMPT"             | tee "${{ runner.temp }}/bug1-terra-output.jsonl"
+          test -z "$(git status --porcelain)"
+
+      - name: Upload paired bug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terra-paired-bug1-aiohttp-dns-close-race
+          path: |
+            ${{ runner.temp }}/copilot-version.txt
+            ${{ runner.temp }}/bug1-luna-output.jsonl
+            ${{ runner.temp }}/bug1-luna-otel.jsonl
+            ${{ runner.temp }}/bug1-terra-output.jsonl
+            ${{ runner.temp }}/bug1-terra-otel.jsonl
+            ${{ runner.temp }}/bug1-pre-status.txt
+          if-no-files-found: warn
