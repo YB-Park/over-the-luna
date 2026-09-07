@@ -1,0 +1,256 @@
+name: Terra Phase 2 root-cause E2E one-shot
+
+on:
+  push:
+    branches:
+      - experiment/terra-deep-judgment
+    paths:
+      - .github/workflows/terra_phase2_root_once.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  root-cause:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install tooling
+        run: |
+          npm install -g @github/copilot
+          copilot --version | tee "${{ runner.temp }}/copilot-version.txt"
+          python -m pip install --upgrade pip
+          python -m pip install \
+            'h11>=0.13,<0.15' 'sniffio==1.*' 'anyio==3.6.2' certifi \
+            'trio==0.21.0' 'pytest==7.2.0' 'pytest-trio==0.7.0' \
+            'h2>=3,<5' 'socksio==1.*'
+
+      - name: Snapshot experiment plugin
+        run: |
+          mkdir -p "${{ runner.temp }}/otl-plugin"
+          cp plugin.json "${{ runner.temp }}/otl-plugin/plugin.json"
+          cp -R agents "${{ runner.temp }}/otl-plugin/agents"
+
+      - name: Prepare identical historical workspaces
+        run: |
+          cd "${{ runner.temp }}"
+          git clone --quiet https://github.com/encode/httpcore.git httpcore-baseline
+          git clone --quiet https://github.com/encode/httpcore.git httpcore-candidate
+          cd httpcore-baseline
+          git checkout --quiet 5f2e454801f50051d5a66203401a67e5b2a32e9d
+          test -z "$(git status --porcelain)"
+          cd ../httpcore-candidate
+          git checkout --quiet 5f2e454801f50051d5a66203401a67e5b2a32e9d
+          test -z "$(git status --porcelain)"
+
+      - name: Baseline implementation
+        working-directory: ${{ runner.temp }}/httpcore-baseline
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/root-baseline-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          TASK_PROMPT: >-
+            HELD-OUT ROOT-CAUSE IMPLEMENTATION. Do not inspect git history or use external
+            services. This historical snapshot intermittently fails during concurrent async
+            HTTP use with RuntimeError: dictionary changed size during iteration while
+            importing anyio from httpcore/_synchronization.py, typically from
+            AsyncLock.setup() under asyncio. After that failure, cleanup can also hit
+            AttributeError because _anyio_lock was never initialized. The failure is
+            timing-sensitive and has been observed more often under a debugger. Diagnose the
+            repository-local cause, implement the smallest robust fix while preserving both
+            asyncio/anyio and trio support and optional dependency behavior, add focused
+            regression coverage if a deterministic test is justified, and run relevant tests.
+            Do not consult later commits or PRs.
+        run: |
+          set -o pipefail
+          copilot \
+            --plugin-dir="${{ runner.temp }}/otl-plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=60 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$TASK_PROMPT" \
+            | tee "${{ runner.temp }}/root-baseline-output.jsonl"
+          git diff --no-ext-diff > "${{ runner.temp }}/root-baseline.diff"
+          git status --short > "${{ runner.temp }}/root-baseline.status"
+
+      - name: Baseline independent validation
+        if: always()
+        working-directory: ${{ runner.temp }}/httpcore-baseline
+        run: |
+          set +e
+          PYTHONPATH=. python -m pytest -q > "${{ runner.temp }}/root-baseline-tests.txt" 2>&1
+          code=$?
+          echo "$code" > "${{ runner.temp }}/root-baseline-tests.exit"
+          cat "${{ runner.temp }}/root-baseline-tests.txt"
+          python - <<'PY' > "${{ runner.temp }}/root-baseline-static.txt"
+          from pathlib import Path
+          t = Path("httpcore/_synchronization.py").read_text()
+          lazy_anyio = sum(1 for line in t.splitlines() if line.startswith("        import anyio") or line.startswith("            import anyio"))
+          lazy_trio = sum(1 for line in t.splitlines() if line.startswith("        import trio") or line.startswith("            import trio"))
+          print("lazy_anyio_import_count=", lazy_anyio)
+          print("lazy_trio_import_count=", lazy_trio)
+          print("module_anyio_import=", any(line == "    import anyio" or line == "import anyio" for line in t.splitlines()))
+          print("module_trio_import=", any(line == "    import trio" or line == "import trio" for line in t.splitlines()))
+          PY
+          exit 0
+
+      - name: Candidate Deep Judgment
+        working-directory: ${{ runner.temp }}/httpcore-candidate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/root-judgment-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          JUDGMENT_PROMPT: >-
+            HELD-OUT ROOT-CAUSE JUDGMENT. READ-ONLY. Do not edit files, run shell commands,
+            inspect git history, or use external services. This historical snapshot
+            intermittently fails during concurrent async HTTP use with RuntimeError:
+            dictionary changed size during iteration while importing anyio from
+            httpcore/_synchronization.py, typically from AsyncLock.setup() under asyncio.
+            After that failure, cleanup can also hit AttributeError because _anyio_lock was
+            never initialized. The failure is timing-sensitive and is observed more often
+            under a debugger. Determine the most likely repository-local cause and the
+            smallest robust execution contract that preserves asyncio/anyio, trio, and
+            optional dependency behavior. Do not assume any later patch exists. Follow Deep
+            Judgment's required output contract.
+        run: |
+          set -o pipefail
+          copilot \
+            --plugin-dir="${{ runner.temp }}/otl-plugin" \
+            --agent='over-the-luna:deep-judgment' \
+            --model=gpt-5.6-terra \
+            --available-tools='view,glob,rg,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=40 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$JUDGMENT_PROMPT" \
+            | tee "${{ runner.temp }}/root-judgment-output.jsonl"
+          test -z "$(git status --porcelain)"
+          python - <<'PY'
+          import json, os, pathlib
+          root = pathlib.Path(os.environ["RUNNER_TEMP"])
+          src = root / "root-judgment-output.jsonl"
+          out = root / "root-judgment-final.txt"
+          msgs=[]
+          for line in src.read_text().splitlines():
+              try:
+                  e=json.loads(line)
+              except Exception:
+                  continue
+              if e.get("type")=="assistant.message":
+                  c=(e.get("data") or {}).get("content")
+                  if c:
+                      msgs.append(c)
+          out.write_text(msgs[-1] if msgs else "")
+          PY
+
+      - name: Candidate implementation with judgment contract
+        working-directory: ${{ runner.temp }}/httpcore-candidate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/root-candidate-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          cat > "${{ runner.temp }}/root-candidate-prompt.txt" <<'EOF'
+          HELD-OUT ROOT-CAUSE IMPLEMENTATION. Do not inspect git history or use external
+          services. Fix the timing-sensitive import failure described below, add focused
+          regression coverage if justified, and run relevant tests.
+
+          Symptom:
+          Concurrent async HTTP use can intermittently fail with RuntimeError: dictionary
+          changed size during iteration while importing anyio from
+          httpcore/_synchronization.py, typically from AsyncLock.setup() under asyncio.
+          Cleanup can then hit AttributeError because _anyio_lock was never initialized.
+          Preserve asyncio/anyio, trio, and optional dependency behavior.
+
+          A human-selected Deep Judgment checkpoint produced this pre-change decision
+          contract. Treat it as evidence and constraints, not as authority over repository
+          facts. Re-evaluate only if current code contradicts it:
+
+          ----- BEGIN DEEP JUDGMENT -----
+          EOF
+          cat "${{ runner.temp }}/root-judgment-final.txt" >> "${{ runner.temp }}/root-candidate-prompt.txt"
+          cat >> "${{ runner.temp }}/root-candidate-prompt.txt" <<'EOF'
+          ----- END DEEP JUDGMENT -----
+
+          Implement the smallest coherent fix. Main remains the sole mutation owner.
+          EOF
+          set -o pipefail
+          copilot \
+            --plugin-dir="${{ runner.temp }}/otl-plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --model=gpt-5.6-luna \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --max-ai-credits=60 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$(cat "${{ runner.temp }}/root-candidate-prompt.txt")" \
+            | tee "${{ runner.temp }}/root-candidate-output.jsonl"
+          git diff --no-ext-diff > "${{ runner.temp }}/root-candidate.diff"
+          git status --short > "${{ runner.temp }}/root-candidate.status"
+
+      - name: Candidate independent validation
+        if: always()
+        working-directory: ${{ runner.temp }}/httpcore-candidate
+        run: |
+          set +e
+          PYTHONPATH=. python -m pytest -q > "${{ runner.temp }}/root-candidate-tests.txt" 2>&1
+          code=$?
+          echo "$code" > "${{ runner.temp }}/root-candidate-tests.exit"
+          cat "${{ runner.temp }}/root-candidate-tests.txt"
+          python - <<'PY' > "${{ runner.temp }}/root-candidate-static.txt"
+          from pathlib import Path
+          t = Path("httpcore/_synchronization.py").read_text()
+          lazy_anyio = sum(1 for line in t.splitlines() if line.startswith("        import anyio") or line.startswith("            import anyio"))
+          lazy_trio = sum(1 for line in t.splitlines() if line.startswith("        import trio") or line.startswith("            import trio"))
+          print("lazy_anyio_import_count=", lazy_anyio)
+          print("lazy_trio_import_count=", lazy_trio)
+          print("module_anyio_import=", any(line == "    import anyio" or line == "import anyio" for line in t.splitlines()))
+          print("module_trio_import=", any(line == "    import trio" or line == "import trio" for line in t.splitlines()))
+          PY
+          exit 0
+
+      - name: Upload Phase 2 root-cause artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terra-phase2-root-cause-httpcore-import-race
+          path: |
+            ${{ runner.temp }}/copilot-version.txt
+            ${{ runner.temp }}/root-baseline-output.jsonl
+            ${{ runner.temp }}/root-baseline-otel.jsonl
+            ${{ runner.temp }}/root-baseline.diff
+            ${{ runner.temp }}/root-baseline.status
+            ${{ runner.temp }}/root-baseline-tests.txt
+            ${{ runner.temp }}/root-baseline-tests.exit
+            ${{ runner.temp }}/root-baseline-static.txt
+            ${{ runner.temp }}/root-judgment-output.jsonl
+            ${{ runner.temp }}/root-judgment-otel.jsonl
+            ${{ runner.temp }}/root-judgment-final.txt
+            ${{ runner.temp }}/root-candidate-prompt.txt
+            ${{ runner.temp }}/root-candidate-output.jsonl
+            ${{ runner.temp }}/root-candidate-otel.jsonl
+            ${{ runner.temp }}/root-candidate.diff
+            ${{ runner.temp }}/root-candidate.status
+            ${{ runner.temp }}/root-candidate-tests.txt
+            ${{ runner.temp }}/root-candidate-tests.exit
+            ${{ runner.temp }}/root-candidate-static.txt
+          if-no-files-found: warn
