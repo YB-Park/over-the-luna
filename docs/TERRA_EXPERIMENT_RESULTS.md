@@ -11,7 +11,7 @@ Use this file only for recorded observations from `docs/TERRA_EXPERIMENT.md`. Do
 - GPT-5.6 Luna availability:
 - GPT-5.6 Terra availability:
 - Claude Sonnet 5 availability:
-- Reasoning/effort setting shown by product, if any:
+- Reasoning/effort setting shown by product, if any: Terra trace reports reasoning_effort=medium in Phase 0 tool-boundary probe
 - Relevant organization model/tool policy:
 - Copilot usage/billing snapshot before experiment: Copilot Pro — 199 / 1,500 included AI credits used; approximately 1,301 remaining; resets Oct 1, 2026; additional usage disabled ($0 budget). Model usage Sep 1–7: GPT-5.6 Terra 92.39 credits / $0.92, Claude Haiku 4.5 59.98 / $0.60, GPT-5.6 Luna 39.15 / $0.39, GPT-5.4 7.61 / $0.08. Source: user-provided GitHub Usage screenshot.
 - Copilot usage/billing snapshot after experiment:
@@ -20,14 +20,14 @@ Use this file only for recorded observations from `docs/TERRA_EXPERIMENT.md`. Do
 
 | Check | PASS/FAIL | Evidence |
 |---|---|---|
-| Deep Judgment visible as Terra | | |
-| Terra tool surface is agent-only | | |
-| Only four named Luna evidence leaves are invocable | | |
-| Luna leaf actually runs as Luna | | |
-| Terra does not directly read/search/edit/execute | | |
-| Implement handoff targets Over the Luna | | |
-| Handoff remains send:false | | |
-| No mutation before human handoff | | |
+| Deep Judgment visible as Terra | PASS | CLI session model = `gpt-5.6-terra` |
+| Terra tool surface is agent-only | PASS | Global CLI pool included `view/glob/rg`, but Terra parent used only `task`; repository reads occurred only inside Luna Architect |
+| Only four named Luna evidence leaves are invocable | PARTIAL | Static validator enforces the four-name allow-list; runtime exercised Architect only |
+| Luna leaf actually runs as Luna | PASS | `Luna Architect` dispatched as `gpt-5.6-luna` |
+| Terra does not directly read/search/edit/execute | PASS | OTel/event trace shows Terra parent -> `task`; Architect performed 11 `view` calls in final Phase 0 probe |
+| Implement handoff targets Over the Luna | STATIC PASS | Validator pins exact handoff target; non-interactive CLI does not render VS Code handoff UI |
+| Handoff remains send:false | STATIC PASS | Validator pins `send:false`; UI rendering remains a later VS Code gate |
+| No mutation before human handoff | PASS | Pre/post `git diff` and `git status` identical/clean |
 
 ## Phase 1 — positive replay
 
@@ -35,8 +35,8 @@ Score each axis 0–2. Blind the arm labels during scoring when practical.
 
 | Case | Arm | Correctness | Grounding | Discrimination | Execution usefulness | Scope discipline | Total /10 | Luna leaves | Tool calls | Time | Usage/cost shown | Decision changed by evidence? | Notes |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|---|
-| P1 | A | | | | | | | | | | | | |
-| P1 | B | | | | | | | | | | | | |
+| P1 | A | 2 | 2 | 2 | 2 | 2 | 10 | 1 | 28 total visible tool starts (1 task + Architect reads) | ~31s Architect + parent overhead | 1.926672 AI credits (OTel `totalNanoAiu`) | Yes within Luna path: Architect evidence resolved the decision | Exact accepted v0.6 direction; one Architect |
+| P1 | B | 2 | 2 | 2 | 2 | 2 | 10 | 2 | 51 total visible tool starts (2 task + leaf reads) | Architect ~96s + Skeptic ~40s + Terra overhead | 8.031923 AI credits (OTel `totalNanoAiu`) | Evidence reinforced but did not change the final direction vs baseline | Exact accepted v0.6 direction; materially higher spend; no decision advantage over A |
 | P2 | A | | | | | | | | | | | | |
 | P2 | B | | | | | | | | | | | | |
 | P3 | A | | | | | | | | | | | | |
@@ -84,3 +84,10 @@ Choose one:
 Decision:
 
 Evidence that would reverse this decision:
+
+## Interim observations — Phase 0 / P1
+
+- The first one-shot attempt used `--max-ai-credits=20` and was rejected by Copilot CLI before model invocation; current CLI requires at least 30. No model inference occurred in that failed attempt.
+- A first valid Phase 0 probe accidentally set the global CLI tool ceiling to subagent tools only, which prevented Architect repository reads. That run was treated as harness-test setup evidence, not the final structural result.
+- The corrected Phase 0 probe exposed `view/glob/rg` globally while keeping Deep Judgment frontmatter at `tools: ['agent']`. Terra used only `task`; Luna Architect performed repository reads; final verdict was `NOT_JUSTIFIED`; no mutation occurred.
+- P1 is a **tie on decision quality (10/10 vs 10/10)**, not a Terra win. Candidate cost was approximately 4.17x the Luna-only baseline and used two evidence leaves instead of one. Under the experiment gate, P2 and P3 would both need to show candidate wins for the positive-case threshold to remain reachable.
