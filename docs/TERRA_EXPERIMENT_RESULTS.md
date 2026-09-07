@@ -37,8 +37,8 @@ Score each axis 0–2. Blind the arm labels during scoring when practical.
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|---|
 | P1 | A | 2 | 2 | 2 | 2 | 2 | 10 | 1 | 28 total visible tool starts (1 task + Architect reads) | ~31s Architect + parent overhead | 1.926672 AI credits (OTel `totalNanoAiu`) | Yes within Luna path: Architect evidence resolved the decision | Exact accepted v0.6 direction; one Architect |
 | P1 | B | 2 | 2 | 2 | 2 | 2 | 10 | 2 | 51 total visible tool starts (2 task + leaf reads) | Architect ~96s + Skeptic ~40s + Terra overhead | 8.031923 AI credits (OTel `totalNanoAiu`) | Evidence reinforced but did not change the final direction vs baseline | Exact accepted v0.6 direction; materially higher spend; no decision advantage over A |
-| P2 | A | | | | | | | | | | | | |
-| P2 | B | | | | | | | | | | | | |
+| P2 | A | 1 | 2 | 1 | 1 | 2 | 7 | 2 | 78 visible tool starts (2 task + leaf reads) | Architect ~191s + Skeptic ~99s + parent overhead | 9.879579 AI credits (OTel `totalNanoAiu`) | Yes, but converged on an incomplete production correction | Paired Luna control. Correctly found post-trace `_closed` guard, but explicitly rejected reordering `TCPConnector.close()`; accepted PR #12787 requires both reorder + guard. |
+| P2 | B | 2 | 2 | 2 | 2 | 1 | 9 | 3 | 71 visible tool starts (3 task + leaf reads) | Architect ~158s + Skeptic ~148s + Architect ~78s + Terra overhead | 16.570934 AI credits (OTel `totalNanoAiu`) | Yes; evidence separated reorder-only from guard-only and changed the execution contract | Paired Terra candidate. Matched accepted PR #12787 core: base close before owned resolver close + post-trace closed guard. Scope penalty: also proposed a throttled-path guard not present in merged patch. |
 | P3 | A | | | | | | | | | | | | |
 | P3 | B | | | | | | | | | | | | |
 
@@ -91,3 +91,18 @@ Evidence that would reverse this decision:
 - A first valid Phase 0 probe accidentally set the global CLI tool ceiling to subagent tools only, which prevented Architect repository reads. That run was treated as harness-test setup evidence, not the final structural result.
 - The corrected Phase 0 probe exposed `view/glob/rg` globally while keeping Deep Judgment frontmatter at `tools: ['agent']`. Terra used only `task`; Luna Architect performed repository reads; final verdict was `NOT_JUSTIFIED`; no mutation occurred.
 - P1 is a **tie on decision quality (10/10 vs 10/10)**, not a Terra win. Candidate cost was approximately 4.17x the Luna-only baseline and used two evidence leaves instead of one. Under the experiment gate, P2 and P3 would both need to show candidate wins for the positive-case threshold to remain reachable.
+
+## Methodology correction before P2
+
+P1 used the released Over the Luna Main as the Luna baseline. That is useful as a product-level preliminary comparison, but it is not a clean model-isolation test because the stable Main prompt already contains lessons from historical architecture decisions. Before P2, a hidden `Deep Judgment Luna Control` was added with the same judgment instructions, the same four evidence leaves, the same `agent`-only parent tool boundary, and the same non-mutating handoff contract as Terra Deep Judgment. From P2 onward, the principal comparison changes only the parent model: GPT-5.6 Luna vs GPT-5.6 Terra.
+
+### P2 accepted-fix oracle
+
+Held-out case: aiohttp `TCPConnector.close()` / in-flight DNS race at pre-fix commit `f387f620459cf5b8e0e1df2f18dc70e9c3d29909`. The task prompt supplied the runtime symptom but not the later PR or patch. After both arms completed, outputs were compared with merged aiohttp PR #12787.
+
+The accepted production patch contains two coupled changes:
+
+1. call the base connector close before closing the owned resolver, so connector closure is published before resolver invalidation;
+2. after DNS-start tracing and before the uncached resolver call, raise `ClientConnectionError` when the connector is closed.
+
+The Luna control found (2) but explicitly rejected (1). Terra selected both (1) and (2), while additionally recommending a throttled/cache-miss guard that the accepted patch did not include. This is therefore scored as a **material Terra decision win with a scope-discipline penalty**, not a perfect result.
