@@ -46,22 +46,22 @@ Score each axis 0–2. Blind the arm labels during scoring when practical.
 
 | Case | Verdict | Luna leaves | Direct Terra environment tool? | Usage/cost shown | PASS/FAIL | Notes |
 |---|---|---:|---|---|---|---|
-| N1 | | | | | | |
-| N2 | | | | | | |
+| N1 | NOT_JUSTIFIED | 0 | No | 2.599850 AI credits (OTel `totalNanoAiu`) | PASS | Single Terra trajectory; no tools/leaf calls; explicitly rejected premium judgment for deterministic one-word edit. |
+| N2 | NOT_JUSTIFIED | 1 | No | 3.994315 AI credits (OTel `totalNanoAiu`) | PASS | Exactly one Luna Architect; 12 repository `view` calls; returned concrete language-continuity paths/contracts then rejected Terra as unnecessary. |
 
 ## Phase 1 gate
 
-- Candidate wins at least 2/3 positive cases: 
-- No material regression on remaining positive case:
-- N1 = NOT_JUSTIFIED:
-- N2 = NOT_JUSTIFIED:
-- Structural boundaries held:
-- <= 3 Luna leaf calls per Terra run:
-- At least one win reflects better consequential discrimination rather than longer prose:
+- Candidate wins at least 2/3 positive cases: PASS — P2 and P3 wins; P1 tie
+- No material regression on remaining positive case: PASS — P1 tied 10/10, but cost was higher
+- N1 = NOT_JUSTIFIED: PASS — zero leaf calls
+- N2 = NOT_JUSTIFIED: PASS — exactly one bounded Architect call
+- Structural boundaries held: PASS in automated CLI probes — Terra parent used only `task`; leaves owned repository reads; no mutation before implementation phase
+- <= 3 Luna leaf calls per Terra run: PASS — P2 used 3; P3 used 2; N1 0; N2 1
+- At least one win reflects better consequential discrimination rather than longer prose: PASS — P2 Terra selected both shutdown reorder and post-trace guard while Luna explicitly rejected the accepted shutdown reorder
 
-**Gate:** `PROCEED_TO_PHASE_2` / `STOP`
+**Gate:** `PROCEED_TO_PHASE_2`
 
-Rationale:
+Rationale: Phase 1 produced two held-out model-isolation wins on consequential concurrency/data-integrity decisions, no correctness regression on P1, clean selectivity negatives, and no structural boundary violation. Terra is materially more expensive, so Phase 2 must now prove downstream rework/risk reduction rather than plan quality alone.
 
 ## Phase 2 — held-out end-to-end
 
