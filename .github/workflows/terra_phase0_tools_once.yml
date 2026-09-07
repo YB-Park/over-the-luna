@@ -1,0 +1,93 @@
+name: Terra Phase 0 tool-boundary one-shot
+
+# ONE-SHOT PAID PROBE. Global CLI tool pool includes repository read/search tools;
+# Deep Judgment itself must still be restricted to the agent tool by its frontmatter.
+on:
+  push:
+    branches:
+      - experiment/terra-deep-judgment
+    paths:
+      - .github/workflows/terra_phase0_tools_once.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  phase0-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install 'PyYAML==6.0.2'
+          npm install -g @github/copilot
+          copilot --version | tee "${{ runner.temp }}/copilot-version.txt"
+          python scripts/validate_plugin.py
+
+      - name: Capture clean pre-run state
+        run: |
+          git status --short > "${{ runner.temp }}/pre-status.txt"
+          git diff --no-ext-diff > "${{ runner.temp }}/pre.diff"
+
+      - name: Run Terra parent / Luna leaf tool-boundary smoke
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/terra-phase0-tools-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          PHASE0_PROMPT: >-
+            PHASE 0 TOOL-BOUNDARY SMOKE ONLY. Do not implement, edit files, run shell commands,
+            or perform external side effects. Use Luna Architect exactly once to establish the
+            current repository's core architecture invariants from concrete repository evidence.
+            The Architect should read/search the repository as needed. Do not invoke Planner,
+            Skeptic, Researcher, Reviewer, Premium Review, or any other agent. As Deep Judgment,
+            do not directly read or search the repository yourself; obtain repository evidence
+            only from Luna Architect. Then decide whether this bounded invariant lookup itself
+            justifies Terra. NOT_JUSTIFIED is expected unless a consequential competing decision
+            actually appears. Follow the required Deep Judgment output contract and do not use
+            the implementation handoff.
+        run: |
+          set -o pipefail
+          copilot             --plugin-dir=.             --agent='over-the-luna:deep-judgment'             --model=gpt-5.6-terra             --available-tools='view,glob,rg,task,list_agents,read_agent'             --allow-all-tools             --max-ai-credits=30             --no-remote-export             --output-format=json             --prompt="$PHASE0_PROMPT"             | tee "${{ runner.temp }}/terra-phase0-tools-output.jsonl"
+
+      - name: Verify no repository mutation
+        if: always()
+        run: |
+          git status --short > "${{ runner.temp }}/post-status.txt"
+          git diff --no-ext-diff > "${{ runner.temp }}/post.diff"
+          if ! cmp -s "${{ runner.temp }}/pre.diff" "${{ runner.temp }}/post.diff"; then
+            echo 'ERROR: Deep Judgment mutated the repository.' >&2
+            exit 1
+          fi
+          if [ -s "${{ runner.temp }}/post-status.txt" ]; then
+            echo 'ERROR: Deep Judgment left workspace changes:' >&2
+            cat "${{ runner.temp }}/post-status.txt" >&2
+            exit 1
+          fi
+
+      - name: Upload Phase 0 tool-boundary artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terra-phase0-tool-boundary-smoke
+          path: |
+            ${{ runner.temp }}/copilot-version.txt
+            ${{ runner.temp }}/terra-phase0-tools-output.jsonl
+            ${{ runner.temp }}/terra-phase0-tools-otel.jsonl
+            ${{ runner.temp }}/pre-status.txt
+            ${{ runner.temp }}/post-status.txt
+            ${{ runner.temp }}/pre.diff
+            ${{ runner.temp }}/post.diff
+          if-no-files-found: warn
