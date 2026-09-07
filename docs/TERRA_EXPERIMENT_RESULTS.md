@@ -4,7 +4,7 @@ Use this file only for recorded observations from `docs/TERRA_EXPERIMENT.md`. Do
 
 ## Environment
 
-- Date:
+- Date: 2026-09-07
 - VS Code version:
 - GitHub Copilot extension/version:
 - Plugin branch/commit:
@@ -13,7 +13,7 @@ Use this file only for recorded observations from `docs/TERRA_EXPERIMENT.md`. Do
 - Claude Sonnet 5 availability:
 - Reasoning/effort setting shown by product, if any:
 - Relevant organization model/tool policy:
-- Copilot usage/billing snapshot before experiment:
+- Copilot usage/billing snapshot before experiment: Copilot Pro — 199 / 1,500 included AI credits used; approximately 1,301 remaining; resets Oct 1, 2026; additional usage disabled ($0 budget). Model usage Sep 1–7: GPT-5.6 Terra 92.39 credits / $0.92, Claude Haiku 4.5 59.98 / $0.60, GPT-5.6 Luna 39.15 / $0.39, GPT-5.4 7.61 / $0.08. Source: user-provided GitHub Usage screenshot.
 - Copilot usage/billing snapshot after experiment:
 
 ## Phase 0 — structural smoke
