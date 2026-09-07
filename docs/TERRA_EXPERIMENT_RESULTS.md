@@ -39,8 +39,8 @@ Score each axis 0–2. Blind the arm labels during scoring when practical.
 | P1 | B | 2 | 2 | 2 | 2 | 2 | 10 | 2 | 51 total visible tool starts (2 task + leaf reads) | Architect ~96s + Skeptic ~40s + Terra overhead | 8.031923 AI credits (OTel `totalNanoAiu`) | Evidence reinforced but did not change the final direction vs baseline | Exact accepted v0.6 direction; materially higher spend; no decision advantage over A |
 | P2 | A | 1 | 2 | 1 | 1 | 2 | 7 | 2 | 78 visible tool starts (2 task + leaf reads) | Architect ~191s + Skeptic ~99s + parent overhead | 9.879579 AI credits (OTel `totalNanoAiu`) | Yes, but converged on an incomplete production correction | Paired Luna control. Correctly found post-trace `_closed` guard, but explicitly rejected reordering `TCPConnector.close()`; accepted PR #12787 requires both reorder + guard. |
 | P2 | B | 2 | 2 | 2 | 2 | 1 | 9 | 3 | 71 visible tool starts (3 task + leaf reads) | Architect ~158s + Skeptic ~148s + Architect ~78s + Terra overhead | 16.570934 AI credits (OTel `totalNanoAiu`) | Yes; evidence separated reorder-only from guard-only and changed the execution contract | Paired Terra candidate. Matched accepted PR #12787 core: base close before owned resolver close + post-trace closed guard. Scope penalty: also proposed a throttled-path guard not present in merged patch. |
-| P3 | A | | | | | | | | | | | | |
-| P3 | B | | | | | | | | | | | | |
+| P3 | A | 1 | 2 | 2 | 1 | 1 | 7 | 2 | 72 visible tool starts (2 task + leaf reads) | Architect ~83s + Skeptic ~102s + parent overhead | 8.462141 AI credits (OTel `totalNanoAiu`) | Yes; evidence correctly rejected raw-data rebuild but left an over-broad replayability design | Paired Luna control. Correct causal core (reuse prior payload; file rewind; async/multipart one-shot risk) but proposed new write-start/replayability machinery, told downstream not to close failed body before retry, and did not identify the accepted minimal `consumed`-state changes as production mutations. |
+| P3 | B | 2 | 2 | 2 | 2 | 1 | 9 | 2 | 62 visible tool starts (2 task + leaf reads) | Architect ~106s + Skeptic ~127s + Terra overhead | 14.208943 AI credits (OTel `totalNanoAiu`) | Yes; evidence tied retry routing to payload lifecycle and nested replayability | Paired Terra candidate. Correctly selected fresh request + prior payload, identified partial async consumption as the `consumed` contract defect, and included payload/multipart mutation surfaces. Scope penalty: framed the fix as a more general replayability capability than the merged patch required. |
 
 ## Phase 1 — negative controls
 
@@ -106,3 +106,23 @@ The accepted production patch contains two coupled changes:
 2. after DNS-start tracing and before the uncached resolver call, raise `ClientConnectionError` when the connector is closed.
 
 The Luna control found (2) but explicitly rejected (1). Terra selected both (1) and (2), while additionally recommending a throttled/cache-miss guard that the accepted patch did not include. This is therefore scored as a **material Terra decision win with a scope-discipline penalty**, not a perfect result.
+
+### P3 accepted-fix oracle
+
+Held-out case: aiohttp internally retried request body-integrity bug at pre-fix commit `6264834e7023aadd85646fd79637942b9edbe22b`. The prompt supplied the file-cursor/truncated-retry symptom and the requirement not to make one-shot async bodies appear replayable, but not the later patch. Outputs were scored after completion against merged aiohttp PR #13330.
+
+The accepted patch:
+
+1. on retryable connection failure, settles/closes the failed request writer, rejects retry when the existing body is consumed, and passes the **existing request payload** into the next fresh request instead of rebuilding it from raw `data`;
+2. marks uncached async iterable and body-part payloads consumed as soon as draining begins, so interrupted writes cannot appear replayable;
+3. makes multipart writer `consumed` reflect nested parts;
+4. adds integration/unit regressions for complete file resend and refusal to retry an unreplayable async body.
+
+Both paired arms found the major rebuild-vs-reuse cause. The Luna control, however, proposed an additional write-start/replayability state machine and did not identify the accepted payload `consumed` corrections as concrete production mutations. Terra localized the contract defect into payload/multipart state and produced a more directly implementable direction, while still overgeneralizing the minimal patch into a broader replayability abstraction. This is scored as a second **material Terra decision/execution-contract win with a scope penalty**.
+
+### Positive-case interim gate
+
+- P1 product-level historical comparison: tie, 10/10 vs 10/10; Terra cost materially higher.
+- P2 paired model-isolation concurrency case: Terra win, 9/10 vs 7/10.
+- P3 paired model-isolation data-integrity case: Terra win, 9/10 vs 7/10.
+- Candidate therefore satisfies the numeric positive-case requirement (wins at least 2/3) **subject to both negative controls and structural/selectivity checks**.
