@@ -25,6 +25,7 @@ EXPECTED_AGENT_IDS = {
     "luna-reviewer",
     "premium-review",
     "deep-judgment",
+    "deep-judgment-luna-control",
 }
 COUNCIL_NAMES = {
     "Luna Planner",
@@ -44,6 +45,7 @@ STRICT_TOOLS = {
     "luna-reviewer": {"read", "search"},
     "premium-review": {"read", "search"},
     "deep-judgment": {"agent"},
+    "deep-judgment-luna-control": {"agent"},
 }
 LANGUAGE_MARKER = "same natural language as the user's latest substantive request"
 
@@ -121,9 +123,9 @@ def main() -> int:
             errors.append(f"{path}: user-invocable should be {expected_visible}")
         if expected_visible and fm.get("disable-model-invocation") is not True:
             errors.append(f"{path}: visible agent must disable model invocation")
-        if not expected_visible and fm.get("disable-model-invocation") is True:
+        if not expected_visible and agent_id != "deep-judgment-luna-control" and fm.get("disable-model-invocation") is True:
             errors.append(f"{path}: hidden Luna leaf must remain model-invocable")
-        if agent_id not in {"over-the-luna", "deep-judgment"} and fm.get("agents", []) != []:
+        if agent_id not in {"over-the-luna", "deep-judgment", "deep-judgment-luna-control"} and fm.get("agents", []) != []:
             errors.append(f"{path}: every non-coordinator agent must remain a non-recursive leaf")
         if "tools" in fm:
             tools = fm.get("tools")
@@ -261,6 +263,54 @@ def main() -> int:
                 model = h.get("model")
                 if not isinstance(model, str) or base_model(model) != "GPT-5.6 Luna":
                     errors.append(f"{path}: Deep Judgment handoff must pin GPT-5.6 Luna")
+
+
+    luna_control = parsed.get("deep-judgment-luna-control")
+    if luna_control:
+        path, fm, body = luna_control
+        expected_agents = {"Luna Planner", "Luna Architect", "Luna Skeptic", "Luna Researcher"}
+        if fm.get("model") != "GPT-5.6 Luna":
+            errors.append(f"{path}: hidden paired control must pin GPT-5.6 Luna")
+        if bool(fm.get("user-invocable", True)) is not False:
+            errors.append(f"{path}: hidden paired control must remain user-invocable:false")
+        if fm.get("disable-model-invocation") is not True:
+            errors.append(f"{path}: hidden paired control must disable ambient model invocation")
+        if set(fm.get("agents", [])) != expected_agents:
+            errors.append(f"{path}: paired Luna control must use the same four evidence leaves as Deep Judgment")
+        if set(fm.get("tools", [])) != {"agent"}:
+            errors.append(f"{path}: paired Luna control must expose only the agent tool")
+        need(
+            errors,
+            path,
+            body,
+            "human-selected, pre-change judgment checkpoint",
+            "Use at most **three Luna leaf calls total**",
+            "Competing causal models",
+            "Cross-cutting invariant choice",
+            "High rework leverage",
+            "VERDICT",
+            "WHY_TERRA_EARNED_ITS_PLACE",
+            "REJECTED_ALTERNATIVES",
+            "EXECUTION_CONTRACT",
+            "MUTATION_TARGETS",
+            "HANDOFF",
+            "Do not mutate anything yourself",
+        )
+        handoffs = fm.get("handoffs")
+        if not isinstance(handoffs, list) or len(handoffs) != 1:
+            errors.append(f"{path}: paired Luna control must expose exactly one implementation handoff")
+        else:
+            h = handoffs[0]
+            if not isinstance(h, dict):
+                errors.append(f"{path}: paired Luna control handoff must be a mapping")
+            else:
+                if h.get("label") != "Implement with Over the Luna" or h.get("agent") != "Over the Luna":
+                    errors.append(f"{path}: paired Luna control handoff must target exact Over the Luna agent")
+                if h.get("send") is not False:
+                    errors.append(f"{path}: paired Luna control handoff must remain human-clicked send:false")
+                model = h.get("model")
+                if not isinstance(model, str) or base_model(model) != "GPT-5.6 Luna":
+                    errors.append(f"{path}: paired Luna control handoff must pin GPT-5.6 Luna")
 
     if not COUNCIL_NAMES.issubset(names):
         errors.append(f"agents/: missing exact Council display names: {sorted(COUNCIL_NAMES-names)}")
