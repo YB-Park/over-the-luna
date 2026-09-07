@@ -1,0 +1,78 @@
+name: Terra negative controls one-shot
+
+# ONE-SHOT PAID SELECTIVITY PROBE.
+on:
+  push:
+    branches:
+      - experiment/terra-deep-judgment
+    paths:
+      - .github/workflows/terra_negative_once.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  negative-controls:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version | tee "${{ runner.temp }}/copilot-version.txt"
+          test -z "$(git status --porcelain)"
+
+      - name: Run N1 exact mechanical judgment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/n1-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          N1_PROMPT: >-
+            NEGATIVE CONTROL N1. Do not implement or mutate anything. Assume the only task
+            is to replace exactly one misspelled word in plugin.json's description and verify
+            that exact resulting string. No behavior, API, runtime contract, model routing,
+            tool wiring, or architecture changes. Decide whether Deep Judgment is justified.
+            There is no hidden ambiguity to discover. Follow the required Deep Judgment output
+            contract. Avoid evidence leaves unless they are genuinely necessary.
+        run: |
+          set -o pipefail
+          copilot             --plugin-dir=.             --agent='over-the-luna:deep-judgment'             --model=gpt-5.6-terra             --available-tools='view,glob,rg,task,list_agents,read_agent'             --allow-all-tools             --max-ai-credits=30             --no-remote-export             --output-format=json             --prompt="$N1_PROMPT"             | tee "${{ runner.temp }}/n1-output.jsonl"
+          test -z "$(git status --porcelain)"
+
+      - name: Run N2 bounded discovery judgment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/n2-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          N2_PROMPT: >-
+            NEGATIVE CONTROL N2. READ-ONLY. Find where this repository defines and validates
+            Premium Review response-language continuity, and return the relevant paths and
+            contract. There is no architecture change, no implementation, and no competing
+            consequential decision. Also decide whether using Deep Judgment is justified.
+            One bounded Luna evidence leaf is acceptable if repository evidence is required;
+            repeated evidence gathering is not. Follow the required Deep Judgment output contract.
+        run: |
+          set -o pipefail
+          copilot             --plugin-dir=.             --agent='over-the-luna:deep-judgment'             --model=gpt-5.6-terra             --available-tools='view,glob,rg,task,list_agents,read_agent'             --allow-all-tools             --max-ai-credits=30             --no-remote-export             --output-format=json             --prompt="$N2_PROMPT"             | tee "${{ runner.temp }}/n2-output.jsonl"
+          test -z "$(git status --porcelain)"
+
+      - name: Upload negative-control artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terra-negative-controls
+          path: |
+            ${{ runner.temp }}/copilot-version.txt
+            ${{ runner.temp }}/n1-output.jsonl
+            ${{ runner.temp }}/n1-otel.jsonl
+            ${{ runner.temp }}/n2-output.jsonl
+            ${{ runner.temp }}/n2-otel.jsonl
+          if-no-files-found: warn
