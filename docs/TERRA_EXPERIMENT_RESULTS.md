@@ -67,8 +67,8 @@ Rationale: Phase 1 produced two held-out model-isolation wins on consequential c
 
 | Task | Arm | Final correctness | Wrong-direction edits | Rework/repair count | Recovery count | Reviewer findings | Boundary reopen | Plan/implementation contradiction | Time | Usage/cost shown | Notes |
 |---|---|---|---:|---:|---:|---:|---:|---|---|---|---|
-| Root-cause | Baseline | | | | | | | | | | |
-| Root-cause | Candidate | | | | | | | | | | |
+| Root-cause | Baseline | FAIL vs accepted fix | 1 wrong architecture direction (lock lazy imports) | production approach must be replaced | 0 | Reviewer PASS despite oracle mismatch | 0 | none — implementation faithfully followed its own wrong diagnosis | ~89s agent session | 2.156074 AI credits | 30 focused tests passed; full suite 176 passed + 12 missing-httpbin fixture errors. Accepted PR #692 removes lazy imports from async setup via module-level conditional imports; baseline retained lazy imports and added locking. |
+| Root-cause | Candidate | FAIL vs accepted fix | 1 amplified wrong architecture direction (per-instance lock/backend-affinity design) | Deep Judgment and implementation both require replacement | 0 | Reviewer PASS despite oracle mismatch | 0 | none — Main implemented the Terra contract consistently, but the contract was wrong | ~246s judgment + ~139s implementation | 8.865809 judgment + 3.512276 implementation = 12.378085 AI credits | 32 focused tests passed; full suite 178 passed + 12 missing-httpbin fixture errors. Terra explicitly rejected eager imports, while accepted PR #692 uses module-level conditional imports with ImportError guards. |
 | Cross-cutting risk | Baseline | | | | | | | | | | |
 | Cross-cutting risk | Candidate | | | | | | | | | | |
 
@@ -128,27 +128,25 @@ Both paired arms found the major rebuild-vs-reuse cause. The Luna control, howev
 - Candidate therefore satisfies the numeric positive-case requirement (wins at least 2/3) **subject to both negative controls and structural/selectivity checks**.
 
 
-## Paired model-isolation evaluation
+### Phase 2 root-cause result — httpcore AnyIO import race
 
-After P1, the original P2/P3 historical replay plan was suspended because the current v1.1 Main prompt already contains later architectural conclusions (Luna-only automatic core, human-visible premium boundary, etc.), which would leak the answer into a historical replay. Subsequent evaluations use a hidden `Deep Judgment Luna Control` with the same judgment instructions, Luna evidence leaves, and tool boundary as the Terra candidate. The parent model is the primary changed variable.
+Historical workspace: `encode/httpcore@5f2e454801f50051d5a66203401a67e5b2a32e9d`  
+Hidden accepted oracle after both arms: merged PR #692, “Use conditional imports of trio and anyio.”
 
-### Bug 1 — aiohttp TCPConnector close / in-flight DNS race
+The accepted patch removes imports from lazy synchronization setup and performs module-level conditional imports:
 
-Historical workspace: `aio-libs/aiohttp@f387f620459cf5b8e0e1df2f18dc70e9c3d29909`  
-Hidden reference: merged PR #12787.
+- `try: import trio ... except ImportError: trio = None`;
+- `try: import anyio ... except ImportError: anyio = None`;
+- setup methods then construct the runtime primitive from the already-imported module and raise a clear runtime dependency error when the selected optional backend is unavailable.
 
-Accepted reference fix:
-- run base connector close before closing the owned resolver so connector closure is published first;
-- add a closed-state guard in uncached `_resolve_host()` after DNS-start tracing and before resolver invocation;
-- focused regression coverage.
+**Baseline result:** Luna diagnosed partial-state publication and introduced a module-global `threading.Lock` around the existing lazy imports. This preserved the actual risky pattern. Its focused tests passed and its Reviewer returned PASS, but the accepted root-cause direction was missed.
 
-| Arm | Correctness | Grounding | Discrimination | Execution usefulness | Scope discipline | Total /10 | Luna leaves | AI credits | Outcome |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| Paired Luna control | 1 | 2 | 1 | 2 | 2 | 8 | Architect + Skeptic | 9.879579 | Correctly found the post-trace resolver guard, but explicitly rejected the accepted shutdown reordering. |
-| Terra candidate | 2 | 2 | 2 | 2 | 1 | 9 | Architect + Skeptic + second Architect | 16.570934 | Found both accepted fix components. Slight scope penalty for additionally requiring a throttled-path guard not present in the merged patch. |
+**Candidate result:** Terra Deep Judgment made the same causal mistake more confidently. It explicitly rejected “eagerly import Trio or all backends” on the ground that Trio is optional, overlooking the accepted conditional-import pattern that preserves optionality. Main Luna then faithfully implemented the Terra contract with per-instance locks, backend-affinity checks, and additional tests. This is internally coherent but externally wrong against the accepted production fix.
 
-Interpretation:
-- This is a **material Terra win**, unlike P1. Terra identified an accepted lifecycle-ordering requirement that the same-contract Luna parent rejected.
-- Terra cost was about **1.68x** the paired Luna control, not an order-of-magnitude increase.
-- Terra also caused less aggregate Luna-leaf token work despite one extra leaf: paired Luna leaves reported ~1.69M tokens total versus ~0.71M for the Terra candidate. Treat these subagent token counters as runtime telemetry, not billing-equivalent tokens.
-- The result supports the narrow hypothesis that Terra can add value on competing causal/lifecycle models where one wrong pre-change decision would alter multiple implementation choices.
+This is a strong negative result for the hypothesis:
+- Deep Judgment did **not** reduce downstream rework;
+- the candidate cost about **5.74x** baseline (12.378085 vs 2.156074 AI credits);
+- the checkpoint amplified an incorrect causal model into a larger patch;
+- normal focused tests and the existing Reviewer were insufficient to reveal the mistake.
+
+Do not reinterpret this as a near miss. For this held-out case, the Terra checkpoint failed its intended purpose.
