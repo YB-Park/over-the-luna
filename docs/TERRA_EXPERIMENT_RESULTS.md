@@ -126,3 +126,29 @@ Both paired arms found the major rebuild-vs-reuse cause. The Luna control, howev
 - P2 paired model-isolation concurrency case: Terra win, 9/10 vs 7/10.
 - P3 paired model-isolation data-integrity case: Terra win, 9/10 vs 7/10.
 - Candidate therefore satisfies the numeric positive-case requirement (wins at least 2/3) **subject to both negative controls and structural/selectivity checks**.
+
+
+## Paired model-isolation evaluation
+
+After P1, the original P2/P3 historical replay plan was suspended because the current v1.1 Main prompt already contains later architectural conclusions (Luna-only automatic core, human-visible premium boundary, etc.), which would leak the answer into a historical replay. Subsequent evaluations use a hidden `Deep Judgment Luna Control` with the same judgment instructions, Luna evidence leaves, and tool boundary as the Terra candidate. The parent model is the primary changed variable.
+
+### Bug 1 — aiohttp TCPConnector close / in-flight DNS race
+
+Historical workspace: `aio-libs/aiohttp@f387f620459cf5b8e0e1df2f18dc70e9c3d29909`  
+Hidden reference: merged PR #12787.
+
+Accepted reference fix:
+- run base connector close before closing the owned resolver so connector closure is published first;
+- add a closed-state guard in uncached `_resolve_host()` after DNS-start tracing and before resolver invocation;
+- focused regression coverage.
+
+| Arm | Correctness | Grounding | Discrimination | Execution usefulness | Scope discipline | Total /10 | Luna leaves | AI credits | Outcome |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| Paired Luna control | 1 | 2 | 1 | 2 | 2 | 8 | Architect + Skeptic | 9.879579 | Correctly found the post-trace resolver guard, but explicitly rejected the accepted shutdown reordering. |
+| Terra candidate | 2 | 2 | 2 | 2 | 1 | 9 | Architect + Skeptic + second Architect | 16.570934 | Found both accepted fix components. Slight scope penalty for additionally requiring a throttled-path guard not present in the merged patch. |
+
+Interpretation:
+- This is a **material Terra win**, unlike P1. Terra identified an accepted lifecycle-ordering requirement that the same-contract Luna parent rejected.
+- Terra cost was about **1.68x** the paired Luna control, not an order-of-magnitude increase.
+- Terra also caused less aggregate Luna-leaf token work despite one extra leaf: paired Luna leaves reported ~1.69M tokens total versus ~0.71M for the Terra candidate. Treat these subagent token counters as runtime telemetry, not billing-equivalent tokens.
+- The result supports the narrow hypothesis that Terra can add value on competing causal/lifecycle models where one wrong pre-change decision would alter multiple implementation choices.
