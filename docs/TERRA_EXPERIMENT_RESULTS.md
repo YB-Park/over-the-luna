@@ -150,3 +150,26 @@ This is a strong negative result for the hypothesis:
 - normal focused tests and the existing Reviewer were insufficient to reveal the mistake.
 
 Do not reinterpret this as a near miss. For this held-out case, the Terra checkpoint failed its intended purpose.
+
+
+### Invalid Phase 2 cross-cutting attempt — Django editable-install contamination
+
+Run: GitHub Actions `34176238925`.
+
+This run is **excluded from promotion evidence**. The workflow installed both historical Django workspaces with `pip install -e .` into one Python environment. The second editable install pointed Python at the candidate checkout, and the baseline validation log explicitly reported:
+
+`Testing against Django installed in '.../django-candidate/django'`
+
+Therefore baseline tests were not guaranteed to execute baseline production code. The run cannot support a baseline-vs-candidate conclusion.
+
+Cost accounting only:
+- baseline Luna session: 7.195301 AI credits;
+- Terra Deep Judgment: 3.959550 AI credits;
+- candidate Luna implementation: 5.806891 AI credits;
+- total invalid-run spend: 16.961742 AI credits.
+
+The next rerun must:
+1. avoid editable Django installs;
+2. set `PYTHONPATH` explicitly per checkout for both agent execution and validation;
+3. use shallow base-SHA workspaces so later history is unavailable to agents;
+4. inject hidden accepted-behavior tests only after agent implementation is complete.
