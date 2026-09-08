@@ -69,8 +69,8 @@ Rationale: Phase 1 produced two held-out model-isolation wins on consequential c
 |---|---|---|---:|---:|---:|---:|---:|---|---|---|---|
 | Root-cause | Baseline | FAIL vs accepted fix | 1 wrong architecture direction (lock lazy imports) | production approach must be replaced | 0 | Reviewer PASS despite oracle mismatch | 0 | none — implementation faithfully followed its own wrong diagnosis | ~89s agent session | 2.156074 AI credits | 30 focused tests passed; full suite 176 passed + 12 missing-httpbin fixture errors. Accepted PR #692 removes lazy imports from async setup via module-level conditional imports; baseline retained lazy imports and added locking. |
 | Root-cause | Candidate | FAIL vs accepted fix | 1 amplified wrong architecture direction (per-instance lock/backend-affinity design) | Deep Judgment and implementation both require replacement | 0 | Reviewer PASS despite oracle mismatch | 0 | none — Main implemented the Terra contract consistently, but the contract was wrong | ~246s judgment + ~139s implementation | 8.865809 judgment + 3.512276 implementation = 12.378085 AI credits | 32 focused tests passed; full suite 178 passed + 12 missing-httpbin fixture errors. Terra explicitly rejected eager imports, while accepted PR #692 uses module-level conditional imports with ImportError guards. |
-| Cross-cutting risk | Baseline | | | | | | | | | | |
-| Cross-cutting risk | Candidate | | | | | | | | | | |
+| Cross-cutting risk | Baseline | FAIL hidden oracle (21/22) | 1 incomplete cleanup direction: centralized response close but no pre-response cancellation `request_finished` owner | 1 reviewer-driven repair; still hidden-oracle failure | 0 | 1 MUST-FIX + 1 SHOULD-FIX; repaired visible MUST-FIX, missed hidden signal failure | 0 | none — implementation was internally coherent but lifecycle model was incomplete | ~217s agent session | 5.410352 AI credits | Own ASGI tests reported 22 pass, but accepted hidden suite failed `test_asyncio_cancel_error`: expected exactly one `request_finished`, observed 0. |
+| Cross-cutting risk | Candidate | PASS hidden oracle (22/22) | 0 accepted-behavior wrong-direction edits; broader control flow than accepted patch | 0 | 0 | Reviewer PASS | 0 | none — Main followed the Terra contract and hidden oracle confirmed the consequential behavior | ~155s judgment + ~168s implementation | 11.684650 judgment + 3.467917 implementation = 15.152567 AI credits | Candidate used a different but behaviorally valid lifecycle design: handler-owned race settlement, thread-sensitive quiescence barrier, explicit no-response finalization, and cancellation-safe response close. About 2.80x baseline cost. |
 
 ## Final decision
 
@@ -173,3 +173,36 @@ The next rerun must:
 2. set `PYTHONPATH` explicitly per checkout for both agent execution and validation;
 3. use shallow base-SHA workspaces so later history is unavailable to agents;
 4. inject hidden accepted-behavior tests only after agent implementation is complete.
+
+
+### Phase 2 isolated cross-cutting result — Django ASGI request_finished lifecycle
+
+Run: GitHub Actions `34177003002`. Historical workspace: `django/django@b3dc80682e678b20c89fb2a430c0bc77960a29ac`. Hidden accepted behavior was injected only after both implementations from Django commit `11393ab1316f973c5fbb534305750740d909b4e4`.
+
+Isolation was verified by explicit per-workspace `PYTHONPATH`; baseline loaded Django from `django-baseline` and candidate from `django-candidate`.
+
+**Accepted production direction:** move request/response lifecycle finalization out of the success-only send tail so early disconnect cancellation still produces exactly one `request_finished`; close request-creation error responses; preserve cancellation of async work and avoid closing request body underneath synchronous work that can continue after coroutine cancellation.
+
+**Baseline Luna result:**
+- production changes wrapped `send_response()` in cancellation-safe response cleanup and serialized body close through the thread-sensitive executor;
+- Luna Reviewer found one MUST-FIX body-close ordering bug and one SHOULD-FIX test-coverage gap; Main repaired the MUST-FIX;
+- its own pre-oracle ASGI suite reported 22 passing tests;
+- hidden accepted suite: **21/22, FAIL**;
+- failing accepted test: `test_asyncio_cancel_error`, because pre-response cancellation still emitted **0** `request_finished` signals instead of exactly 1;
+- cost: **5.410352 AI credits**.
+
+**Terra Deep Judgment + Main Luna result:**
+- Terra identified the missing no-response cleanup owner, the fact that cancelling an awaiting `sync_to_async` coroutine does not imply synchronous worker quiescence, and the need to preserve exactly-once finalization;
+- Main implemented handler-owned race settlement, a request-associated thread-sensitive quiescence barrier, explicit no-response request close + `request_finished`, request-error response ownership, and response close in a `finally`;
+- Luna Reviewer returned **PASS**;
+- hidden accepted suite: **22/22, PASS**;
+- cost: Terra judgment **11.684650** + Main Luna implementation **3.467917** = **15.152567 AI credits**, about **2.80x** the baseline.
+
+This is a **material Phase 2 candidate win**. It is stronger evidence than the Phase 1 planning wins because the checkpoint prevented a concrete lifecycle omission that survived the Luna-only implementation, focused tests, and Luna Reviewer. The candidate is not an exact reproduction of the accepted Django patch and is more elaborate than the historical fix, so this does not prove minimality. It does prove the hidden accepted lifecycle behavior on this held-out isolated run.
+
+### Phase 2 score after isolated rerun
+
+- Root-cause / httpcore import race: **baseline FAIL, candidate FAIL**; Terra amplified the wrong causal model at ~5.74x baseline cost.
+- Cross-cutting / Django ASGI lifecycle: **baseline FAIL, candidate PASS**; Terra candidate prevented the missing pre-response cleanup path at ~2.80x baseline cost.
+- Net Phase 2 evidence is therefore **mixed, not promotion-ready**: one strong negative and one strong positive held-out E2E result.
+- No additional paid run should be started until this mixed evidence is interpreted against the promotion/kill rule.
