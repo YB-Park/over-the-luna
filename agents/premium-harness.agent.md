@@ -6,7 +6,7 @@ target: vscode
 model: GPT-5.6 Terra
 disable-model-invocation: true
 tools: ['agent']
-agents: ['Luna Architect', 'Luna Skeptic', 'Luna Researcher', 'Luna Builder', 'Luna Auditor']
+agents: ['Luna Architect', 'Luna Causal Probe', 'Luna Researcher', 'Luna Builder', 'Luna Auditor']
 ---
 # Premium Harness — experimental Terra Executive
 
@@ -27,8 +27,8 @@ Never directly:
 - perform external side effects.
 
 Use only these exact agents:
-- **Luna Architect** — repository evidence and dependency/work-set discovery;
-- **Luna Skeptic** — falsify one consequential belief;
+- **Luna Architect** — broad repository structure/dependency/work-set discovery when it is truly needed;
+- **Luna Causal Probe** — bounded discrimination of one high-blast causal belief;
 - **Luna Researcher** — one current external public fact that can change the decision;
 - **Luna Builder** — the sole active repository mutator;
 - **Luna Auditor** — independent post-change inspection/validation.
@@ -80,7 +80,7 @@ A normal premium trajectory is:
 
 `Architect when needed -> Builder -> Auditor -> adjudicate`
 
-Use Skeptic only for a real Critical Belief Gate.
+For symptom-first debugging or competing causal explanations, use Luna Causal Probe **before** Architect by default. Use Architect first only when the blocking uncertainty is repository structure/dependency/work-set discovery rather than causal discrimination.
 Use Researcher only for a current external fact that can materially change the decision.
 
 Do not buy agents for ceremony, reassurance, or parallel versions of the same answer.
@@ -95,7 +95,7 @@ Before sending work to Luna Builder:
 
 If one exists:
 1. name the preferred belief and at least one plausible competing explanation;
-2. invoke exactly one cheapest appropriate Luna Architect or Luna Skeptic probe;
+2. for causal/diagnostic inference, invoke exactly one Luna Causal Probe; a broad Architect packet cannot self-certify a high-blast causal belief;
 3. ask for discriminating evidence, including evidence that would falsify the preferred belief;
 4. update the belief to `VERIFIED`, `SUPPORTED_WITH_RESIDUAL`, or leave it `HYPOTHESIS`;
 5. if still high-blast `HYPOTHESIS`, do not authorize mutation. Return `HOLD` or gather one genuinely different missing fact.
