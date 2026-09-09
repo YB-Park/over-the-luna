@@ -181,3 +181,52 @@ Interpretation:
 - the oracle is intentionally stricter than the observed AnyIO symptom and partially encodes the merged patch's broader symmetry. Therefore record this as a partial regression result, not a simple correctness failure or success.
 
 **Decision:** stop tuning on R1. It has already served its purpose. The regression shows that Builder-owned diagnosis + simplicity-aware audit is preferable to the dedicated Causal Probe, but does not prove the premium architecture is robust. Continue with a different solved regression and then freeze before held-out evidence.
+
+
+### R2 — Django ASGI lifecycle regression
+
+Primary agent run: GitHub Actions `34316282753`.  
+Recovered hidden-oracle validation: GitHub Actions `34316996629`.
+
+Agent trajectory:
+
+```text
+Terra -> Luna Architect -> Luna Builder -> Luna Auditor -> Terra
+```
+
+Measured:
+- Architect: 22 tool calls, ~141k tokens;
+- Builder: 41 tool calls, ~848k tokens;
+- Auditor: 21 tool calls, ~317k tokens;
+- total session usage: **16.107360 AI credits**.
+
+Builder and Auditor both reported the local ASGI suite at 22/22 before hidden injection.
+
+The original one-shot's hidden-test injection step failed with `curl (23) Failure writing output to destination`; therefore that same-run 22/22 result was **not** accepted as hidden evidence.
+
+A zero-AI-credit recovery workflow then:
+1. downloaded the exact R2 artifact/diff;
+2. reconstructed `django/django@b3dc80682e678b20c89fb2a430c0bc77960a29ac`;
+3. applied the candidate diff;
+4. fetched accepted Django commit `11393ab1316f973c5fbb534305750740d909b4e4`;
+5. forced `tests/asgi/tests.py` from that accepted commit into the reconstructed candidate;
+6. verified the injected file by checksum and byte comparison;
+7. ran the ASGI suite from the isolated candidate workspace.
+
+Recovered hidden accepted result: **22/22 PASS**.
+
+Interpretation:
+- the simplified premium architecture preserves the strongest positive result from the earlier Deep Judgment experiment;
+- unlike the old checkpoint handoff, the current product-shaped harness keeps Terra as mission/integration owner while Luna performs repository mapping, implementation, tests, and independent audit;
+- R2 is regression evidence only, not promotion evidence.
+
+## Regression-lab decision
+
+Stop tuning against solved historical cases.
+
+Current lessons:
+- Phase 0 structural orchestration: PASS.
+- R1 httpcore: dedicated pre-mutation causal planning was counterproductive; Builder-owned local diagnosis plus simplicity-aware audit was materially cheaper and avoided lock proliferation, but did not independently recover the full historical Trio+AnyIO conditional-import correction.
+- R2 Django: hidden accepted lifecycle behavior PASS.
+
+**Freeze candidate architecture for held-out evaluation.** Do not modify role prompts/contracts in response to held-out outcomes unless the held-out phase is explicitly abandoned and the candidate is returned to redesign status.
