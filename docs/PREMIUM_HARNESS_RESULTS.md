@@ -142,3 +142,42 @@ This is more concerning than R1-v1:
 - a premium control plane should not turn a causal belief into a prescribed synchronization architecture unless repository evidence makes that architecture necessary.
 
 **Architecture conclusion:** retire the current Causal Probe as an implementation-direction authority. The premium root should use evidence to establish *what must stop being true* and *what invariants must hold*, while Luna Builder retains solution search among simpler structural alternatives. A separate post-change audit should challenge not only correctness but also whether the patch introduced machinery unnecessary to satisfy the observed failure and acceptance contract.
+
+
+### R1-v3 — Builder-owned local diagnosis + simplicity audit
+
+Run: GitHub Actions `34315816016`.
+
+Result: **PARTIAL — major mechanism improvement, historical full-fix oracle still not satisfied.**
+
+Observed trajectory:
+
+```text
+Terra -> Luna Builder -> Luna Auditor -> Terra
+```
+
+No pre-mutation Architect/Probe was used.
+
+Measured:
+- Builder: 29 tool calls, ~208k tokens;
+- Auditor: 15 tool calls, ~69k tokens;
+- total session usage: **7.741410 AI credits**;
+- focused external tests: **83 passed**;
+- Auditor: **PASS** with no consequential findings.
+
+Patch behavior:
+- removed all lazy `anyio` imports from `AsyncLock`, `AsyncEvent`, and `AsyncSemaphore`;
+- imported required AnyIO once at module load;
+- for `AsyncLock`, delayed backend publication until lock construction succeeds and made failed/pre-setup cleanup safe;
+- introduced **no** new locks, caches, import guards, or other coordination state;
+- kept optional Trio imports lazy inside synchronization methods.
+
+Historical-shape oracle: **FAIL**, because merged PR #692 removes async-method lazy imports for both AnyIO and Trio using module-level conditional imports.
+
+Interpretation:
+- v3 materially improves on v1/v2: it is ~49% of v2's cost and avoids the over-engineered lock-based intervention;
+- the original observed AnyIO first-import failure class is structurally removed;
+- however, the analogous lazy-import pattern remains for Trio, so the harness did not independently recover the full historical structural correction;
+- the oracle is intentionally stricter than the observed AnyIO symptom and partially encodes the merged patch's broader symmetry. Therefore record this as a partial regression result, not a simple correctness failure or success.
+
+**Decision:** stop tuning on R1. It has already served its purpose. The regression shows that Builder-owned diagnosis + simplicity-aware audit is preferable to the dedicated Causal Probe, but does not prove the premium architecture is robust. Continue with a different solved regression and then freeze before held-out evidence.
