@@ -74,4 +74,32 @@ Expected mechanism:
 - Builder should not receive the previously failed per-instance/backend-affinity lock contract;
 - accepted-direction oracle: no lazy imports inside synchronization setup; optional AnyIO/Trio behavior preserved through conditional module-level imports.
 
-Status: pending.
+Status: **R1-v1 incomplete / redesign signal**.
+
+Run: GitHub Actions `34308983274`.
+
+Observed trajectory:
+- Terra -> Luna Architect -> Luna Builder -> Luna Auditor -> Terra.
+- Terra itself remained tool-thin.
+- Luna Architect used **64** repository tool calls and approximately **416k tokens** before Builder.
+- Builder used 31 tool calls; Auditor used 22.
+- total session usage: **14.020983 AI credits**.
+
+Mechanism outcome:
+- materially better than the prior failed Deep Judgment direction: the candidate **did not** add lazy-import locks or backend-affinity locking;
+- it moved required `anyio` import to module scope and published primitive state before `_backend`, eliminating the observed AnyIO first-use import window and the partial-publication cleanup failure;
+- however, it left `trio` as a lazy import inside async synchronization setup and did not use the accepted conditional-import guards for both backends;
+- merged httpcore PR #692 removes lazy async-function imports for **both** `trio` and `anyio` with module-level conditional imports and explicit missing-backend errors.
+
+Therefore R1-v1 does **not** satisfy the accepted-direction regression oracle. It is a partial causal improvement, not a PASS.
+
+Harness issue:
+- the workflow attempted the historical full pytest suite before the static oracle;
+- 182 tests passed, but 12 known integration cases errored because the external `httpbin` fixtures were not installed;
+- `set -o pipefail` therefore stopped the step before the static oracle executed.
+- This is a test-harness sequencing bug and is separate from the model result. The accepted-direction comparison above was recovered from the uploaded diff and merged PR #692.
+
+Architecture signal:
+- allowing a full stable Luna Architect call to self-certify a high-blast causal belief is too expensive and too broad for the premium control plane;
+- the Critical Belief Gate should use a **bounded causal discrimination context** before mutation rather than a complete sealed-work-set Architect pass;
+- the next regression revision should introduce/route through a small Luna causal Probe with an explicit search/read budget and output centered on competing hypotheses and falsifying evidence.
