@@ -1,0 +1,86 @@
+name: Premium R2 hidden-oracle recovery
+
+on:
+  push:
+    branches:
+      - experiment/premium-luna-orchestration
+    paths:
+      - .github/workflows/premium_r2_oracle_recovery_once.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  recover-r2-oracle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Django test dependencies
+        run: |
+          python -m pip install 'asgiref>=3.7.0' 'sqlparse>=0.3.1'
+
+      - name: Download prior R2 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: premium-harness-r2-django-lifecycle
+          path: ${{ runner.temp }}/r2-artifact
+          github-token: ${{ github.token }}
+          run-id: 34316282753
+
+      - name: Reconstruct candidate workspace
+        run: |
+          dir="${{ runner.temp }}/django-r2-recovered"
+          mkdir -p "$dir"
+          cd "$dir"
+          git init -q
+          git remote add origin https://github.com/django/django.git
+          git fetch -q --depth=1 origin b3dc80682e678b20c89fb2a430c0bc77960a29ac
+          git checkout -q --detach FETCH_HEAD
+          git apply "${{ runner.temp }}/r2-artifact/premium-r2.diff"
+          git diff --check
+          git diff --no-ext-diff > "${{ runner.temp }}/recovered-r2.diff"
+
+      - name: Force-inject accepted hidden ASGI tests
+        working-directory: ${{ runner.temp }}/django-r2-recovered
+        run: |
+          git fetch -q --depth=1 origin 11393ab1316f973c5fbb534305750740d909b4e4
+          git show FETCH_HEAD:tests/asgi/tests.py > "${{ runner.temp }}/accepted-asgi-tests.py"
+          cp "${{ runner.temp }}/accepted-asgi-tests.py" tests/asgi/tests.py
+          sha256sum tests/asgi/tests.py "${{ runner.temp }}/accepted-asgi-tests.py"             | tee "${{ runner.temp }}/accepted-tests-sha.txt"
+          cmp tests/asgi/tests.py "${{ runner.temp }}/accepted-asgi-tests.py"
+
+      - name: Run recovered hidden oracle
+        working-directory: ${{ runner.temp }}/django-r2-recovered
+        env:
+          PYTHONPATH: ${{ runner.temp }}/django-r2-recovered
+        run: |
+          python - <<'PY' | tee "${{ runner.temp }}/recovered-import.txt"
+          import django, pathlib
+          here = pathlib.Path.cwd().resolve()
+          loaded = pathlib.Path(django.__file__).resolve()
+          print("django_source=", loaded)
+          print("workspace=", here)
+          assert str(loaded).startswith(str(here)), (loaded, here)
+          PY
+          python tests/runtests.py asgi --verbosity 1             | tee "${{ runner.temp }}/recovered-hidden-tests.txt"
+
+      - name: Upload recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-r2-hidden-oracle-recovery
+          path: |
+            ${{ runner.temp }}/recovered-r2.diff
+            ${{ runner.temp }}/accepted-asgi-tests.py
+            ${{ runner.temp }}/accepted-tests-sha.txt
+            ${{ runner.temp }}/recovered-import.txt
+            ${{ runner.temp }}/recovered-hidden-tests.txt
+          if-no-files-found: warn
