@@ -326,7 +326,7 @@ The first experiment will not:
 Prove in Copilot CLI:
 - Terra Executive root actually runs as Terra;
 - Terra uses only the subagent tool;
-- Architect/Skeptic/Builder/Auditor run as Luna;
+- Architect/Researcher/Builder/Auditor run as Luna;
 - Builder can mutate a disposable workspace;
 - Terra itself never directly reads/edits/executes;
 - Auditor can inspect/test but does not mutate;
