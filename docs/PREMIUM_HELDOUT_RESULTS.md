@@ -67,6 +67,37 @@ Against raw Terra:
 
 Therefore H1 does not place Premium on the desired Pareto frontier. It demonstrates both sides of the product challenge: raw Terra can buy a real correctness edge at extreme cost, while the current Premium decomposition can spend substantially more than OTL without obtaining that edge.
 
+## Independent Astra audit
+
+Independent audit branch: `research/astra-premium-audit`  
+Audit commit: `79f3c4d34beb1383fa55fae180c999aa23770d64`  
+Report: `docs/ASTRA_PREMIUM_AUDIT.md`
+
+Executive verdict: **STOP_AND_REDESIGN** (confidence: MEDIUM).
+
+The audit's strongest new forensic finding is that the H1 SSL-like fallback limitation was not lost in handoff. Builder reported it, Terra repeated it in the audit packet, Auditor repeated it while returning PASS, and final Terra still declared completion. This makes an acceptance/adjudication control-loop gap a stronger explanation than simple context compression for H1.
+
+The audit also identified a construct-validity gap in the remaining H2-H4 screen: the stated premium hypothesis is about extending reliable task horizon, while the frozen screen is dominated by one-shot repository tasks and has no predeclared workload distribution or numerical quality/cost threshold that would turn occasional wins into a product decision.
+
+The audit does **not** conclude that mixed-model premium orchestration is disproven. It concludes that continued paid screening of this frozen candidate has low decision value relative to redesign.
+
+## Frozen candidate disposition
+
+**STOPPED AFTER H1 — REDESIGN REQUIRED.**
+
+H2, H3, and H4 are intentionally **not run** under frozen candidate `0083f3d81e7339f3b22e3efaa852562d7daa07e5`.
+
+Reasons:
+- H1 shows no correctness gain over Over the Luna despite ~2.58x credit cost and ~2.13x wall time;
+- the acceptance-critical limitation reached Terra and Auditor but was still accepted;
+- current mandatory Builder→Auditor serial topology has no held-out evidence of marginal value;
+- current screen does not directly measure the long-horizon mission-management claim;
+- changing the acceptance gate, audit rubric, evidence schema, routing topology, or Terra tool access would be a candidate change and therefore requires a new freeze.
+
+Unopened H2-H4 tasks remain reserved and must not be silently reused as promotion holdouts for a redesign that was informed by their answers. They may be reconsidered only under an explicitly versioned evaluation plan that accounts for task exposure.
+
 ## Interim product decision
 
-After H1 only: **continue held-out screening; do not redesign yet and do not promote.** One held-out task is insufficient for a product conclusion, but H1 is material evidence against the frozen candidate and must remain in the final decision set.
+**REDESIGN.**
+
+The broader Premium product hypothesis remains alive. The current frozen implementation does not.
