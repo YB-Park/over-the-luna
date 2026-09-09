@@ -180,6 +180,14 @@ Hidden oracle:
 
 ## 6. Screening and repetition
 
+Predetermined screening arm order (fixed before any held-out model run):
+- H1: **B Raw Terra -> C Premium -> A Over the Luna**
+- H2: **C Premium -> A Over the Luna -> B Raw Terra**
+- H3: **A Over the Luna -> B Raw Terra -> C Premium**
+- H4: **B Raw Terra -> A Over the Luna -> C Premium**
+
+Each arm uses `--max-ai-credits=100` as the same runaway ceiling. This is not an intended spend target.
+
 ### Screening
 
 Run each of H1–H4 once per arm.
