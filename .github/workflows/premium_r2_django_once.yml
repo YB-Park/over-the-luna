@@ -1,0 +1,132 @@
+name: Premium harness R2 Django lifecycle one-shot
+
+on:
+  push:
+    branches:
+      - experiment/premium-luna-orchestration
+    paths:
+      - .github/workflows/premium_r2_django_once.yml
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  r2-django:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out experiment harness
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install tooling
+        run: |
+          npm install -g @github/copilot
+          copilot --version | tee "${{ runner.temp }}/copilot-version.txt"
+          python -m pip install 'asgiref>=3.7.0' 'sqlparse>=0.3.1'
+
+      - name: Snapshot premium plugin
+        run: |
+          mkdir -p "${{ runner.temp }}/otl-plugin"
+          cp plugin.json "${{ runner.temp }}/otl-plugin/plugin.json"
+          cp -R agents "${{ runner.temp }}/otl-plugin/agents"
+
+      - name: Prepare isolated historical Django workspace
+        run: |
+          dir="${{ runner.temp }}/django-r2"
+          mkdir -p "$dir"
+          cd "$dir"
+          git init -q
+          git remote add origin https://github.com/django/django.git
+          git fetch -q --depth=1 origin b3dc80682e678b20c89fb2a430c0bc77960a29ac
+          git checkout -q --detach FETCH_HEAD
+          test -z "$(git status --porcelain)"
+          PYTHONPATH="$dir" python - <<'PY'
+          import django, pathlib
+          here = pathlib.Path.cwd().resolve()
+          loaded = pathlib.Path(django.__file__).resolve()
+          print("django_source=", loaded)
+          assert str(loaded).startswith(str(here)), (loaded, here)
+          PY
+          git rev-list --count HEAD | tee "${{ runner.temp }}/history-count.txt"
+
+      - name: Run Premium Harness Django lifecycle regression
+        working-directory: ${{ runner.temp }}/django-r2
+        env:
+          PYTHONPATH: ${{ runner.temp }}/django-r2
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/premium-r2-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          TASK_PROMPT: >-
+            PREMIUM HARNESS REGRESSION LAB R2. This is an already-known historical case used
+            only to test harness behavior, not promotion quality. Do not inspect git history or
+            use external services. In this historical Django snapshot, ASGIHandler races
+            request/view processing against incoming http.disconnect and cancels the losing
+            task. A disconnect can occur before a response exists or while a response is being
+            sent. Cleanup may therefore be cancelled too: request/response resources may not
+            be closed and request_finished may fail to fire, potentially leaking database or
+            other request-scoped resources. Implement the smallest robust lifecycle fix.
+            Requirements: cleanup/request_finished must occur exactly once on relevant paths;
+            async view processing should remain cancellable on disconnect; synchronous view
+            work already running in its thread must not have request body/resources invalidated
+            underneath it; normal and streaming response send behavior must be preserved;
+            request creation errors must still close the error response. Add focused regression
+            coverage for consequential cancellation paths and run relevant ASGI tests. Do not
+            assume a later patch or PR exists.
+        run: |
+          set -o pipefail
+          copilot             --plugin-dir="${{ runner.temp }}/otl-plugin"             --agent='over-the-luna:premium-harness'             --model=gpt-5.6-terra             --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent'             --allow-all-tools             --max-ai-credits=80             --no-remote-export             --output-format=json             --prompt="$TASK_PROMPT"             | tee "${{ runner.temp }}/premium-r2-output.jsonl"
+
+          git diff --no-ext-diff > "${{ runner.temp }}/premium-r2.diff"
+          git status --short > "${{ runner.temp }}/premium-r2.status"
+
+      - name: Inject hidden accepted ASGI tests after implementation
+        run: |
+          curl -fsSL             https://raw.githubusercontent.com/django/django/11393ab1316f973c5fbb534305750740d909b4e4/tests/asgi/tests.py             -o tests/asgi/tests.py
+
+      - name: Run hidden accepted ASGI oracle
+        if: always()
+        working-directory: ${{ runner.temp }}/django-r2
+        env:
+          PYTHONPATH: ${{ runner.temp }}/django-r2
+        run: |
+          set +e
+          python - <<'PY' > "${{ runner.temp }}/premium-r2-import.txt"
+          import django, pathlib
+          loaded = pathlib.Path(django.__file__).resolve()
+          here = pathlib.Path.cwd().resolve()
+          print("django_source=", loaded)
+          print("workspace=", here)
+          assert str(loaded).startswith(str(here)), (loaded, here)
+          PY
+          python tests/runtests.py asgi --verbosity 1             > "${{ runner.temp }}/premium-r2-hidden-tests.txt" 2>&1
+          code=$?
+          echo "$code" > "${{ runner.temp }}/premium-r2-hidden-tests.exit"
+          cat "${{ runner.temp }}/premium-r2-hidden-tests.txt"
+          exit "$code"
+
+      - name: Upload R2 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-harness-r2-django-lifecycle
+          path: |
+            ${{ runner.temp }}/copilot-version.txt
+            ${{ runner.temp }}/history-count.txt
+            ${{ runner.temp }}/premium-r2-output.jsonl
+            ${{ runner.temp }}/premium-r2-otel.jsonl
+            ${{ runner.temp }}/premium-r2.diff
+            ${{ runner.temp }}/premium-r2.status
+            ${{ runner.temp }}/premium-r2-import.txt
+            ${{ runner.temp }}/premium-r2-hidden-tests.txt
+            ${{ runner.temp }}/premium-r2-hidden-tests.exit
+          if-no-files-found: warn
