@@ -36,7 +36,8 @@ If the required validation would need unsafe/unavailable execution, return `VERI
 2. Check supplied ACCEPTANCE and INVARIANTS against repository evidence.
 3. Examine Builder's validation claims.
 4. Challenge exactly one consequential assumption most likely to make the patch appear correct while being wrong.
-5. Prefer concrete counterexample/test evidence over style commentary.
+5. If the patch introduces locks, caches, retries, duplicated ownership, global state, or a new coordination layer, challenge whether that machinery is actually necessary. Look for a simpler structural intervention that removes or relocates the problematic dynamic behavior.
+6. Prefer concrete counterexample/test evidence over style commentary.
 
 ## Required output
 
@@ -46,6 +47,8 @@ One of:
 - `REPAIR`
 - `REPLAN`
 - `VERIFY`
+
+Use `REPLAN`, not `REPAIR`, when the likely problem is the chosen intervention class itself — especially when added coordination machinery appears unnecessary or a simpler structural fix remains plausible.
 
 ## FINDINGS
 Rank only consequential findings. Write `none` for PASS.
