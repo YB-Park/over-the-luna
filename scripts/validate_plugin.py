@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the Over the Luna v1.1 release contract."""
+"""Validate the stable v1.1 contract plus the premium orchestration experiment."""
 
 from __future__ import annotations
 
@@ -24,6 +24,9 @@ EXPECTED_AGENT_IDS = {
     "luna-recovery",
     "luna-reviewer",
     "premium-review",
+    "premium-harness",
+    "luna-builder",
+    "luna-auditor",
 }
 COUNCIL_NAMES = {
     "Luna Planner",
@@ -42,6 +45,9 @@ STRICT_TOOLS = {
     "luna-recovery": {"read", "search"},
     "luna-reviewer": {"read", "search"},
     "premium-review": {"read", "search"},
+    "premium-harness": {"agent"},
+    "luna-builder": {"read", "search", "edit", "execute"},
+    "luna-auditor": {"read", "search", "execute"},
 }
 LANGUAGE_MARKER = "same natural language as the user's latest substantive request"
 
@@ -106,18 +112,23 @@ def main() -> int:
             names.add(name)
         if fm.get("target") != "vscode":
             errors.append(f"{path}: target must be vscode")
-        expected_model = "Claude Sonnet 5" if agent_id == "premium-review" else "GPT-5.6 Luna"
+        if agent_id == "premium-review":
+            expected_model = "Claude Sonnet 5"
+        elif agent_id == "premium-harness":
+            expected_model = "GPT-5.6 Terra"
+        else:
+            expected_model = "GPT-5.6 Luna"
         if fm.get("model") != expected_model:
             errors.append(f"{path}: expected model {expected_model!r}")
-        expected_visible = agent_id in {"over-the-luna", "premium-review"}
+        expected_visible = agent_id in {"over-the-luna", "premium-review", "premium-harness"}
         if bool(fm.get("user-invocable", True)) != expected_visible:
             errors.append(f"{path}: user-invocable should be {expected_visible}")
         if expected_visible and fm.get("disable-model-invocation") is not True:
             errors.append(f"{path}: visible agent must disable model invocation")
         if not expected_visible and fm.get("disable-model-invocation") is True:
             errors.append(f"{path}: hidden Luna leaf must remain model-invocable")
-        if agent_id != "over-the-luna" and fm.get("agents", []) != []:
-            errors.append(f"{path}: every non-Main agent must remain a non-recursive leaf")
+        if agent_id not in {"over-the-luna", "premium-harness"} and fm.get("agents", []) != []:
+            errors.append(f"{path}: every non-root agent must remain a non-recursive leaf")
         if "tools" in fm:
             tools = fm.get("tools")
             if not isinstance(tools, list) or not all(isinstance(x, str) for x in tools):
@@ -212,6 +223,79 @@ def main() -> int:
         if fm.get("handoffs"):
             errors.append(f"{path}: Premium Review must not escalate to another premium model")
 
+
+    premium_harness = parsed.get("premium-harness")
+    if premium_harness:
+        path, fm, body = premium_harness
+        expected_agents = {
+            "Luna Architect",
+            "Luna Skeptic",
+            "Luna Researcher",
+            "Luna Builder",
+            "Luna Auditor",
+        }
+        if set(fm.get("agents", [])) != expected_agents:
+            errors.append(f"{path}: Premium Harness agent allow-list drifted")
+        if set(fm.get("tools", [])) != {"agent"}:
+            errors.append(f"{path}: Premium Harness must expose only the agent tool")
+        need(
+            errors,
+            path,
+            body,
+            "mission owner, not the repository worker",
+            "No high-blast critical belief may remain",
+            "VERIFIED",
+            "SUPPORTED_WITH_RESIDUAL",
+            "HYPOTHESIS",
+            "USER_ASSUMPTION",
+            "Luna Builder",
+            "sole active repository mutator",
+            "Luna Auditor exactly once",
+            "coarse, evidence-backed contract",
+            "Respond in the same natural language",
+        )
+
+    builder = parsed.get("luna-builder")
+    if builder:
+        path, fm, body = builder
+        if bool(fm.get("user-invocable", True)) is not False:
+            errors.append(f"{path}: Luna Builder must remain hidden")
+        if fm.get("agents", []) != []:
+            errors.append(f"{path}: Luna Builder must remain non-recursive")
+        need(
+            errors,
+            path,
+            body,
+            "sole active mutation owner",
+            "STOP_OR_REPLAN_IF",
+            "REPLAN_REQUIRED",
+            "Do not blindly follow a speculative implementation recipe",
+            "Do not perform external side effects",
+        )
+
+    auditor = parsed.get("luna-auditor")
+    if auditor:
+        path, fm, body = auditor
+        if bool(fm.get("user-invocable", True)) is not False:
+            errors.append(f"{path}: Luna Auditor must remain hidden")
+        if fm.get("agents", []) != []:
+            errors.append(f"{path}: Luna Auditor must remain non-recursive")
+        if "edit" in set(fm.get("tools", [])):
+            errors.append(f"{path}: Luna Auditor must never receive edit capability")
+        need(
+            errors,
+            path,
+            body,
+            "You never edit files",
+            "git diff",
+            "focused repository-local tests",
+            "PASS",
+            "REPAIR",
+            "REPLAN",
+            "VERIFY",
+            "one consequential assumption",
+        )
+
     if not COUNCIL_NAMES.issubset(names):
         errors.append(f"agents/: missing exact Council display names: {sorted(COUNCIL_NAMES-names)}")
 
@@ -223,7 +307,7 @@ def main() -> int:
 
     print(
         "Over the Luna v1.1 validation passed: "
-        f"{len(files)} agents, manifest v{plugin['version']}, ambient Main tools, instruction-sealed Council, one human Premium Review, language continuity"
+        f"{len(files)} agents, manifest v{plugin['version']}, stable v1.1 core + experimental Terra/Luna premium harness, language continuity"
     )
     return 0
 
