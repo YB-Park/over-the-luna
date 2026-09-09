@@ -80,6 +80,28 @@ A run is not credited merely because its own tests pass.
 
 Infrastructure/oracle failures are classified separately from model failures. Recovery workflows must use **zero additional AI calls** whenever the candidate patch can be reconstructed from artifacts.
 
+
+### Oracle fairness rule
+
+Accepted upstream tests are not automatically authoritative when they depend on a
+private helper name, exact internal class, or other implementation detail introduced
+by the accepted patch. In that case:
+
+- keep the accepted test result as **reference-shape evidence**;
+- define an evaluator-owned behavior oracle from the precommitted task acceptance;
+- make that oracle independent of accepted private symbol names;
+- apply it to every already-produced arm patch with zero additional AI calls;
+- record the evaluator correction before inspecting the remaining arm outcomes.
+
+For H1 specifically, merged PR #4156's accepted test module imports the new private
+`_socket_is_closed` helper. Therefore final H1 correctness will be based on a
+helper-independent parser/socket behavior oracle:
+- peer-close with no pending data becomes the existing retryable ConnectionError;
+- pending RESP3 push data remains available and is processed before closure is reported;
+- an open readable socket remains readable;
+- the check does not lose or corrupt pending data.
+The accepted helper-specific tests remain secondary reference evidence only.
+
 ## 5. Fixed held-out task set
 
 These cases were selected after the Premium candidate was frozen. None was used to tune the candidate.
