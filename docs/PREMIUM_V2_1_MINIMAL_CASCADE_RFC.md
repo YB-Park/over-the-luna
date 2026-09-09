@@ -225,7 +225,18 @@ Highest authority.
 
 User-fixed required behavior is blocking unless the user explicitly marks it optional.
 
-It cannot be silently removed or downgraded by an agent.
+At initial capture, the controller stores an **authority-bearing immutable obligation record** for each required U criterion:
+- criterion ID;
+- original source = U;
+- source anchor / original user text reference;
+- original criterion content;
+- original required/blocking status.
+
+Agents may propose annotations, evidence, dispositions, or broader interpretations, but they may not overwrite this captured authority-bearing record.
+
+Only an authenticated explicit user revision may narrow or remove captured U scope. Such a revision is appended with provenance; it does not rewrite history.
+
+Keeping the same ID while changing U→A, blocking→nonblocking, or narrowing required behavior is an invalid transition and cannot produce trusted completion.
 
 ### Tier R — repository compatibility/contracts
 
@@ -233,7 +244,9 @@ Established supported behavior, public API compatibility, tests, documented plat
 
 These may be discovered during execution.
 
-Once added as blocking, deletion/downgrade must be recorded with a reason and reconciled by Terra.
+Once added as blocking, the controller preserves the original R obligation, source anchor, criterion content, and blocking status in retained history.
+
+Terra may later record an evidence-backed reconciliation that the repository-derived obligation was misapplied, superseded, or narrower than first interpreted. That reconciliation is an explicit semantic decision layered on top of the preserved record; a model may not silently delete, re-source, downgrade, or replace the original obligation.
 
 ### Tier A — agent-derived assumptions
 
@@ -274,10 +287,29 @@ WORKSPACE_REVISION
 
 Detailed logs live outside the row.
 
+### Controller-owned obligation record
+
+The editable/current criterion row is **not** the authority source.
+
+For every required U criterion and every blocking R criterion once admitted, the controller retains a separate authority-bearing record containing:
+- ID;
+- original SOURCE and source anchor;
+- original criterion content;
+- original required/blocking status;
+- append-only transition/reconciliation history.
+
+Model-proposed register updates are validated against that record.
+
+The following transitions are invalid without the required external authority:
+- retaining an ID while changing U to A or R;
+- changing a required/blocking U criterion to nonblocking;
+- replacing "X and Y" with "X" while claiming it is the same obligation;
+- deleting a blocking R obligation without preserving its history and explicit reconciliation.
+
 ### Rules
 
-- U criteria cannot be deleted/downgraded by agents.
-- Every discovered blocking R criterion remains present until resolved.
+- U criteria cannot be deleted, re-sourced, narrowed, or downgraded by agents.
+- Every discovered blocking R criterion remains present in authority history until explicitly reconciled.
 - A known unsupported/fallback state relevant to a blocking criterion must appear in `EXCLUDED_STATES` or be resolved.
 - Semantic mutation invalidates executable evidence conservatively in v2.1; revalidation is required against the final relevant workspace.
 - `WAIVED_BY_USER` requires an authenticated/explicit user event.
@@ -335,13 +367,20 @@ Official controller outcomes:
 
 ### Deterministic completion reconciliation
 
+The controller validates model-proposed state against the controller-owned obligation records and transition history.
+
 The controller may accept `COMPLETE` only if:
-- all required criterion IDs remain present;
-- no blocking criterion is OPEN/FAILED/UNRESOLVED;
+- every captured still-required obligation retains its original authority and required scope unless a permitted authenticated revision/reconciliation exists;
+- every still-required criterion is dispositioned `VERIFIED`;
+- **no still-required criterion has an active `WAIVED_BY_USER` disposition**;
 - every executable evidence reference has a valid current receipt;
 - no contradictory current receipt exists;
-- no fabricated waiver exists;
+- no invalid authority/scope transition exists;
 - final relevant workspace identity matches validation state.
+
+If at least one still-required criterion has a valid authenticated `WAIVED_BY_USER` disposition, and all other still-required criteria are VERIFIED with current evidence, the controller outcome is `PARTIAL_WITH_USER_WAIVER`, never `COMPLETE`.
+
+A waiver on one criterion does not mask another OPEN/FAILED/UNRESOLVED criterion. In that case the outcome remains BLOCKED/FAILED/NO_VERIFIED_COMPLETION as appropriate.
 
 The deterministic layer **does not claim**:
 - criteria are complete;
@@ -423,12 +462,18 @@ Use exposed tasks only as development evidence.
 No model calls.
 
 Must pass:
-- criterion cannot silently disappear/downgrade;
+- captured authority-bearing obligation cannot silently disappear, be re-sourced, downgraded, or narrowed while retaining its ID;
+- U→A transition attempt cannot COMPLETE;
+- blocking→nonblocking transition attempt cannot COMPLETE;
+- criterion-content narrowing such as X-and-Y→X cannot COMPLETE;
 - stale receipt invalidates completion;
 - skipped/no-collected test is not PASS;
 - malformed state cannot COMPLETE;
 - missing/timeout stop hook cannot COMPLETE;
 - fake user waiver rejected;
+- valid user waiver yields `PARTIAL_WITH_USER_WAIVER`, never `COMPLETE`;
+- valid waiver receives zero full-success credit;
+- waiver on one row does not clear an unrelated OPEN/FAILED row;
 - workspace mutation invalidates evidence;
 - ownership transfer/quiescence behavior is observed on the actual target runtime or explicitly downgraded as a claim.
 
@@ -494,7 +539,7 @@ A failed v2.1 candidate does not automatically kill Premium research, but it con
 All economics use **all attempts**, not survivor-only both-pass subsets.
 
 For every arm record:
-- complete task success/fail/block;
+- complete task success/fail/block/partial;
 - false-complete status;
 - total credits, including failed prefixes and correction turns;
 - root/leaf credit split;
@@ -506,7 +551,9 @@ For every arm record:
 - controller outcome;
 - hidden evaluator outcome.
 
-Failures and blocks remain in the denominator.
+Failures, blocks, and `PARTIAL_WITH_USER_WAIVER` remain in the denominator and are **not full successes**.
+
+A full success requires the complete original scored acceptance scope, trusted controller `COMPLETE`, no active required-scope waiver, and no unresolved control failure.
 
 ---
 
@@ -584,6 +631,8 @@ Across D3/D4:
 BLOCKED is not a success.
 
 A candidate cannot improve false-complete by refusing difficult work and still pass capability gates.
+
+`PARTIAL_WITH_USER_WAIVER` is treated as non-full-success for every capability/regression veto and never counts toward Premium-pass wins. In unattended promotion evaluation, no interactive waiver path is fabricated; the original scored request remains the reference scope.
 
 ---
 
