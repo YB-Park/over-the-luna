@@ -27,6 +27,7 @@ EXPECTED_AGENT_IDS = {
     "premium-harness",
     "luna-builder",
     "luna-auditor",
+    "luna-causal-probe",
 }
 COUNCIL_NAMES = {
     "Luna Planner",
@@ -48,6 +49,7 @@ STRICT_TOOLS = {
     "premium-harness": {"agent"},
     "luna-builder": {"read", "search", "edit", "execute"},
     "luna-auditor": {"read", "search", "execute"},
+    "luna-causal-probe": {"read", "search"},
 }
 LANGUAGE_MARKER = "same natural language as the user's latest substantive request"
 
@@ -229,7 +231,7 @@ def main() -> int:
         path, fm, body = premium_harness
         expected_agents = {
             "Luna Architect",
-            "Luna Skeptic",
+            "Luna Causal Probe",
             "Luna Researcher",
             "Luna Builder",
             "Luna Auditor",
@@ -253,6 +255,29 @@ def main() -> int:
             "Luna Auditor exactly once",
             "coarse, evidence-backed contract",
             "Respond in the same natural language",
+        )
+
+
+    causal_probe = parsed.get("luna-causal-probe")
+    if causal_probe:
+        path, fm, body = causal_probe
+        if bool(fm.get("user-invocable", True)) is not False:
+            errors.append(f"{path}: Luna Causal Probe must remain hidden")
+        if fm.get("agents", []) != []:
+            errors.append(f"{path}: Luna Causal Probe must remain non-recursive")
+        need(
+            errors,
+            path,
+            body,
+            "18 total read/search tool calls",
+            "Actively try to falsify",
+            "HYPOTHESES",
+            "DISCRIMINATING_EVIDENCE",
+            "FALSIFIED",
+            "SURVIVING_BELIEF",
+            "MUTATION_SURFACE_HINTS",
+            "UNRESOLVED",
+            "Do not turn the probe into a broad architecture survey",
         )
 
     builder = parsed.get("luna-builder")
