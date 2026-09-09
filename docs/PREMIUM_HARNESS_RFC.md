@@ -82,24 +82,19 @@ User selects experimental Premium Harness
               |             |
               v             v
        Luna Architect   Luna Researcher
-              |
-        consequential
-        unverified belief?
-              |
-              v
-       Luna Causal Probe
-     bounded falsification
-              |
-              v
+        when needed      when needed
+              \             /
+               \           /
+                v         v
           Terra adjudicates
               |
               v
           Luna Builder
-     sole active mutator
+ local diagnosis + sole mutator
               |
               v
           Luna Auditor
-       independent check
+ correctness + simplicity check
               |
               v
           Terra adjudicates
@@ -112,7 +107,7 @@ The default path should be shallow:
 Terra -> Architect (when needed) -> Builder -> Auditor -> Terra
 ```
 
-Causal Probe/Researcher are conditional, not ceremony.
+Architect/Researcher are conditional, not ceremony. Symptom-first local debugging normally goes straight to Builder.
 
 ## 5. Role constitution
 
@@ -143,18 +138,6 @@ Reuse the stable Luna Architect:
 - relationships/dependencies;
 - complete mutation surface when knowable;
 - unresolved facts.
-
-### Luna Causal Probe — bounded belief falsification
-
-Premium-specific Luna role for one high-blast causal question:
-- read/search only;
-- at most 18 tool calls;
-- 2–4 plausible hypotheses when applicable;
-- actively tries to falsify the preferred explanation;
-- returns discriminating evidence, falsified alternatives, surviving belief, mutation-surface hints, and unresolved facts;
-- never expands into a complete architecture/work-set survey.
-
-The Probe exists because the first httpcore regression showed that a full stable Architect pass could consume a very large evidence budget and still over-certify an incomplete causal model.
 
 ### Luna Researcher — current external fact
 
@@ -203,14 +186,14 @@ The first experiment intentionally does **not** add automatic Sonnet review. Exi
 3. **Parallelize evidence; serialize mutation.**
    Read-only evidence may be parallel when questions are independent. Exactly one Luna Builder owns canonical mutation at a time.
 
-4. **High-blast-radius hypotheses cannot authorize mutation.**
-   A consequential unverified belief must pass the Critical Belief Gate before Builder receives a work packet.
+4. **Unverified Terra beliefs cannot become downstream constraints.**
+   Terra may leave local causal diagnosis to Builder. The gate applies only when Terra is about to constrain multiple downstream actions with its own high-blast inference.
 
 5. **Delegation must buy leverage.**
    Every subagent call must buy independent evidence, falsification, implementation throughput, verification, or materially lower rework/risk.
 
 6. **No recursive leaves.**
-   Architect/Causal Probe/Researcher/Builder/Auditor do not invoke agents.
+   Architect/Researcher/Builder/Auditor do not invoke agents.
 
 7. **Compress entropy, not evidence.**
    Terra should receive compact decision-sufficient packets with concrete anchors, not raw search/test transcripts.
@@ -224,30 +207,37 @@ The first experiment intentionally does **not** add automatic Sonnet review. Exi
 10. **Premium must expand the Pareto frontier.**
     If the candidate cannot beat Over the Luna on difficult-task capability and raw Terra on cost-efficiency/robustness, remove it.
 
-## 7. Critical Belief Gate
+## 7. Critical Belief Boundary
 
-A **critical belief** is an engineering claim whose falsity would materially change:
-- causal diagnosis;
-- algorithm or state model;
-- concurrency/ordering;
-- auth/security;
-- data integrity/persistence;
-- migration/rollback;
-- public compatibility;
-- multiple downstream mutation targets.
+A **critical belief** is a Terra-originated engineering claim whose falsity would materially change several downstream actions, a public contract, a data/concurrency model, or a cross-packet architecture decision.
 
-Terra records each consequential belief as one of:
+Terra may label consequential beliefs:
+- `VERIFIED`
+- `SUPPORTED_WITH_RESIDUAL`
+- `HYPOTHESIS`
+- `USER_ASSUMPTION`
 
-- `VERIFIED` — directly supported by repository/runtime/spec evidence;
-- `SUPPORTED_WITH_RESIDUAL` — evidence favors it but a named residual remains;
-- `HYPOTHESIS` — plausible but not sufficient to authorize high-blast mutation;
-- `USER_ASSUMPTION` — explicitly fixed by the user/product decision rather than inferred.
+The boundary is intentionally narrow:
 
-Before issuing a Builder work packet, **no high-blast belief may remain `HYPOTHESIS`**.
+> **Do not encode a high-blast Terra `HYPOTHESIS` as a Builder invariant or implementation direction.**
 
-For a high-blast **causal/diagnostic** hypothesis, Terra must buy exactly one Luna Causal Probe before mutation. A broad Architect packet cannot self-certify causal inference. Architect may verify direct repository structure/contracts, but competing causal explanations belong in the bounded Probe.
+This does **not** mean every debugging hypothesis must be resolved before mutation. For symptom-first local debugging, Terra should normally avoid choosing the internal causal model and send Builder:
+- the observed failure;
+- acceptance;
+- fixed/user-visible invariants;
+- known repository facts;
+- explicit local diagnosis authority;
+- stop/replan conditions.
 
-Blind retries or multiple agents restating the same belief do not satisfy the gate.
+Builder then owns local causal diagnosis and chooses the smallest robust intervention from live repository evidence.
+
+When Terra truly must make a global belief before multiple work units can proceed, it should buy only the narrowest evidence that can materially distinguish alternatives:
+- Architect for repository structure/contracts/work-set facts;
+- Researcher for current external public facts.
+
+If the belief remains `HYPOTHESIS`, Terra must not smuggle it into Builder as fact.
+
+The httpcore regression is the reason for this boundary: a pre-change premium causal model can be coherent, reviewable, and still drive the whole system into a stronger wrong abstraction.
 
 ## 8. Terra state model
 
@@ -352,7 +342,7 @@ Previously solved cases are allowed **only as regression/architecture tests**, n
 Use them to test mechanisms:
 - ordinary P1-style work should show low premium overhead and shallow routing;
 - aiohttp/Django wins should remain achievable;
-- httpcore must specifically test whether the Critical Belief Gate blocks the previously amplified wrong causal model.
+- httpcore must specifically test whether Builder-owned diagnosis plus simplicity-aware audit avoids the previously amplified lock-based wrong abstraction.
 
 This stage exists to debug the harness, then freeze it.
 
@@ -360,7 +350,7 @@ This stage exists to debug the harness, then freeze it.
 
 On a small fixed task set, compare:
 - full candidate;
-- without Critical Belief Gate;
+- with Terra preselecting an implementation belief versus leaving local diagnosis to Builder;
 - without Auditor;
 - raw Terra;
 - current Over the Luna.
@@ -432,7 +422,7 @@ Reasoning effort should stay fixed within a comparison.
 The candidate may advance toward product architecture review only if all are true:
 
 - structural Terra/Luna tool and mutation boundaries hold;
-- Critical Belief Gate demonstrably contains at least one consequential wrong-belief cascade in regression or held-out testing;
+- the premium control plane demonstrates that it can avoid or contain at least one consequential wrong-direction cascade without over-specifying Builder;
 - held-out difficult-task correctness/completion is materially better than current Over the Luna;
 - cost is materially lower than raw Terra for comparable quality, or quality is materially higher for comparable cost;
 - Terra is not performing the majority of high-volume repository/tool work;
@@ -445,7 +435,7 @@ The candidate may advance toward product architecture review only if all are tru
 Kill or redesign if:
 - Terra becomes the dominant search/edit/test worker;
 - the system needs frequent Terra round-trips after local steps;
-- Critical Belief Gate becomes ceremonial and fails to contain false global beliefs;
+- Terra repeatedly over-specifies local implementation or causal mechanisms that Builder/Auditor then amplify;
 - Builder simply follows over-specified Terra recipes;
 - Auditor duplicates Builder self-checks without catching consequential defects;
 - coordination overhead erases raw-Terra cost advantage;
