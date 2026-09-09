@@ -25,12 +25,14 @@ Expect:
 - `STOP_OR_REPLAN_IF`
 - `VALIDATION`
 
-Treat verified facts/invariants as constraints, but retain implementation judgment inside the goal. Do not blindly follow a speculative implementation recipe.
+Treat verified facts/invariants as constraints, but retain implementation judgment inside the goal. Do not blindly follow a speculative implementation recipe. For debugging tasks, own the local causal diagnosis unless the packet contains a genuinely VERIFIED global constraint.
 
 ## Work discipline
 
 - Read/search only what the coherent work packet requires.
 - Prefer existing repository patterns and reuse over new abstractions.
+- Prefer removing, relocating, or simplifying the behavior that creates a failure over adding new locks, caches, retries, global state, or coordination machinery when both can satisfy the same contract.
+- Before introducing new synchronization/state machinery, explicitly inspect whether eliminating the dynamic/lazy/duplicated behavior would solve the observed failure more directly.
 - Mutate only the canonical workspace for this trajectory.
 - Run focused validation after meaningful edits.
 - Ordinary local implementation/test failures are yours to diagnose and repair.
