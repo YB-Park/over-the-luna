@@ -103,3 +103,42 @@ Architecture signal:
 - allowing a full stable Luna Architect call to self-certify a high-blast causal belief is too expensive and too broad for the premium control plane;
 - the Critical Belief Gate should use a **bounded causal discrimination context** before mutation rather than a complete sealed-work-set Architect pass;
 - the next regression revision should introduce/route through a small Luna causal Probe with an explicit search/read budget and output centered on competing hypotheses and falsifying evidence.
+
+
+### R1-v2 — bounded Causal Probe regression
+
+Run: GitHub Actions `34309773528`.
+
+Result: **FAIL — mechanism did not contain the wrong intervention class.**
+
+Observed trajectory:
+
+```text
+Terra
+  -> Luna Causal Probe
+  -> Luna Builder
+  -> Luna Auditor (REPAIR)
+  -> Luna Builder repair
+  -> Luna Auditor (PASS)
+  -> Terra
+```
+
+Key observations:
+- Causal Probe ran before mutation, so the routing boundary itself worked.
+- Probe violated its prompt budget: **32** read/search tool calls vs the intended maximum of 18.
+- Probe correctly identified partial publication and lazy import as relevant, but retained a high-confidence preference for serializing lazy AnyIO import and atomic per-instance initialization.
+- First Builder implemented a guarded lazy AnyIO importer plus delayed backend publication.
+- Auditor correctly found a remaining concurrent per-instance initialization race and requested repair.
+- Second Builder added per-instance `threading.Lock` guards and preserved lazy AnyIO/Trio import behavior.
+- Focused existing tests: **83 passed** in the external regression step; Builder/Auditor focused suites also passed.
+- Accepted-direction static oracle: **FAIL** because lazy backend imports remained.
+- Merged httpcore PR #692 instead removes async-function lazy imports for both `trio` and `anyio` via module-level conditional imports.
+- Total session usage: **15.238303 AI credits**.
+
+This is more concerning than R1-v1:
+- the dedicated Probe did not reduce evidence cost enough;
+- the Auditor made the internally coherent but historically wrong intervention **stronger**, demonstrating that verification of an incorrect design can amplify the wrong abstraction;
+- correctness-oriented review without a simplicity/intervention-class check is insufficient;
+- a premium control plane should not turn a causal belief into a prescribed synchronization architecture unless repository evidence makes that architecture necessary.
+
+**Architecture conclusion:** retire the current Causal Probe as an implementation-direction authority. The premium root should use evidence to establish *what must stop being true* and *what invariants must hold*, while Luna Builder retains solution search among simpler structural alternatives. A separate post-change audit should challenge not only correctness but also whether the patch introduced machinery unnecessary to satisfy the observed failure and acceptance contract.
