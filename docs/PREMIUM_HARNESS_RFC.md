@@ -87,8 +87,8 @@ User selects experimental Premium Harness
         unverified belief?
               |
               v
-         Luna Skeptic
-      cheap falsification
+       Luna Causal Probe
+     bounded falsification
               |
               v
           Terra adjudicates
@@ -112,7 +112,7 @@ The default path should be shallow:
 Terra -> Architect (when needed) -> Builder -> Auditor -> Terra
 ```
 
-Skeptic/Researcher are conditional, not ceremony.
+Causal Probe/Researcher are conditional, not ceremony.
 
 ## 5. Role constitution
 
@@ -144,9 +144,17 @@ Reuse the stable Luna Architect:
 - complete mutation surface when knowable;
 - unresolved facts.
 
-### Luna Skeptic — belief falsification
+### Luna Causal Probe — bounded belief falsification
 
-Reuse the stable Luna Skeptic for one narrow consequential assumption. It should discriminate alternatives, not write a second general plan.
+Premium-specific Luna role for one high-blast causal question:
+- read/search only;
+- at most 18 tool calls;
+- 2–4 plausible hypotheses when applicable;
+- actively tries to falsify the preferred explanation;
+- returns discriminating evidence, falsified alternatives, surviving belief, mutation-surface hints, and unresolved facts;
+- never expands into a complete architecture/work-set survey.
+
+The Probe exists because the first httpcore regression showed that a full stable Architect pass could consume a very large evidence budget and still over-certify an incomplete causal model.
 
 ### Luna Researcher — current external fact
 
@@ -202,7 +210,7 @@ The first experiment intentionally does **not** add automatic Sonnet review. Exi
    Every subagent call must buy independent evidence, falsification, implementation throughput, verification, or materially lower rework/risk.
 
 6. **No recursive leaves.**
-   Architect/Skeptic/Researcher/Builder/Auditor do not invoke agents.
+   Architect/Causal Probe/Researcher/Builder/Auditor do not invoke agents.
 
 7. **Compress entropy, not evidence.**
    Terra should receive compact decision-sufficient packets with concrete anchors, not raw search/test transcripts.
@@ -237,7 +245,7 @@ Terra records each consequential belief as one of:
 
 Before issuing a Builder work packet, **no high-blast belief may remain `HYPOTHESIS`**.
 
-For a high-blast hypothesis, Terra must buy the cheapest discriminating evidence, normally one Luna Skeptic or Architect call. The request must name competing explanations and ask for evidence that could falsify the preferred one.
+For a high-blast **causal/diagnostic** hypothesis, Terra must buy exactly one Luna Causal Probe before mutation. A broad Architect packet cannot self-certify causal inference. Architect may verify direct repository structure/contracts, but competing causal explanations belong in the bounded Probe.
 
 Blind retries or multiple agents restating the same belief do not satisfy the gate.
 
