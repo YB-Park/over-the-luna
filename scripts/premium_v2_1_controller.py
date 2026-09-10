@@ -330,6 +330,74 @@ def workspace_digest(
     return hasher.hexdigest()
 
 
+def build_final_record(
+    state: dict[str, Any],
+    hook_input: dict[str, Any],
+) -> dict[str, Any]:
+    result = reconcile(state)
+    return {
+        "schema": "premium-v2.1-final-v1",
+        "run_id": state.get("run_id"),
+        "workspace_revision": state.get("workspace_revision"),
+        "session_id": hook_input.get("session_id"),
+        "hook_event_name": hook_input.get("hook_event_name", "Stop"),
+        "stop_hook_active": hook_input.get("stop_hook_active") is True,
+        "outcome": result.outcome,
+        "trusted_complete": result.trusted_complete,
+        "errors": list(result.errors),
+        "blocking": list(result.blocking),
+    }
+
+
+def consume_final_record(
+    record: dict[str, Any] | None,
+    *,
+    run_id: str,
+    workspace_revision: str,
+) -> Reconciliation:
+    """Consume only a matching controller-produced final record.
+
+    A missing, malformed, wrong-run, or stale record can never confer COMPLETE.
+    """
+
+    if not isinstance(record, dict):
+        return Reconciliation(
+            "NO_VERIFIED_COMPLETION",
+            ("missing final controller record",),
+            (),
+        )
+    errors: list[str] = []
+    if record.get("schema") != "premium-v2.1-final-v1":
+        errors.append("invalid final record schema")
+    if record.get("run_id") != run_id:
+        errors.append("final record belongs to another run")
+    if record.get("workspace_revision") != workspace_revision:
+        errors.append("final record is stale for the current workspace")
+    outcome = record.get("outcome")
+    if outcome not in TERMINAL_OUTCOMES:
+        errors.append("invalid final record outcome")
+    if errors:
+        return Reconciliation(
+            "NO_VERIFIED_COMPLETION",
+            tuple(errors),
+            (),
+        )
+    record_errors = tuple(
+        x for x in record.get("errors", []) if isinstance(x, str)
+    )
+    blocking = tuple(
+        x for x in record.get("blocking", []) if isinstance(x, str)
+    )
+    return Reconciliation(str(outcome), record_errors, blocking)
+
+
+def _atomic_write_json(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def stop_hook_response(
     state: dict[str, Any],
     hook_input: dict[str, Any],
@@ -414,7 +482,34 @@ def _cmd_stop_hook(args: argparse.Namespace) -> int:
     hook_input = json.load(sys.stdin)
     if not isinstance(hook_input, dict):
         raise ValueError("hook input must be a JSON object")
+    if args.final_record:
+        _atomic_write_json(
+            Path(args.final_record),
+            build_final_record(state, hook_input),
+        )
     print(json.dumps(stop_hook_response(state, hook_input), sort_keys=True))
+    return 0
+
+
+def _cmd_consume_final(args: argparse.Namespace) -> int:
+    record_path = Path(args.record)
+    record = _load_json(record_path) if record_path.exists() else None
+    result = consume_final_record(
+        record,
+        run_id=args.run_id,
+        workspace_revision=args.workspace_revision,
+    )
+    print(
+        json.dumps(
+            {
+                "outcome": result.outcome,
+                "trusted_complete": result.trusted_complete,
+                "errors": list(result.errors),
+                "blocking": list(result.blocking),
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -432,7 +527,14 @@ def main(argv: list[str] | None = None) -> int:
 
     hook_parser = sub.add_parser("stop-hook")
     hook_parser.add_argument("--state", required=True)
+    hook_parser.add_argument("--final-record")
     hook_parser.set_defaults(func=_cmd_stop_hook)
+
+    consume_parser = sub.add_parser("consume-final")
+    consume_parser.add_argument("--record", required=True)
+    consume_parser.add_argument("--run-id", required=True)
+    consume_parser.add_argument("--workspace-revision", required=True)
+    consume_parser.set_defaults(func=_cmd_consume_final)
 
     args = parser.parse_args(argv)
     return int(args.func(args))
