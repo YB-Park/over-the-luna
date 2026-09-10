@@ -130,6 +130,7 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
     active_required_waiver = False
     saw_failed = False
     saw_open = False
+    required_user_obligations = 0
 
     for criterion_id, obligation_value in obligations.items():
         if not isinstance(criterion_id, str) or not criterion_id:
@@ -141,17 +142,25 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
         )
         source = obligation.get("source")
         criterion = obligation.get("criterion")
+        source_anchor = obligation.get("source_anchor")
         blocking = obligation.get("blocking")
         required = obligation.get("required", blocking)
+        history = obligation.get("history")
 
         if source not in VALID_SOURCES:
             errors.append(f"{criterion_id}: invalid authority source {source!r}")
         if not isinstance(criterion, str) or not criterion.strip():
             errors.append(f"{criterion_id}: original criterion content is required")
+        if not isinstance(source_anchor, str) or not source_anchor.strip():
+            errors.append(f"{criterion_id}: original source anchor is required")
+        if not isinstance(history, list):
+            errors.append(f"{criterion_id}: authority transition history must be a list")
         if _bool(blocking) is None:
             errors.append(f"{criterion_id}: blocking must be boolean")
         if _bool(required) is None:
             errors.append(f"{criterion_id}: required must be boolean")
+        if source == "U" and required is True:
+            required_user_obligations += 1
 
         row_value = current.get(criterion_id)
         if not isinstance(row_value, dict):
@@ -166,6 +175,7 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
             ("source", source),
             ("criterion", criterion),
             ("blocking", blocking),
+            ("required", required),
         ):
             if key in row and row.get(key) != expected:
                 errors.append(
@@ -223,6 +233,9 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
                     errors.append(
                         f"{criterion_id}: invalid receipt {receipt_id!r}: {reason}"
                     )
+
+    if required_user_obligations == 0:
+        errors.append("at least one required user obligation must be captured")
 
     # Current rows must not smuggle in a replacement for a captured ID through
     # duplicate-looking unknown IDs. Unknown annotations are allowed only when
