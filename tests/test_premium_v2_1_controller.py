@@ -7,6 +7,8 @@ import unittest
 from pathlib import Path
 
 from scripts.premium_v2_1_controller import (
+    build_final_record,
+    consume_final_record,
     reconcile,
     stop_hook_response,
     workspace_digest,
@@ -256,6 +258,93 @@ class StopHookTests(unittest.TestCase):
         state["current"]["U1"]["disposition"] = "OPEN"
         state["current"]["U1"]["evidence_refs"] = []
         self.assertEqual(stop_hook_response(state, {"stop_hook_active": False}), {})
+
+
+class FinalRecordTests(unittest.TestCase):
+    def test_missing_final_record_is_never_complete(self) -> None:
+        result = consume_final_record(
+            None,
+            run_id="run-1",
+            workspace_revision="ws-1",
+        )
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(result.trusted_complete)
+
+    def test_matching_complete_final_record_is_consumable(self) -> None:
+        state = base_state()
+        record = build_final_record(
+            state,
+            {
+                "session_id": "session-1",
+                "hook_event_name": "Stop",
+                "stop_hook_active": False,
+            },
+        )
+        result = consume_final_record(
+            record,
+            run_id="run-1",
+            workspace_revision="ws-1",
+        )
+        self.assertEqual(result.outcome, "COMPLETE")
+        self.assertTrue(result.trusted_complete)
+
+    def test_stale_final_record_is_never_complete(self) -> None:
+        state = base_state()
+        record = build_final_record(
+            state,
+            {
+                "session_id": "session-1",
+                "hook_event_name": "Stop",
+                "stop_hook_active": False,
+            },
+        )
+        result = consume_final_record(
+            record,
+            run_id="run-1",
+            workspace_revision="ws-new",
+        )
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(result.trusted_complete)
+
+    def test_wrong_run_final_record_is_never_complete(self) -> None:
+        state = base_state()
+        record = build_final_record(
+            state,
+            {
+                "session_id": "session-1",
+                "hook_event_name": "Stop",
+                "stop_hook_active": False,
+            },
+        )
+        result = consume_final_record(
+            record,
+            run_id="run-2",
+            workspace_revision="ws-1",
+        )
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+
+    def test_partial_final_record_never_becomes_trusted_complete(self) -> None:
+        state = base_state()
+        state["current"]["U1"]["disposition"] = "WAIVED_BY_USER"
+        state["current"]["U1"]["evidence_refs"] = []
+        state["user_events"] = [
+            {"type": "waiver", "criterion_id": "U1", "authenticated": True}
+        ]
+        record = build_final_record(
+            state,
+            {
+                "session_id": "session-1",
+                "hook_event_name": "Stop",
+                "stop_hook_active": False,
+            },
+        )
+        result = consume_final_record(
+            record,
+            run_id="run-1",
+            workspace_revision="ws-1",
+        )
+        self.assertEqual(result.outcome, "PARTIAL_WITH_USER_WAIVER")
+        self.assertFalse(result.trusted_complete)
 
 
 class WorkspaceDigestTests(unittest.TestCase):
