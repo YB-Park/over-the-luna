@@ -1,0 +1,21 @@
+{
+  "name": "over-the-luna-premium-v2-1-experiment",
+  "description": "EXPERIMENTAL minimal Luna-to-Terra premium cascade with deterministic completion receipts.",
+  "version": "0.0.1",
+  "author": {
+    "name": "YB-Park",
+    "url": "https://github.com/YB-Park"
+  },
+  "homepage": "https://github.com/YB-Park/over-the-luna",
+  "repository": "https://github.com/YB-Park/over-the-luna",
+  "license": "MIT",
+  "keywords": [
+    "vscode",
+    "github-copilot",
+    "agent",
+    "experimental",
+    "gpt-5.6-luna",
+    "gpt-5.6-terra"
+  ],
+  "agents": "agents/"
+}
