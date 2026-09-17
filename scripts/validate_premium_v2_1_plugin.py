@@ -45,6 +45,8 @@ def main() -> int:
         errors.append("experimental plugin version must remain 0.0.1 before development freeze")
     if manifest.get("agents") != "agents/":
         errors.append("plugin agents path must remain agents/")
+    if manifest.get("hooks") != "hooks.json":
+        errors.append("plugin must explicitly reference hooks.json")
 
     files = {p.name: p for p in AGENTS.glob("*.agent.md")}
     expected = {"premium-cascade-v2-1.agent.md", "luna-builder-v2-1.agent.md"}
@@ -97,6 +99,8 @@ def main() -> int:
                 errors.append(f"Builder missing contract marker {marker!r}")
 
     hooks = json.loads((PLUGIN / "hooks.json").read_text(encoding="utf-8"))
+    if hooks.get("version") != 1:
+        errors.append("hooks.json must declare version 1 for Copilot hook compatibility")
     hook_map = hooks.get("hooks")
     if not isinstance(hook_map, dict):
         errors.append("hooks.json must contain a hooks object")
@@ -136,7 +140,7 @@ def main() -> int:
             print(f"- {error}")
         return 1
 
-    print("Premium v2.1 plugin validation passed: 2 agents, 7 lifecycle hooks, audit-mode pre-calibration boundary")
+    print("Premium v2.1 plugin validation passed: 2 agents, 7 lifecycle hooks, version-1 audit-mode pre-calibration boundary")
     return 0
 
 
