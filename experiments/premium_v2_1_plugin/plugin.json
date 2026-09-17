@@ -17,5 +17,6 @@
     "gpt-5.6-luna",
     "gpt-5.6-terra"
   ],
-  "agents": "agents/"
+  "agents": "agents/",
+  "hooks": "hooks.json"
 }
