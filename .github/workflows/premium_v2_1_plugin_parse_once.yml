@@ -1,0 +1,59 @@
+name: Premium v2.1 one-shot plugin parse smoke
+
+on:
+  push:
+    branches:
+      - experiment/premium-v2-1-minimal-cascade
+    paths:
+      - .github/workflows/premium_v2_1_plugin_parse_once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact commit
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install pinned Copilot CLI
+        run: |
+          npm install -g @github/copilot@1.0.85
+          copilot --version
+
+      - name: Install local experimental plugin without model invocation
+        env:
+          COPILOT_HOME: ${{ runner.temp }}/copilot-home
+          COPILOT_AUTO_UPDATE: 'false'
+        run: |
+          set -euo pipefail
+          copilot plugin install "${{ github.workspace }}/experiments/premium_v2_1_plugin"
+          copilot plugin list --json | tee "${{ runner.temp }}/plugin-list.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path(r"${{ runner.temp }}/plugin-list.json")
+          data = json.loads(p.read_text())
+          matches = [x for x in data if x.get("name") == "over-the-luna-premium-v2-1-experiment"]
+          assert len(matches) == 1, data
+          assert matches[0].get("enabled") is True, matches[0]
+          print(json.dumps(matches[0], indent=2, sort_keys=True))
+          PY
+
+      - name: Upload parse artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-v2-1-plugin-parse
+          path: ${{ runner.temp }}/plugin-list.json
+          if-no-files-found: warn
