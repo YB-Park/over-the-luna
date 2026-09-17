@@ -75,7 +75,38 @@ Coverage includes:
 - metadata edits not counting as takeover;
 - runtime receipt → COMPLETE fixture.
 
-A separate static validator now pins the experimental plugin's two-agent / seven-hook topology and audit-mode boundary before live calibration.
+A separate static validator pins the experimental plugin's two-agent / seven-hook topology and audit-mode boundary before live calibration.
+
+### Zero-AI Copilot CLI plugin-parser smoke
+
+Launch commit: `9663316c00afc77c239d6acc79746418f6b0bb26`.  
+Run: `35165338218`.  
+One-shot workflow removal: `21bc3f048f7eb89577bd7fbad3b054c5e5f7ccd3`.
+
+Environment:
+- Copilot CLI pinned to **1.0.85**;
+- no `copilot-requests: write` permission;
+- no model prompt or inference call.
+
+Result: **PASS**.
+
+`copilot plugin install <local-path>` accepted the experimental plugin and `copilot plugin list --json` returned exactly one enabled entry:
+
+```json
+{
+  "enabled": true,
+  "marketplace": "",
+  "name": "over-the-luna-premium-v2-1-experiment",
+  "source": "installed",
+  "version": "0.0.1"
+}
+```
+
+This establishes that Copilot CLI 1.0.85 accepts the legacy/Copilot-format plugin manifest/layout. It does **not** establish that hooks fire or that a live Terra→Luna transition works; those require an authenticated model session.
+
+The CLI emitted a deprecation warning that direct path/repository plugin installs will be removed in a future release in favor of marketplace installs. That warning does not invalidate the current implementation experiment but must be revisited before any product packaging decision.
+
+Artifact: `10474831937` (`premium-v2-1-plugin-parse`).
 
 ## Local product-runtime facts reported by owner
 
