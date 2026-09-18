@@ -22,6 +22,49 @@ BUILDER_NAME = "Premium v2.1 Luna Builder"
 META_DIR = ".otl-v2-1"
 
 
+def first_value(event: dict[str, Any], *names: str) -> Any:
+    for name in names:
+        if name in event and event.get(name) is not None:
+            return event.get(name)
+    return None
+
+
+def event_session_id(event: dict[str, Any]) -> Any:
+    return first_value(event, "session_id", "sessionId")
+
+
+def event_tool_name(event: dict[str, Any]) -> str:
+    return str(first_value(event, "tool_name", "toolName") or "")
+
+
+def event_tool_input(event: dict[str, Any]) -> Any:
+    value = first_value(event, "tool_input", "toolArgs")
+    return {} if value is None else value
+
+
+def event_tool_result(event: dict[str, Any]) -> Any:
+    # VS Code currently supplies tool_response. Copilot CLI's VS Code-compatible
+    # payload uses tool_result, while native camelCase hooks use toolResult.
+    return first_value(event, "tool_response", "tool_result", "toolResult")
+
+
+def event_agent_name(event: dict[str, Any]) -> str:
+    # VS Code uses agent_type for custom agents. Copilot CLI also exposes
+    # agent_name/agentName on subagent lifecycle payloads. Keep all variants in
+    # audit support so the first live trace can pin the actual runtime schema.
+    return str(
+        first_value(
+            event,
+            "agent_type",
+            "agent_name",
+            "agentName",
+            "agent_display_name",
+            "agentDisplayName",
+        )
+        or ""
+    )
+
+
 def state_root() -> Path:
     configured = os.environ.get("OTL_V2_1_STATE_DIR")
     if configured:
@@ -30,7 +73,7 @@ def state_root() -> Path:
 
 
 def session_key(event: dict[str, Any]) -> tuple[str, bool]:
-    sid = event.get("session_id")
+    sid = event_session_id(event)
     if isinstance(sid, str) and sid:
         return hashlib.sha256(sid.encode()).hexdigest()[:24], False
     cwd = str(event.get("cwd") or os.getcwd())
@@ -73,7 +116,7 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
         state = {
             "schema": "premium-v2.1-session-v1",
             "session_key": key,
-            "session_id_observed": event.get("session_id"),
+            "session_id_observed": event_session_id(event),
             "weak_session_key": weak,
             "cwd": str(cwd_path(event)),
             "phase": "ROOT_INTAKE",
@@ -133,13 +176,13 @@ def flatten_strings(value: Any) -> list[str]:
 
 
 def is_agent_tool(event: dict[str, Any]) -> bool:
-    name = str(event.get("tool_name") or "").lower()
-    data = json.dumps(event.get("tool_input", {}), sort_keys=True, default=str).lower()
+    name = event_tool_name(event).lower()
+    data = json.dumps(event_tool_input(event), sort_keys=True, default=str).lower()
     return "agent" in name or "subagent" in name or BUILDER_NAME.lower() in data
 
 
 def is_metadata_only(event: dict[str, Any]) -> bool:
-    strings = flatten_strings(event.get("tool_input", {}))
+    strings = flatten_strings(event_tool_input(event))
     matching = [s for s in strings if META_DIR in s]
     return bool(matching) and all((META_DIR in s) or ("controller" in s.lower()) for s in strings if "/" in s or "\\" in s)
 
@@ -199,13 +242,13 @@ def recursive_exit_code(value: Any) -> int | None:
 
 
 def command_identity(event: dict[str, Any]) -> str:
-    tool_input = event.get("tool_input", {})
+    tool_input = event_tool_input(event)
     if isinstance(tool_input, dict):
         for key in ("command", "cmd", "script", "input"):
             value = tool_input.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()[:500]
-    return f"{event.get('tool_name', 'tool')}:{hashlib.sha256(json.dumps(tool_input, sort_keys=True, default=str).encode()).hexdigest()[:16]}"
+    return f"{event_tool_name(event) or 'tool'}:{hashlib.sha256(json.dumps(tool_input, sort_keys=True, default=str).encode()).hexdigest()[:16]}"
 
 
 def record_post_tool(event: dict[str, Any], state: dict[str, Any]) -> None:
@@ -214,20 +257,20 @@ def record_post_tool(event: dict[str, Any], state: dict[str, Any]) -> None:
         revision = workspace_digest(cwd)
     except OSError:
         revision = "DIGEST_ERROR"
-    response = event.get("tool_response")
+    response = event_tool_result(event)
     exit_code = recursive_exit_code(response)
     receipt_id = f"E{len(state.get('receipts', {})) + 1}"
     receipt = {
-        "run_id": str(event.get("session_id") or state.get("session_key")),
-        "tool_use_id": event.get("tool_use_id"),
-        "tool_name": event.get("tool_name"),
+        "run_id": str(event_session_id(event) or state.get("session_key")),
+        "tool_use_id": first_value(event, "tool_use_id", "toolUseId"),
+        "tool_name": event_tool_name(event),
         "command_or_test_id": command_identity(event),
         "collection_status": "COLLECTED" if exit_code is not None else "OBSERVED",
         "result_class": "PASS" if exit_code == 0 else ("ASSERTION_FAIL" if isinstance(exit_code, int) else "UNCLASSIFIED"),
         "exit_status": exit_code,
         "workspace_before": state.get("last_workspace_revision"),
         "workspace_after": revision,
-        "test_asset_identity": hashlib.sha256(json.dumps(event.get("tool_input", {}), sort_keys=True, default=str).encode()).hexdigest(),
+        "test_asset_identity": hashlib.sha256(json.dumps(event_tool_input(event), sort_keys=True, default=str).encode()).hexdigest(),
         "environment_identity": f"premium-v2.1-hook-v1|{platform.system()}|py{platform.python_version()}",
     }
     state.setdefault("receipts", {})[receipt_id] = receipt
@@ -302,7 +345,7 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         revision = workspace_digest(cwd)
     except OSError:
         revision = "DIGEST_ERROR"
-    run_id = str(event.get("session_id") or state.get("session_key"))
+    run_id = str(event_session_id(event) or state.get("session_key"))
     controller_state = {
         "run_id": run_id,
         "workspace_revision": revision,
@@ -317,7 +360,7 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
     record = {
         "schema": "premium-v2.1-final-v1",
         "run_id": run_id,
-        "session_id": event.get("session_id"),
+        "session_id": event_session_id(event),
         "workspace_revision": revision,
         "phase": state.get("phase"),
         "builder_count": state.get("builder_count"),
@@ -359,11 +402,11 @@ def main() -> int:
     elif event_name == "PostToolUse":
         record_post_tool(event, state)
     elif event_name == "SubagentStart":
-        if event.get("agent_type") == BUILDER_NAME:
+        if event_agent_name(event) == BUILDER_NAME:
             state["builder_count"] = int(state.get("builder_count", 0)) + 1
             state["phase"] = "LUNA_MUTATING"
     elif event_name == "SubagentStop":
-        if event.get("agent_type") == BUILDER_NAME:
+        if event_agent_name(event) == BUILDER_NAME:
             state["phase"] = "ROOT_RECONCILE"
     elif event_name == "Stop":
         result, record = final_reconcile(event, state)
