@@ -199,6 +199,40 @@ class PluginControllerTests(unittest.TestCase):
         self.assertEqual(state["phase"], "ROOT_RECONCILE")
         self.assertFalse(state["takeover"])
 
+    def test_cli_vscode_compatible_tool_result_is_collected(self) -> None:
+        state = {
+            "session_key": "fallback",
+            "receipts": {},
+            "last_workspace_revision": None,
+        }
+        event = self.event(
+            "PostToolUse",
+            tool_name="Bash",
+            tool_input={"command": "python -m unittest"},
+            tool_result={
+                "result_type": "success",
+                "text_result_for_llm": "Process exited with code 0",
+            },
+        )
+        hook.record_post_tool(event, state)
+        receipt = state["receipts"]["E1"]
+        self.assertEqual(receipt["collection_status"], "COLLECTED")
+        self.assertEqual(receipt["result_class"], "PASS")
+        self.assertEqual(receipt["exit_status"], 0)
+
+    def test_camelcase_runtime_fields_are_normalized(self) -> None:
+        event = {
+            "sessionId": "cli-session",
+            "toolName": "Agent",
+            "toolArgs": {"agent": "Premium v2.1 Luna Builder"},
+            "agentName": "Premium v2.1 Luna Builder",
+        }
+        self.assertEqual(hook.event_session_id(event), "cli-session")
+        self.assertEqual(hook.event_tool_name(event), "Agent")
+        self.assertEqual(hook.event_tool_input(event)["agent"], "Premium v2.1 Luna Builder")
+        self.assertEqual(hook.event_agent_name(event), "Premium v2.1 Luna Builder")
+        self.assertTrue(hook.is_agent_tool(event))
+
 
 if __name__ == "__main__":
     unittest.main()
