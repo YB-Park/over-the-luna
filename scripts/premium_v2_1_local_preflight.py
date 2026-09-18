@@ -19,7 +19,18 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-HOOK_SETTING = "chat.useCustomAgentHooks"
+ROOT = Path(__file__).resolve().parents[1]
+PLUGIN = ROOT / "experiments" / "premium_v2_1_plugin"
+AGENT_SCOPED_HOOK_SETTING = "chat.useCustomAgentHooks"
+EXPECTED_PLUGIN_HOOKS = {
+    "SessionStart",
+    "UserPromptSubmit",
+    "PreToolUse",
+    "PostToolUse",
+    "SubagentStart",
+    "SubagentStop",
+    "Stop",
+}
 
 
 def run_command(argv: list[str]) -> dict[str, Any]:
@@ -129,6 +140,67 @@ def structural_state_location(
     return result
 
 
+def inspect_experimental_plugin() -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "path": str(PLUGIN),
+        "observed": False,
+        "valid": False,
+        "format": "copilot",
+        "hook_mode": None,
+        "errors": [],
+    }
+    manifest_path = PLUGIN / "plugin.json"
+    hooks_path = PLUGIN / "hooks.json"
+    if not manifest_path.exists() or not hooks_path.exists():
+        result["errors"].append("experimental plugin manifest/hooks.json missing")
+        return result
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        hooks = json.loads(hooks_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        result["errors"].append(str(exc))
+        return result
+
+    result["observed"] = True
+    if manifest.get("$schema"):
+        result["errors"].append("experiment must remain legacy Copilot-format during this calibration")
+    if manifest.get("name") != "over-the-luna-premium-v2-1-experiment":
+        result["errors"].append("unexpected experimental plugin name")
+    if manifest.get("agents") != "agents/":
+        result["errors"].append("experimental plugin agents path drifted")
+    if manifest.get("hooks") != "hooks.json":
+        result["errors"].append("experimental plugin must reference root hooks.json")
+
+    hook_map = hooks.get("hooks") if isinstance(hooks, dict) else None
+    if not isinstance(hook_map, dict):
+        result["errors"].append("hooks.json missing hooks object")
+        return result
+    if set(hook_map) != EXPECTED_PLUGIN_HOOKS:
+        result["errors"].append("plugin hook event set drifted")
+
+    modes: set[str] = set()
+    for event, entries in hook_map.items():
+        if not isinstance(entries, list) or len(entries) != 1 or not isinstance(entries[0], dict):
+            result["errors"].append(f"{event}: expected exactly one command hook")
+            continue
+        item = entries[0]
+        if item.get("type") != "command":
+            result["errors"].append(f"{event}: hook must be command type")
+        if "${PLUGIN_ROOT}/scripts/hook.py" not in str(item.get("command", "")):
+            result["errors"].append(f"{event}: plugin-local hook.py is not referenced")
+        env = item.get("env")
+        if isinstance(env, dict) and isinstance(env.get("OTL_V2_1_HOOK_MODE"), str):
+            modes.add(env["OTL_V2_1_HOOK_MODE"].lower())
+        else:
+            result["errors"].append(f"{event}: OTL_V2_1_HOOK_MODE missing")
+
+    result["hook_mode"] = next(iter(modes)) if len(modes) == 1 else sorted(modes)
+    if modes != {"audit"}:
+        result["errors"].append("pre-calibration plugin hooks must remain in audit mode")
+    result["valid"] = not result["errors"]
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--workspace", type=Path)
@@ -179,6 +251,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = [scan_hook_setting(path) for path in deduped]
     observed_hook_true = any(item.get("value") is True for item in settings)
     observed_hook_false = any(item.get("value") is False for item in settings)
+    plugin_contract = inspect_experimental_plugin()
 
     report = {
         "schema": "premium-v2.1-local-preflight-v1",
@@ -196,12 +269,18 @@ def main(argv: list[str] | None = None) -> int:
             "copilot_extensions": copilot_versions,
         },
         "agent_scoped_hooks_setting": {
-            "setting": HOOK_SETTING,
+            "setting": AGENT_SCOPED_HOOK_SETTING,
             "files_scanned": settings,
             "observed_true_somewhere": observed_hook_true,
             "observed_false_somewhere": observed_hook_false,
             "effective_value": "NOT_PROVEN_BY_TEXT_SCAN",
+            "required_for_plugin_level_hooks": False,
+            "note": (
+                "Observed for diagnostics only. Premium v2.1 uses plugin-level hooks; "
+                "this agent-scoped setting is not a readiness gate."
+            ),
         },
+        "experimental_plugin": plugin_contract,
         "controller_state_location": structural_state_location(
             workspace,
             args.state_dir,
@@ -221,12 +300,18 @@ def main(argv: list[str] | None = None) -> int:
         "vscode_cli_observed": bool(
             code_version.get("observed") and code_version.get("exit_code") == 0
         ),
-        "copilot_extension_observed": bool(copilot_versions),
-        "agent_scoped_hooks_setting_observed_true": observed_hook_true,
+        "experimental_plugin_static_contract_valid": bool(plugin_contract.get("valid")),
+        "plugin_hooks_still_audit_mode": plugin_contract.get("hook_mode") == "audit",
     }
     report["configuration_prerequisites"] = prerequisites
+    report["manual_runtime_prerequisites_not_proven_by_this_script"] = [
+        "chat.plugins.enabled / organization policy permits Agent Plugins",
+        "the experimental Copilot-format plugin can be installed/enabled in this VS Code profile",
+        "plugin hooks are permitted by the active Agent Host policy",
+        "Premium Cascade v2.1 (Experimental) is selectable as a custom agent",
+    ]
     report["configuration_status"] = (
-        "READY_FOR_NON_AI_HOOK_DIAGNOSTIC"
+        "READY_FOR_PLUGIN_INSTALL_OR_LIVE_AUDIT"
         if all(prerequisites.values())
         else "INCOMPLETE_OR_NOT_OBSERVED"
     )
