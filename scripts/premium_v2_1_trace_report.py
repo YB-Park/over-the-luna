@@ -211,7 +211,10 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
         "root_invoke_count": 0,
         "root_invoke_selection": "none",
         "builder_invoke_count": 0,
+        "builder_invoke_candidate_count": 0,
+        "disconnected_builder_invoke_count": 0,
         "hook_span_count": 0,
+        "hook_span_under_root_count": 0,
         "hook_span_counts": {},
         "hook_result_kinds": {},
         "hook_decisions": {},
@@ -295,16 +298,37 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
         result["root_invoke_selection"] = "legacy_server_heuristic"
     else:
         root_invokes = []
-    builder_invokes = [
+    builder_candidates = [
         row
         for row in invoke_spans
         if _builder_agent_name(span_attributes(row).get("gen_ai.agent.name"))
         or _builder_agent_name(span_attributes(row).get("gen_ai.agent.id"))
     ]
     result["root_invoke_count"] = len(root_invokes)
-    result["builder_invoke_count"] = len(builder_invokes)
+    result["builder_invoke_candidate_count"] = len(builder_candidates)
 
     root_ids = {sid for row in root_invokes if (sid := span_id(row))}
+
+    def has_ancestor_id(row: dict[str, Any], ancestor_ids: set[str]) -> bool:
+        current = parent_span_id(row)
+        seen: set[str] = set()
+        while current and current not in seen:
+            if current in ancestor_ids:
+                return True
+            seen.add(current)
+            parent = by_id.get(current)
+            if parent is None:
+                return False
+            current = parent_span_id(parent)
+        return False
+
+    builder_invokes = [
+        row for row in builder_candidates if has_ancestor_id(row, root_ids)
+    ]
+    result["builder_invoke_count"] = len(builder_invokes)
+    result["disconnected_builder_invoke_count"] = (
+        len(builder_candidates) - len(builder_invokes)
+    )
     builder_ids = {sid for row in builder_invokes if (sid := span_id(row))}
 
     def nearest_invoke_id(row: dict[str, Any]) -> str | None:
@@ -347,10 +371,13 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
         elif owner in builder_ids:
             append_unique(builder_resolved, model)
 
-    hook_spans = [
+    all_hook_spans = [
         row
         for row in spans
         if span_attributes(row).get("gen_ai.operation.name") == "execute_hook"
+    ]
+    hook_spans = [
+        row for row in all_hook_spans if has_ancestor_id(row, root_ids)
     ]
     hook_counts: collections.Counter[str] = collections.Counter()
     hook_result_kinds: dict[str, list[str]] = {}
@@ -383,7 +410,8 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
             if decision not in hook_decisions[normalized_type]:
                 hook_decisions[normalized_type].append(decision)
 
-    result["hook_span_count"] = len(hook_spans)
+    result["hook_span_count"] = len(all_hook_spans)
+    result["hook_span_under_root_count"] = len(hook_spans)
     result["hook_span_counts"] = dict(sorted(hook_counts.items()))
     result["hook_result_kinds"] = hook_result_kinds
     result["hook_decisions"] = hook_decisions
@@ -696,6 +724,7 @@ def summarize(
         and model_identity["builder_luna"] == "OBSERVED"
         and otel.get("root_invoke_count") == 1
         and otel.get("builder_invoke_count") == 1
+        and otel.get("disconnected_builder_invoke_count") == 0
         and not otel.get("missing_expected_hook_spans")
         and not otel.get("hook_span_failures")
         and not any(event.get("_parse_error") is True for event in events)
