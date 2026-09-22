@@ -330,6 +330,10 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         state["final_record"]["outcome"] = "BLOCKED"
         state["final_record"]["trusted_complete"] = False
         state_path.write_text(json.dumps(state), encoding="utf-8")
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(state["final_record"]),
+            encoding="utf-8",
+        )
         cli = self.write_cli_identity()
         otel = self.write_otel_identity()
 
@@ -345,6 +349,10 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         state = json.loads(state_path.read_text(encoding="utf-8"))
         state["final_record"]["run_id"] = "other-session"
         state_path.write_text(json.dumps(state), encoding="utf-8")
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(state["final_record"]),
+            encoding="utf-8",
+        )
         cli = self.write_cli_identity()
         otel = self.write_otel_identity()
 
