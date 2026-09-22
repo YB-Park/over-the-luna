@@ -56,6 +56,40 @@ class PluginControllerTests(unittest.TestCase):
         value.update(extra)
         return value
 
+    def test_second_user_prompt_is_persisted_control_error(self) -> None:
+        first = self.event("UserPromptSubmit", prompt="Implement X")
+        state, _, _ = hook.ensure_state(first)
+        hook.init_user_obligation(first, state)
+        self.assertEqual(state["user_prompt_count"], 1)
+
+        second = self.event("UserPromptSubmit", prompt="Now also implement Y")
+        hook.init_user_obligation(second, state)
+
+        self.assertEqual(state["user_prompt_count"], 2)
+        self.assertEqual(state["obligations"]["U0"]["criterion"], "Implement X")
+        self.assertTrue(
+            any(
+                "multiple UserPromptSubmit" in item.get("error", "")
+                for item in state["control_errors"]
+            )
+        )
+
+    def test_repeated_session_start_after_mission_activity_is_control_error(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Implement X")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.init_user_obligation(prompt, state)
+        state["phase"] = "ROOT_RECONCILE"
+
+        hook.handle_session_start(self.event("SessionStart"), state)
+
+        self.assertEqual(state["phase"], "ROOT_RECONCILE")
+        self.assertTrue(
+            any(
+                "repeated/resumed SessionStart" in item.get("error", "")
+                for item in state["control_errors"]
+            )
+        )
+
     def test_user_prompt_captures_immutable_u0_and_proposal(self) -> None:
         event = self.event("UserPromptSubmit", prompt="Implement X and preserve Y")
         state, state_path, _ = hook.ensure_state(event)
