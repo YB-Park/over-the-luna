@@ -267,6 +267,46 @@ class PluginControllerTests(unittest.TestCase):
         output = hook.pre_tool_decision(event, state, "enforce")
         self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
 
+    def test_malformed_lifecycle_counter_denies_enforce_tool(self) -> None:
+        state = {
+            "phase": "ROOT_INTAKE",
+            "builder_count": "corrupt",
+            "builder_invocation_seen": False,
+            "takeover": False,
+        }
+        event = self.event(
+            "PreToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder"},
+        )
+        output = hook.pre_tool_decision(event, state, "enforce")
+        self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn("malformed", output["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_malformed_builder_count_never_trusted_complete(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.init_user_obligation(prompt, state)
+        post = self.event(
+            "PostToolUse",
+            tool_name="execute",
+            tool_input={"command": "python -m unittest"},
+            tool_response="Process exited with code 0",
+        )
+        hook.record_post_tool(post, state)
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["current"]["U0"] = {"disposition": "VERIFIED", "evidence_refs": ["E1"]}
+        controller.atomic_json(proposal_path, proposal)
+        state["builder_count"] = "corrupt"
+        state["phase"] = "ROOT_RECONCILE"
+
+        result, record = hook.final_reconcile(self.event("Stop"), state)
+
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+        self.assertTrue(any("exactly one Luna Builder start" in e for e in result.errors))
+
     def test_enforce_mode_denies_non_builder_agent_during_intake(self) -> None:
         state = {
             "phase": "ROOT_INTAKE",
