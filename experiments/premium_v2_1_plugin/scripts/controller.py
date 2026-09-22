@@ -89,6 +89,12 @@ def _valid_receipt(receipt: dict[str, Any], run_id: str, revision: str) -> tuple
 def reconcile(state: dict[str, Any]) -> Reconciliation:
     errors: list[str] = []
     blockers: list[str] = []
+    if not isinstance(state, dict):
+        return Reconciliation(
+            "NO_VERIFIED_COMPLETION",
+            ("state must be an object",),
+            (),
+        )
     run_id = state.get("run_id")
     revision = state.get("workspace_revision")
     obligations = state.get("obligations")
@@ -172,8 +178,12 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
             blockers.append(cid)
             continue
         refs = row.get("evidence_refs", [])
-        if not isinstance(refs, list) or not refs:
-            errors.append(f"{cid}: VERIFIED requires evidence_refs")
+        if (
+            not isinstance(refs, list)
+            or not refs
+            or not all(isinstance(rid, str) and rid for rid in refs)
+        ):
+            errors.append(f"{cid}: VERIFIED requires evidence_refs as non-empty string IDs")
             continue
         for rid in refs:
             receipt = receipts.get(rid)
@@ -189,7 +199,10 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
     for cid, row in current.items():
         if cid in obligations:
             continue
-        if isinstance(row, dict) and (row.get("blocking") is True or row.get("required") is True):
+        if not isinstance(row, dict):
+            errors.append(f"{cid}: unknown criterion row must be an object")
+            continue
+        if row.get("blocking") is True or row.get("required") is True:
             errors.append(f"{cid}: required row lacks controller-owned authority capture")
 
     if errors:
