@@ -208,6 +208,14 @@ class ReconciliationTests(unittest.TestCase):
         self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
         self.assertTrue(any("stale" in e for e in result.errors))
 
+    def test_digest_error_revision_cannot_complete(self) -> None:
+        state = base_state()
+        state["workspace_revision"] = "DIGEST_ERROR"
+        state["receipts"]["R1"]["workspace_after"] = "DIGEST_ERROR"
+        result = reconcile(state)
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertTrue(any("workspace_revision is unavailable" in e for e in result.errors))
+
     def test_wrong_run_receipt_cannot_complete(self) -> None:
         state = base_state()
         state["receipts"]["R1"]["run_id"] = "other-run"
@@ -322,6 +330,24 @@ class FinalRecordTests(unittest.TestCase):
             workspace_revision="ws-1",
         )
         self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+
+    def test_digest_error_final_record_is_never_complete(self) -> None:
+        record = {
+            "schema": "premium-v2.1-final-v1",
+            "run_id": "run-1",
+            "workspace_revision": "DIGEST_ERROR",
+            "outcome": "COMPLETE",
+            "trusted_complete": True,
+            "errors": [],
+            "blocking": [],
+        }
+        result = consume_final_record(
+            record,
+            run_id="run-1",
+            workspace_revision="DIGEST_ERROR",
+        )
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(result.trusted_complete)
 
     def test_partial_final_record_never_becomes_trusted_complete(self) -> None:
         state = base_state()
