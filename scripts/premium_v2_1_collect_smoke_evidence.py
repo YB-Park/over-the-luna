@@ -81,7 +81,16 @@ def run_capture(argv: list[str], *, cwd: Path) -> dict[str, Any]:
     }
 
 
-def ensure_empty_output(output: Path) -> None:
+def ensure_empty_output(output: Path, workspace: Path) -> None:
+    try:
+        output.relative_to(workspace)
+    except ValueError:
+        pass
+    else:
+        raise ValueError(
+            "evidence output must be outside the smoke workspace so collection "
+            "cannot invalidate the runtime workspace digest"
+        )
     if output.exists() and any(output.iterdir()):
         raise ValueError(f"refusing non-empty evidence output: {output}")
     output.mkdir(parents=True, exist_ok=True)
@@ -113,7 +122,7 @@ def collect(
             "refusing evidence collection outside the synthetic v2.1 smoke workspace"
         )
 
-    ensure_empty_output(output)
+    ensure_empty_output(output, workspace)
 
     available = matching_session_keys(state_dir, workspace)
     if session_key is None:
@@ -155,12 +164,17 @@ def collect(
         if copy_if_present(source, destination):
             copied[name] = str(destination.relative_to(output))
 
-    test_result = run_capture(
-        [sys.executable, "-m", "unittest", "-v"],
-        cwd=workspace,
+    # Snapshot and adjudicate the runtime state before running any collector-side
+    # command that could mutate caches or generated files in the workspace.
+    report = trace_report.summarize(
+        state_dir,
+        workspace,
+        None,
+        otel,
+        selected,
     )
-    (output / "focused-test.json").write_text(
-        json.dumps(test_result, indent=2, sort_keys=True) + "\n",
+    (output / "trace-report.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
@@ -180,15 +194,12 @@ def collect(
         encoding="utf-8",
     )
 
-    report = trace_report.summarize(
-        state_dir,
-        workspace,
-        None,
-        otel,
-        selected,
+    test_result = run_capture(
+        [sys.executable, "-m", "unittest", "-v"],
+        cwd=workspace,
     )
-    (output / "trace-report.json").write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n",
+    (output / "focused-test.json").write_text(
+        json.dumps(test_result, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
@@ -211,6 +222,7 @@ def collect(
         "matching_session_keys": available,
         "otel_source": str(otel),
         "focused_test_exit": test_result["exit_code"],
+        "trace_snapshot_before_collector_test": True,
         "trace_calibration_ready": report["calibration"][
             "ready_for_enforce_mode_candidate"
         ],
