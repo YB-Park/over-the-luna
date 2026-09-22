@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import tempfile
@@ -790,6 +792,45 @@ class PluginControllerTests(unittest.TestCase):
         errors = hook.observe_post_tool_phase(event, state)
         self.assertTrue(any("after the single Builder attempt" in e for e in errors))
         self.assertTrue(state["control_errors"])
+
+
+    def test_malformed_json_stops_enforce_session(self) -> None:
+        old_stdin = hook.sys.stdin
+        old_mode = os.environ.get("OTL_V2_1_HOOK_MODE")
+        os.environ["OTL_V2_1_HOOK_MODE"] = "enforce"
+        hook.sys.stdin = io.StringIO("{not-json")
+        self.addCleanup(setattr, hook.sys, "stdin", old_stdin)
+        if old_mode is None:
+            self.addCleanup(os.environ.pop, "OTL_V2_1_HOOK_MODE", None)
+        else:
+            self.addCleanup(os.environ.__setitem__, "OTL_V2_1_HOOK_MODE", old_mode)
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(hook.main(), 0)
+
+        payload = json.loads(out.getvalue())
+        self.assertIs(payload["continue"], False)
+        self.assertIn("malformed hook input", payload["stopReason"])
+
+    def test_non_object_input_stops_enforce_session(self) -> None:
+        old_stdin = hook.sys.stdin
+        old_mode = os.environ.get("OTL_V2_1_HOOK_MODE")
+        os.environ["OTL_V2_1_HOOK_MODE"] = "enforce"
+        hook.sys.stdin = io.StringIO("[]")
+        self.addCleanup(setattr, hook.sys, "stdin", old_stdin)
+        if old_mode is None:
+            self.addCleanup(os.environ.pop, "OTL_V2_1_HOOK_MODE", None)
+        else:
+            self.addCleanup(os.environ.__setitem__, "OTL_V2_1_HOOK_MODE", old_mode)
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(hook.main(), 0)
+
+        payload = json.loads(out.getvalue())
+        self.assertIs(payload["continue"], False)
+        self.assertIn("non-object hook input", payload["stopReason"])
 
 
 if __name__ == "__main__":
