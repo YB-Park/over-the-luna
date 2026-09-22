@@ -629,6 +629,26 @@ class PluginControllerTests(unittest.TestCase):
         )
         self.assertTrue(hook.is_metadata_only(event))
 
+    def test_nested_lookalike_metadata_directory_is_not_exempt(self) -> None:
+        nested = self.workspace / "src" / ".otl-v2-1"
+        nested.mkdir(parents=True)
+        event = self.event(
+            "PreToolUse",
+            tool_name="edit_file",
+            tool_input={"path": "src/.otl-v2-1/controller-proposal.json"},
+        )
+        self.assertFalse(hook.is_metadata_only(event))
+
+    def test_absolute_root_metadata_path_is_exempt(self) -> None:
+        event = self.event(
+            "PreToolUse",
+            tool_name="edit_file",
+            tool_input={
+                "path": str(self.workspace / ".otl-v2-1" / "controller-proposal.json"),
+            },
+        )
+        self.assertTrue(hook.is_metadata_only(event))
+
     def test_final_reconcile_requires_exactly_one_builder_start(self) -> None:
         prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
         state, _, _ = hook.ensure_state(prompt)
