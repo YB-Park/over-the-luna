@@ -72,6 +72,7 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         ]
 
     def write_controller_state(self) -> None:
+        revision = reporter.workspace_digest(self.workspace)
         state = {
             "receipts": {
                 "E1": {
@@ -82,6 +83,10 @@ class PremiumV21TraceReportTests(unittest.TestCase):
             "final_record": {
                 "schema": "premium-v2.1-final-v1",
                 "run_id": "session-1",
+                "workspace_revision": revision,
+                "phase": "ROOT_RECONCILE",
+                "builder_count": 1,
+                "takeover": False,
                 "outcome": "COMPLETE",
                 "trusted_complete": True,
             },
@@ -342,6 +347,59 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
 
         self.assertEqual(report["controller"]["final_record_status"], "INVALID")
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+
+    def test_workspace_change_after_final_record_is_invalid(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        (self.workspace / "changed.txt").write_text("changed\n", encoding="utf-8")
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "INVALID")
+        self.assertTrue(
+            any(
+                "stale for current workspace" in error
+                for item in report["controller"]["final_record_assessments"]
+                for error in item["errors"]
+            )
+        )
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_conflicting_workspace_and_external_final_records_fail_closed(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        state = json.loads((self.state_dir / "session.json").read_text(encoding="utf-8"))
+        workspace_record = dict(state["final_record"])
+        workspace_record["outcome"] = "BLOCKED"
+        workspace_record["trusted_complete"] = False
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(workspace_record),
+            encoding="utf-8",
+        )
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "CONFLICT")
+        self.assertEqual(len(report["controller"]["final_records"]), 2)
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_duplicate_session_start_is_not_single_mission_calibration(self) -> None:
+        events = self.complete_hook_events()
+        events.insert(1, {**events[0]})
+        self.write_jsonl(self.state_dir / "session.events.jsonl", events)
+        self.write_controller_state()
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertFalse(report["hook_trace"]["single_mission_counts_valid"])
         self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
 
 
