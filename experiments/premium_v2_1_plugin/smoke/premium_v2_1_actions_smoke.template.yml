@@ -79,6 +79,7 @@ jobs:
           OTL_V2_1_STATE_DIR: ${{ runner.temp }}/otl-v2-1-state
           COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/v2-1-smoke-otel.jsonl
           COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: 'false'
           TASK_PROMPT: >-
             RUNTIME SMOKE ONLY. Work only in this tiny local repository.
             The public function increment(value) is documented to return value plus one,
@@ -129,6 +130,7 @@ jobs:
             --state-dir "${{ runner.temp }}/otl-v2-1-state" \
             --workspace "${{ runner.temp }}/v2-1-smoke-workspace" \
             --cli-output "${{ runner.temp }}/v2-1-smoke-output.jsonl" \
+            --otel-output "${{ runner.temp }}/v2-1-smoke-otel.jsonl" \
             > "${{ runner.temp }}/v2-1-smoke-trace-report.json"
           cat "${{ runner.temp }}/v2-1-smoke-trace-report.json"
 
@@ -165,4 +167,5 @@ jobs:
             --state-dir "${{ runner.temp }}/otl-v2-1-state" \
             --workspace "${{ runner.temp }}/v2-1-smoke-workspace" \
             --cli-output "${{ runner.temp }}/v2-1-smoke-output.jsonl" \
+            --otel-output "${{ runner.temp }}/v2-1-smoke-otel.jsonl" \
             --require-calibration-ready
