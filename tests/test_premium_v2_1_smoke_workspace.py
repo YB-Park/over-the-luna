@@ -76,5 +76,22 @@ class PremiumV21SmokeWorkspaceTests(unittest.TestCase):
                 smoke.create_workspace(workspace)
 
 
+    def test_refuses_existing_sibling_otel_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            workspace = root / "smoke"
+            stale_otel = root / "smoke-copilot-otel.jsonl"
+            stale_otel.write_text('{"stale": true}\n', encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "existing smoke OTel output"):
+                smoke.create_workspace(workspace)
+
+            self.assertFalse(workspace.exists())
+            self.assertEqual(
+                stale_otel.read_text(encoding="utf-8"),
+                '{"stale": true}\n',
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
