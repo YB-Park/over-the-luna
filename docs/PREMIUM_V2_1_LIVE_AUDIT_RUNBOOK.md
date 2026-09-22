@@ -82,11 +82,16 @@ The stable root of this repository is a different plugin. Do **not** install the
 repository root and assume that it represents v2.1.
 
 The synthetic workspace generator in the next section now writes a workspace
-`.vscode/settings.json` that registers the exact current checkout path:
+`.vscode/settings.json` that enables Agent Plugins for the disposable workspace
+and registers the exact current checkout path:
 
 `<checkout>/experiments/premium_v2_1_plugin`
 
-through `chat.pluginLocations`.
+through `chat.plugins.enabled=true` and `chat.pluginLocations`.
+
+An organization policy can still override local plugin enablement; if that
+happens, classify it as a runtime/policy blocker rather than changing the
+experiment contract.
 
 This is the preferred smoke path because the plugin source stays outside the
 synthetic mutation workspace while VS Code receives an explicit local plugin
