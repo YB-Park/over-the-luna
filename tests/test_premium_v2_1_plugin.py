@@ -529,5 +529,119 @@ class PluginControllerTests(unittest.TestCase):
         self.assertFalse(lock_path.exists())
 
 
+    def test_enforce_mode_rejects_non_builder_agent_during_intake(self) -> None:
+        state = {
+            "phase": "ROOT_INTAKE",
+            "builder_count": 0,
+            "builder_invocation_seen": False,
+            "takeover": False,
+        }
+        event = self.event(
+            "PreToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Some Other Agent", "prompt": "work"},
+        )
+        output = hook.pre_tool_decision(event, state, "enforce")
+        self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertFalse(state["builder_invocation_seen"])
+
+    def test_initial_builder_dispatch_is_marked_before_subagent_start(self) -> None:
+        state = {
+            "phase": "ROOT_INTAKE",
+            "builder_count": 0,
+            "builder_invocation_seen": False,
+            "takeover": False,
+        }
+        event = self.event(
+            "PreToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder", "prompt": "work"},
+        )
+        self.assertEqual(hook.pre_tool_decision(event, state, "enforce"), {})
+        self.assertTrue(state["builder_invocation_seen"])
+        self.assertEqual(state["phase"], "LUNA_DISPATCHED")
+
+        second = hook.pre_tool_decision(event, state, "enforce")
+        self.assertEqual(second["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_command_merely_mentioning_metadata_is_not_metadata_only(self) -> None:
+        event = self.event(
+            "PreToolUse",
+            tool_name="bash",
+            tool_input={
+                "command": "cat .otl-v2-1/controller-proposal.json && cat src.txt"
+            },
+        )
+        self.assertFalse(hook.is_metadata_only(event))
+
+    def test_file_operation_targeting_only_metadata_is_metadata_only(self) -> None:
+        event = self.event(
+            "PreToolUse",
+            tool_name="edit_file",
+            tool_input={"path": ".otl-v2-1/controller-proposal.json"},
+        )
+        self.assertTrue(hook.is_metadata_only(event))
+
+    def test_final_reconcile_requires_exactly_one_builder_start(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.init_user_obligation(prompt, state)
+
+        post = self.event(
+            "PostToolUse",
+            tool_name="execute",
+            tool_input={"command": "python -m unittest"},
+            tool_response="Process exited with code 0",
+        )
+        hook.record_post_tool(post, state)
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["current"]["U0"] = {
+            "disposition": "VERIFIED",
+            "evidence_refs": ["E1"],
+        }
+        controller.atomic_json(proposal_path, proposal)
+
+        state["phase"] = "ROOT_RECONCILE"
+        state["builder_count"] = 0
+        result, record = hook.final_reconcile(
+            self.event("Stop", stop_hook_active=False),
+            state,
+        )
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+        self.assertTrue(any("exactly one Luna Builder start" in e for e in result.errors))
+
+    def test_final_reconcile_rejects_incomplete_builder_lifecycle(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.init_user_obligation(prompt, state)
+
+        post = self.event(
+            "PostToolUse",
+            tool_name="execute",
+            tool_input={"command": "python -m unittest"},
+            tool_response="Process exited with code 0",
+        )
+        hook.record_post_tool(post, state)
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["current"]["U0"] = {
+            "disposition": "VERIFIED",
+            "evidence_refs": ["E1"],
+        }
+        controller.atomic_json(proposal_path, proposal)
+
+        state["builder_count"] = 1
+        state["phase"] = "LUNA_MUTATING"
+        result, record = hook.final_reconcile(
+            self.event("Stop", stop_hook_active=False),
+            state,
+        )
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+        self.assertTrue(any("incomplete Builder lifecycle" in e for e in result.errors))
+
+
 if __name__ == "__main__":
     unittest.main()
