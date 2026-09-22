@@ -186,10 +186,28 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
             "obligations": {},
             "receipts": {},
             "user_events": [],
+            "user_prompt_count": 0,
             "control_errors": [],
             "correction_count": 0,
         }
     return state, state_path, events_path
+
+
+def handle_session_start(event: dict[str, Any], state: dict[str, Any]) -> None:
+    prior_activity = (
+        bool(state.get("obligations"))
+        or state.get("builder_invocation_seen") is True
+        or int(state.get("builder_count", 0) or 0) > 0
+        or int(state.get("user_prompt_count", 0) or 0) > 0
+    )
+    if prior_activity:
+        append_control_errors(
+            state,
+            ["repeated/resumed SessionStart is unsupported in Premium v2.1 single-mission mode"],
+            event=event,
+        )
+        return
+    state["phase"] = "ROOT_INTAKE"
 
 
 def save_state(path: Path, state: dict[str, Any]) -> None:
@@ -197,8 +215,25 @@ def save_state(path: Path, state: dict[str, Any]) -> None:
 
 
 def init_user_obligation(event: dict[str, Any], state: dict[str, Any]) -> None:
+    count = state.get("user_prompt_count", 0)
+    if not isinstance(count, int) or count < 0:
+        count = 0
+    count += 1
+    state["user_prompt_count"] = count
+    if count > 1:
+        append_control_errors(
+            state,
+            ["multiple UserPromptSubmit events are unsupported in Premium v2.1 single-mission mode"],
+            event=event,
+        )
+
     prompt = event.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
+        append_control_errors(
+            state,
+            ["UserPromptSubmit did not expose a non-empty prompt"],
+            event=event,
+        )
         return
     if "U0" not in state["obligations"]:
         state["obligations"]["U0"] = {
@@ -579,7 +614,7 @@ def main() -> int:
             output: dict[str, Any] = {}
 
             if event_name in {"SessionStart", "sessionStart"}:
-                state["phase"] = "ROOT_INTAKE"
+                handle_session_start(event, state)
             elif event_name in {"UserPromptSubmit", "userPromptSubmit", "userPromptSubmitted"}:
                 init_user_obligation(event, state)
             elif event_name in {"PreToolUse", "preToolUse"}:
