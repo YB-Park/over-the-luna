@@ -477,14 +477,21 @@ def summarize(
             workspace_digest_error = str(exc)
 
     final_records: list[dict[str, Any]] = []
+    workspace_final_record: dict[str, Any] | None = None
+    external_final_records: list[dict[str, Any]] = []
     if workspace is not None:
-        final = read_json(workspace / ".otl-v2-1" / "final-record.json")
-        if final is not None:
-            final_records.append(final)
+        workspace_final_record = read_json(workspace / ".otl-v2-1" / "final-record.json")
+        if workspace_final_record is not None:
+            final_records.append(workspace_final_record)
     for state in controller_states:
         final = state.get("final_record")
-        if isinstance(final, dict) and final not in final_records:
-            final_records.append(final)
+        if isinstance(final, dict):
+            external_final_records.append(final)
+            if final not in final_records:
+                final_records.append(final)
+    both_final_copies_present = (
+        workspace_final_record is not None and len(external_final_records) == 1
+    )
 
     expected_session_id = session_ids[0] if len(session_ids) == 1 else None
     final_record_assessments: list[dict[str, Any]] = []
@@ -573,6 +580,7 @@ def summarize(
         and builder_stops == 1
         and receipt_count >= 1
         and collected_pass_receipts >= 1
+        and both_final_copies_present
         and controller_final == "VALID_COMPLETE"
         and model_identity["root_terra"] == "OBSERVED"
         and model_identity["builder_luna"] == "OBSERVED"
@@ -619,6 +627,11 @@ def summarize(
             "state_files": [str(path) for path in state_files],
             "receipt_count": receipt_count,
             "collected_pass_receipts": collected_pass_receipts,
+            "final_record_sources": {
+                "workspace_present": workspace_final_record is not None,
+                "external_count": len(external_final_records),
+                "both_expected_copies_present": both_final_copies_present,
+            },
             "final_record_status": controller_final,
             "final_records": final_records,
             "final_record_assessments": final_record_assessments,
