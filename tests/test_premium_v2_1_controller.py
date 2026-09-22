@@ -45,6 +45,7 @@ def base_state() -> dict:
             "R1": {
                 "run_id": "run-1",
                 "command_or_test_id": "pytest tests/test_contract.py",
+                "execution_eligible": True,
                 "collection_status": "COLLECTED",
                 "result_class": "PASS",
                 "exit_status": 0,
@@ -227,6 +228,14 @@ class ReconciliationTests(unittest.TestCase):
         state["receipts"]["R1"]["collection_status"] = "NO_TESTS_COLLECTED"
         result = reconcile(state)
         self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+
+    def test_non_execution_receipt_cannot_complete(self) -> None:
+        state = base_state()
+        state["receipts"]["R1"]["execution_eligible"] = False
+        result = reconcile(state)
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertTrue(any("execution tool" in e for e in result.errors))
+
 
     def test_assertion_failure_cannot_be_receipt_pass(self) -> None:
         state = base_state()
