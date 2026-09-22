@@ -22,6 +22,14 @@ from controller import Reconciliation, atomic_json, reconcile, workspace_digest 
 
 BUILDER_NAME = "Premium v2.1 Luna Builder"
 META_DIR = ".otl-v2-1"
+VALID_PHASES = {
+    "ROOT_INTAKE",
+    "LUNA_DISPATCHED",
+    "LUNA_MUTATING",
+    "ROOT_RECONCILE",
+    "TERRA_TAKEOVER",
+}
+TERMINAL_RECONCILABLE_PHASES = {"ROOT_RECONCILE", "TERRA_TAKEOVER"}
 
 
 def first_value(event: dict[str, Any], *names: str) -> Any:
@@ -380,6 +388,30 @@ def takeover_blocking_ids(event: dict[str, Any], state: dict[str, Any]) -> list[
     return sorted(ids)
 
 
+def validate_event_context(event: dict[str, Any], state: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    phase = state.get("phase")
+    if phase not in VALID_PHASES:
+        errors.append(f"invalid controller phase: {phase!r}")
+
+    bound_cwd = state.get("cwd")
+    if not isinstance(bound_cwd, str) or not bound_cwd:
+        errors.append("controller workspace binding is missing")
+    else:
+        try:
+            expected = Path(bound_cwd).expanduser().resolve()
+            observed = cwd_path(event)
+        except OSError as exc:
+            errors.append(f"workspace binding could not be resolved: {exc}")
+        else:
+            if observed != expected:
+                errors.append(
+                    f"hook cwd drifted from bound workspace: expected={expected} observed={observed}"
+                )
+    append_control_errors(state, errors, event=event)
+    return errors
+
+
 def _deny_pre_tool(reason: str) -> dict[str, Any]:
     return {
         "hookSpecificOutput": {
@@ -394,6 +426,10 @@ def pre_tool_decision(event: dict[str, Any], state: dict[str, Any], mode: str) -
     if mode != "enforce":
         return {}
     phase = state.get("phase")
+    if phase not in VALID_PHASES:
+        return _deny_pre_tool(
+            f"Premium v2.1 controller phase is invalid ({phase!r}); refusing untracked execution."
+        )
     agent_tool = is_agent_tool(event)
     builder_tool = is_builder_agent_tool(event)
     metadata_only = is_metadata_only(event)
@@ -544,6 +580,8 @@ def observe_post_tool_phase(event: dict[str, Any], state: dict[str, Any]) -> lis
                 state["takeover_basis_ids"] = blocking_ids
     elif phase == "TERRA_TAKEOVER" and agent_tool:
         errors.append("subagent tool completed during Terra takeover")
+    elif phase not in VALID_PHASES:
+        errors.append(f"tool completed while controller phase was invalid: {phase!r}")
 
     append_control_errors(state, errors, event=event)
     return errors
@@ -735,9 +773,10 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         admission_errors.append(
             f"exactly one Luna Builder start required; observed {state.get('builder_count', 0)!r}"
         )
-    if state.get("phase") in {"ROOT_INTAKE", "LUNA_DISPATCHED", "LUNA_MUTATING"}:
+    phase = state.get("phase")
+    if phase not in TERMINAL_RECONCILABLE_PHASES:
         admission_errors.append(
-            f"incomplete Builder lifecycle at final reconciliation: phase={state.get('phase')!r}"
+            f"final reconciliation requires a terminal-reconcilable phase; observed {phase!r}"
         )
     if state.get("weak_session_key") is True:
         admission_errors.append("session_id not observed; trusted completion unavailable")
@@ -807,8 +846,14 @@ def main() -> int:
             state, state_path, events_path = ensure_state(event)
             append_event(events_path, event)
             event_name = str(first_value(event, "hook_event_name", "hookEventName", "event_name", "eventName") or "")
-
-            if event_name in {"SessionStart", "sessionStart"}:
+            context_errors = validate_event_context(event, state)
+            if mode == "enforce" and context_errors:
+                output = {
+                    "continue": False,
+                    "stopReason": "Premium v2.1 runtime context drifted or is malformed; refusing untracked execution.",
+                    "systemMessage": "; ".join(context_errors),
+                }
+            elif event_name in {"SessionStart", "sessionStart"}:
                 handle_session_start(event, state)
             elif event_name in {"UserPromptSubmit", "userPromptSubmit", "userPromptSubmitted"}:
                 init_user_obligation(event, state)
