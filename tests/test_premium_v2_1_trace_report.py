@@ -580,5 +580,54 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         self.assertTrue(report["calibration"]["ready_for_enforce_mode_candidate"])
 
 
+    def test_disconnected_builder_otel_span_blocks_calibration(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        rows = reporter.read_jsonl(otel)
+        for row in rows:
+            if row.get("spanId") == "builder-invoke":
+                row.pop("parentSpanId", None)
+            if row.get("spanId") == "builder-chat":
+                row["parentSpanId"] = "builder-invoke"
+        self.write_jsonl(otel, rows)
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["otel"]["builder_invoke_count"], 0)
+        self.assertEqual(report["otel"]["disconnected_builder_invoke_count"], 1)
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_disconnected_hook_spans_do_not_satisfy_hook_coverage(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        rows = reporter.read_jsonl(otel)
+        for row in rows:
+            attrs = reporter.span_attributes(row)
+            if attrs.get("gen_ai.operation.name") == "execute_hook":
+                row.pop("parentSpanId", None)
+        self.write_jsonl(otel, rows)
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["otel"]["hook_span_under_root_count"], 0)
+        self.assertEqual(
+            set(report["otel"]["missing_expected_hook_spans"]),
+            set(reporter.EXPECTED_EVENTS),
+        )
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+
 if __name__ == "__main__":
     unittest.main()
