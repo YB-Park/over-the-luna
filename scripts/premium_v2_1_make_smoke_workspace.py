@@ -12,6 +12,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+PLUGIN = (ROOT / "experiments" / "premium_v2_1_plugin").resolve()
+
 
 COUNTER = '''def increment(value: int) -> int:
     """Return value incremented by one."""
@@ -58,6 +61,21 @@ def create_workspace(output: Path) -> dict[str, object]:
         json.dumps(INTENT, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    vscode = output / ".vscode"
+    vscode.mkdir(exist_ok=True)
+    (vscode / "settings.json").write_text(
+        json.dumps(
+            {
+                "chat.pluginLocations": {
+                    str(PLUGIN): True,
+                }
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     git = shutil.which("git")
     git_initialized = False
@@ -70,7 +88,18 @@ def create_workspace(output: Path) -> dict[str, object]:
             text=True,
         )
         if init.returncode == 0:
-            subprocess.run([git, "add", "counter.py", "test_counter.py", ".premium-v2-1-smoke.json"], cwd=output, check=True)
+            subprocess.run(
+                [
+                    git,
+                    "add",
+                    "counter.py",
+                    "test_counter.py",
+                    ".premium-v2-1-smoke.json",
+                    ".vscode/settings.json",
+                ],
+                cwd=output,
+                check=True,
+            )
             subprocess.run(
                 [
                     git,
@@ -91,6 +120,8 @@ def create_workspace(output: Path) -> dict[str, object]:
         "workspace": str(output),
         "git_initialized": git_initialized,
         "purpose": INTENT["purpose"],
+        "plugin_location": str(PLUGIN),
+        "vscode_workspace_setting": str(vscode / "settings.json"),
         "next_check": f"cd {output} && python -m unittest -v",
     }
 
