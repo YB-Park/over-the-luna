@@ -181,6 +181,7 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
             "cwd": str(cwd_path(event)),
             "phase": "ROOT_INTAKE",
             "builder_count": 0,
+            "builder_invocation_seen": False,
             "takeover": False,
             "obligations": {},
             "receipts": {},
@@ -242,10 +243,57 @@ def is_agent_tool(event: dict[str, Any]) -> bool:
     return "agent" in name or "subagent" in name or BUILDER_NAME.lower() in data
 
 
+def is_builder_agent_tool(event: dict[str, Any]) -> bool:
+    if not is_agent_tool(event):
+        return False
+    if is_builder_event(event):
+        return True
+    data = json.dumps(event_tool_input(event), sort_keys=True, default=str).lower()
+    return BUILDER_NAME.lower() in data
+
+
+def metadata_target_paths(value: Any) -> list[str]:
+    paths: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            normalized = str(key).lower().replace("-", "_")
+            if normalized in {"path", "file", "file_path", "filepath", "target", "uri"}:
+                if isinstance(child, str) and child.strip():
+                    paths.append(child.strip())
+            paths.extend(metadata_target_paths(child))
+    elif isinstance(value, list):
+        for child in value:
+            paths.extend(metadata_target_paths(child))
+    return paths
+
+
 def is_metadata_only(event: dict[str, Any]) -> bool:
-    strings = flatten_strings(event_tool_input(event))
-    matching = [s for s in strings if META_DIR in s]
-    return bool(matching) and all((META_DIR in s) or ("controller" in s.lower()) for s in strings if "/" in s or "\\" in s)
+    # Never exempt command/search tools merely because their arguments mention
+    # the metadata directory. Only path-targeted file operations can be
+    # metadata-only; false negatives conservatively count as Terra takeover.
+    name = event_tool_name(event).lower()
+    if any(token in name for token in ("execute", "bash", "shell", "terminal", "command", "search", "glob", "rg")):
+        return False
+    paths = metadata_target_paths(event_tool_input(event))
+    if not paths:
+        return False
+    normalized = [path.replace("\\", "/") for path in paths]
+    return all(
+        path == META_DIR
+        or path.startswith(META_DIR + "/")
+        or ("/" + META_DIR + "/") in ("/" + path.lstrip("/"))
+        for path in normalized
+    )
+
+
+def _deny_pre_tool(reason: str) -> dict[str, Any]:
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
 
 
 def pre_tool_decision(event: dict[str, Any], state: dict[str, Any], mode: str) -> dict[str, Any]:
@@ -253,24 +301,34 @@ def pre_tool_decision(event: dict[str, Any], state: dict[str, Any], mode: str) -
         return {}
     phase = state.get("phase")
     agent_tool = is_agent_tool(event)
+    builder_tool = is_builder_agent_tool(event)
     metadata_only = is_metadata_only(event)
-    if phase == "ROOT_INTAKE" and not agent_tool and not metadata_only:
-        return {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": "Premium v2.1 bounded intake requires the single Luna Builder attempt before repository work.",
-            }
-        }
-    if state.get("builder_count", 0) >= 1 and agent_tool:
-        return {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": "Premium v2.1 permits exactly one Luna Builder invocation and no later subagent call.",
-            }
-        }
-    if phase == "ROOT_RECONCILE" and not metadata_only and not agent_tool:
+
+    if phase == "ROOT_INTAKE":
+        if not agent_tool:
+            return _deny_pre_tool(
+                "Premium v2.1 bounded intake permits only the single Luna Builder invocation before repository work."
+            )
+        if not builder_tool:
+            return _deny_pre_tool(
+                "Premium v2.1 bounded intake permits only Premium v2.1 Luna Builder as the first and only subagent."
+            )
+        if state.get("builder_invocation_seen") is True or int(state.get("builder_count", 0)) >= 1:
+            return _deny_pre_tool(
+                "Premium v2.1 permits exactly one Luna Builder invocation."
+            )
+        # Mark dispatch at PreToolUse so a missing SubagentStart event cannot
+        # silently authorize a second child invocation.
+        state["builder_invocation_seen"] = True
+        state["phase"] = "LUNA_DISPATCHED"
+        return {}
+
+    if agent_tool:
+        return _deny_pre_tool(
+            "Premium v2.1 permits exactly one Luna Builder invocation and no later subagent call."
+        )
+
+    if phase == "ROOT_RECONCILE" and not metadata_only:
         state["phase"] = "TERRA_TAKEOVER"
         state["takeover"] = True
     return {}
@@ -468,6 +526,15 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         "user_events": state.get("user_events", []),
     }
     result = reconcile(controller_state)
+    builder_count = state.get("builder_count", 0)
+    if not isinstance(builder_count, int) or builder_count != 1:
+        admission_errors.append(
+            f"exactly one Luna Builder start required; observed {builder_count!r}"
+        )
+    if state.get("phase") in {"ROOT_INTAKE", "LUNA_DISPATCHED", "LUNA_MUTATING"}:
+        admission_errors.append(
+            f"incomplete Builder lifecycle at final reconciliation: phase={state.get('phase')!r}"
+        )
     if state.get("weak_session_key") is True:
         admission_errors.append("session_id not observed; trusted completion unavailable")
     if admission_errors:
@@ -522,6 +589,7 @@ def main() -> int:
                 sync_proposal_authority(event, state)
             elif event_name in {"SubagentStart", "subagentStart"}:
                 if is_builder_event(event):
+                    state["builder_invocation_seen"] = True
                     state["builder_count"] = int(state.get("builder_count", 0)) + 1
                     state["phase"] = "LUNA_MUTATING"
             elif event_name in {"SubagentStop", "subagentStop"}:
