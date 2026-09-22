@@ -882,5 +882,17 @@ class PluginControllerTests(unittest.TestCase):
         self.assertIn("non-object hook input", payload["stopReason"])
 
 
+    def test_noncomplete_controller_outcome_has_user_visible_warning(self) -> None:
+        result = controller.Reconciliation("BLOCKED", (), ("U0",))
+        output = hook.noncomplete_visibility_output(result)
+        self.assertIn("systemMessage", output)
+        self.assertIn("BLOCKED", output["systemMessage"])
+        self.assertIn("not a trusted completion signal", output["systemMessage"])
+
+    def test_complete_controller_outcome_has_no_warning(self) -> None:
+        result = controller.Reconciliation("COMPLETE", (), ())
+        self.assertEqual(hook.noncomplete_visibility_output(result), {})
+
+
 if __name__ == "__main__":
     unittest.main()
