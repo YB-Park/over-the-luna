@@ -67,6 +67,7 @@ def create_workspace(output: Path) -> dict[str, object]:
     (vscode / "settings.json").write_text(
         json.dumps(
             {
+                "chat.plugins.enabled": True,
                 "chat.pluginLocations": {
                     str(PLUGIN): True,
                 },
