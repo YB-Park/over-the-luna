@@ -253,6 +253,45 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         self.assertEqual(report["hook_trace"]["missing_expected_events"], [])
         self.assertTrue(report["calibration"]["ready_for_enforce_mode_candidate"])
 
+    def test_agent_host_invoke_spans_can_establish_resolved_identity(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        cli = self.write_cli_identity()
+        otel = self.root / "invoke-only-otel.jsonl"
+        self.write_jsonl(
+            otel,
+            [
+                {
+                    "type": "span",
+                    "spanId": "root",
+                    "attributes": {
+                        "gen_ai.operation.name": "invoke_agent",
+                        "gen_ai.agent.name": "Premium Cascade v2.1 (Experimental)",
+                        "gen_ai.request.model": "gpt-5.6-terra",
+                        "gen_ai.response.model": "gpt-5.6-terra",
+                    },
+                },
+                {
+                    "type": "span",
+                    "spanId": "builder",
+                    "parentSpanId": "root",
+                    "attributes": {
+                        "gen_ai.operation.name": "invoke_agent",
+                        "gen_ai.agent.name": "Premium v2.1 Luna Builder",
+                        "gen_ai.request.model": "gpt-5.6-luna",
+                        "gen_ai.response.model": "gpt-5.6-luna",
+                    },
+                },
+            ],
+        )
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["otel"]["root_invoke_selection"], "named_root_agent")
+        self.assertEqual(report["backend_identity"]["root_terra"], "OBSERVED")
+        self.assertEqual(report["backend_identity"]["builder_luna"], "OBSERVED")
+        self.assertTrue(report["calibration"]["ready_for_enforce_mode_candidate"])
+
     def test_unscoped_legacy_terra_event_does_not_prove_root_identity(self) -> None:
         self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
         self.write_controller_state()
