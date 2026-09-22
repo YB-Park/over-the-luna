@@ -6,12 +6,14 @@ forcing extra AI turns. Set OTL_V2_1_HOOK_MODE=enforce after schema calibration.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 import hashlib
 import json
 import os
 import platform
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -96,6 +98,52 @@ def session_paths(event: dict[str, Any]) -> tuple[Path, Path, str, bool]:
     key, weak = session_key(event)
     root = state_root()
     return root / f"{key}.json", root / f"{key}.events.jsonl", key, weak
+
+
+@contextmanager
+def state_lock(state_path: Path, timeout_seconds: float = 5.0):
+    """Serialize hook state updates with a cross-platform lock file."""
+    lock_path = state_path.with_name(state_path.name + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            try:
+                age = time.time() - lock_path.stat().st_mtime
+                if age > 30:
+                    lock_path.unlink()
+                    continue
+            except FileNotFoundError:
+                continue
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"controller state lock timeout: {lock_path}")
+            time.sleep(0.05)
+            continue
+        else:
+            try:
+                os.write(fd, f"{os.getpid()} {time.time()}\n".encode("ascii"))
+            finally:
+                os.close(fd)
+            break
+    try:
+        yield
+    finally:
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def trusted_run_id(event: dict[str, Any], state: dict[str, Any]) -> str:
+    observed = event_session_id(event)
+    if isinstance(observed, str) and observed:
+        return observed
+    prior = state.get("session_id_observed")
+    if isinstance(prior, str) and prior:
+        return prior
+    return str(state.get("session_key") or "")
 
 
 def load_json(path: Path, default: Any) -> Any:
@@ -273,7 +321,7 @@ def record_post_tool(event: dict[str, Any], state: dict[str, Any]) -> None:
     exit_code = recursive_exit_code(response)
     receipt_id = f"E{len(state.get('receipts', {})) + 1}"
     receipt = {
-        "run_id": str(event_session_id(event) or state.get("session_key")),
+        "run_id": trusted_run_id(event, state),
         "tool_use_id": first_value(event, "tool_use_id", "toolUseId"),
         "tool_name": event_tool_name(event),
         "command_or_test_id": command_identity(event),
@@ -357,7 +405,7 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         revision = workspace_digest(cwd)
     except OSError:
         revision = "DIGEST_ERROR"
-    run_id = str(event_session_id(event) or state.get("session_key"))
+    run_id = trusted_run_id(event, state)
     controller_state = {
         "run_id": run_id,
         "workspace_revision": revision,
@@ -367,6 +415,8 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         "user_events": state.get("user_events", []),
     }
     result = reconcile(controller_state)
+    if state.get("weak_session_key") is True:
+        admission_errors.append("session_id not observed; trusted completion unavailable")
     if admission_errors:
         result = Reconciliation("NO_VERIFIED_COMPLETION", tuple(sorted(set(result.errors + tuple(admission_errors)))), result.blocking)
     record = {
@@ -400,41 +450,57 @@ def main() -> int:
         return 0
 
     mode = os.environ.get("OTL_V2_1_HOOK_MODE", "audit").lower()
-    state, state_path, events_path = ensure_state(event)
-    append_event(events_path, event)
-    event_name = str(event.get("hook_event_name") or "")
-    output: dict[str, Any] = {}
+    state_path, _, _, _ = session_paths(event)
+    try:
+        with state_lock(state_path):
+            state, state_path, events_path = ensure_state(event)
+            append_event(events_path, event)
+            event_name = str(first_value(event, "hook_event_name", "hookEventName", "event_name", "eventName") or "")
+            output: dict[str, Any] = {}
 
-    if event_name == "SessionStart":
-        state["phase"] = "ROOT_INTAKE"
-    elif event_name == "UserPromptSubmit":
-        init_user_obligation(event, state)
-    elif event_name == "PreToolUse":
-        output = pre_tool_decision(event, state, mode)
-    elif event_name == "PostToolUse":
-        record_post_tool(event, state)
-    elif event_name == "SubagentStart":
-        if is_builder_event(event):
-            state["builder_count"] = int(state.get("builder_count", 0)) + 1
-            state["phase"] = "LUNA_MUTATING"
-    elif event_name == "SubagentStop":
-        if is_builder_event(event):
-            state["phase"] = "ROOT_RECONCILE"
-    elif event_name == "Stop":
-        result, record = final_reconcile(event, state)
-        requested = record.get("requested_outcome")
-        if mode == "enforce" and requested == "COMPLETE" and result.outcome != "COMPLETE":
-            if event.get("stop_hook_active") is not True and int(state.get("correction_count", 0)) < 1:
-                state["correction_count"] = int(state.get("correction_count", 0)) + 1
-                output = {
-                    "hookSpecificOutput": {
-                        "hookEventName": "Stop",
-                        "decision": "block",
-                        "reason": "Trusted Premium v2.1 controller outcome is not COMPLETE. Reconcile the existing obligations/evidence once without weakening scope or fabricating a waiver.",
-                    }
-                }
+            if event_name in {"SessionStart", "sessionStart"}:
+                state["phase"] = "ROOT_INTAKE"
+            elif event_name in {"UserPromptSubmit", "userPromptSubmit", "userPromptSubmitted"}:
+                init_user_obligation(event, state)
+            elif event_name in {"PreToolUse", "preToolUse"}:
+                output = pre_tool_decision(event, state, mode)
+            elif event_name in {"PostToolUse", "postToolUse"}:
+                record_post_tool(event, state)
+            elif event_name in {"SubagentStart", "subagentStart"}:
+                if is_builder_event(event):
+                    state["builder_count"] = int(state.get("builder_count", 0)) + 1
+                    state["phase"] = "LUNA_MUTATING"
+            elif event_name in {"SubagentStop", "subagentStop"}:
+                if is_builder_event(event):
+                    state["phase"] = "ROOT_RECONCILE"
+            elif event_name in {"Stop", "agentStop", "stop"}:
+                result, record = final_reconcile(event, state)
+                requested = record.get("requested_outcome")
+                if mode == "enforce" and requested == "COMPLETE" and result.outcome != "COMPLETE":
+                    stop_active = first_value(event, "stop_hook_active", "stopHookActive") is True
+                    if not stop_active and int(state.get("correction_count", 0)) < 1:
+                        state["correction_count"] = int(state.get("correction_count", 0)) + 1
+                        output = {
+                            "hookSpecificOutput": {
+                                "hookEventName": "Stop",
+                                "decision": "block",
+                                "reason": "Trusted Premium v2.1 controller outcome is not COMPLETE. Reconcile the existing obligations/evidence once without weakening scope or fabricating a waiver.",
+                            }
+                        }
 
-    save_state(state_path, state)
+            save_state(state_path, state)
+    except TimeoutError as exc:
+        if mode == "enforce":
+            output = {
+                "continue": False,
+                "stopReason": "Premium v2.1 controller state lock unavailable; refusing untracked execution.",
+                "systemMessage": str(exc),
+            }
+        else:
+            output = {
+                "systemMessage": "Premium v2.1 audit trace incomplete because controller state lock was unavailable."
+            }
+
     print(json.dumps(output, sort_keys=True))
     return 0
 
