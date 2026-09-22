@@ -159,6 +159,71 @@ class PluginControllerTests(unittest.TestCase):
         errors = hook.admit_discovered(replacement, state)
         self.assertTrue(any("replace preserved" in e for e in errors))
 
+    def test_discovered_repository_obligation_survives_later_proposal_deletion(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Implement X")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.init_user_obligation(prompt, state)
+
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["discovered_obligations"] = [
+            {
+                "id": "R1",
+                "source": "R",
+                "source_anchor": "docs/api.md",
+                "criterion": "Preserve public behavior Y",
+                "blocking": True,
+                "required": True,
+            }
+        ]
+        controller.atomic_json(proposal_path, proposal)
+        self.assertEqual(hook.sync_proposal_authority(self.event("PostToolUse"), state), [])
+        self.assertIn("R1", state["obligations"])
+
+        proposal["discovered_obligations"] = []
+        controller.atomic_json(proposal_path, proposal)
+        result, _ = hook.final_reconcile(self.event("Stop", stop_hook_active=False), state)
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertTrue(any("R1: required obligation missing" in e for e in result.errors))
+
+    def test_invalid_discovered_obligation_replacement_is_persisted(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Implement X")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.init_user_obligation(prompt, state)
+
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        original = {
+            "id": "R1",
+            "source": "R",
+            "source_anchor": "docs/api.md",
+            "criterion": "Preserve public behavior Y",
+            "blocking": True,
+            "required": True,
+        }
+        proposal["discovered_obligations"] = [original]
+        controller.atomic_json(proposal_path, proposal)
+        hook.sync_proposal_authority(self.event("PostToolUse", tool_use_id="tool-1"), state)
+
+        proposal["discovered_obligations"] = [
+            {**original, "criterion": "Preserve only Y-lite"}
+        ]
+        controller.atomic_json(proposal_path, proposal)
+        errors = hook.sync_proposal_authority(
+            self.event("PostToolUse", tool_use_id="tool-2"),
+            state,
+        )
+        self.assertTrue(any("replace preserved" in e for e in errors))
+        self.assertTrue(state["control_errors"])
+
+        # Even restoring the editable proposal does not erase the observed
+        # controller-authority violation.
+        proposal["discovered_obligations"] = [original]
+        controller.atomic_json(proposal_path, proposal)
+        result, _ = hook.final_reconcile(self.event("Stop", stop_hook_active=False), state)
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertTrue(any("replace preserved" in e for e in result.errors))
+
     def test_enforce_mode_blocks_repo_tool_before_builder(self) -> None:
         state = {"phase": "ROOT_INTAKE", "builder_count": 0, "takeover": False}
         event = self.event("PreToolUse", tool_name="read_file", tool_input={"path": "src.txt"})
