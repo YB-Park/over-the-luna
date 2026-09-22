@@ -702,16 +702,39 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
 
 
 def main() -> int:
+    mode = os.environ.get("OTL_V2_1_HOOK_MODE", "audit").lower()
     try:
         event = json.load(sys.stdin)
     except json.JSONDecodeError as exc:
-        print(json.dumps({"systemMessage": f"Premium v2.1 hook received invalid JSON: {exc}"}))
+        if mode == "enforce":
+            print(
+                json.dumps(
+                    {
+                        "continue": False,
+                        "stopReason": "Premium v2.1 received malformed hook input; refusing untracked execution.",
+                        "systemMessage": f"JSONDecodeError: {exc}",
+                    },
+                    sort_keys=True,
+                )
+            )
+        else:
+            print(json.dumps({"systemMessage": f"Premium v2.1 hook received invalid JSON: {exc}"}))
         return 0
     if not isinstance(event, dict):
-        print("{}")
+        if mode == "enforce":
+            print(
+                json.dumps(
+                    {
+                        "continue": False,
+                        "stopReason": "Premium v2.1 received non-object hook input; refusing untracked execution.",
+                    },
+                    sort_keys=True,
+                )
+            )
+        else:
+            print("{}")
         return 0
 
-    mode = os.environ.get("OTL_V2_1_HOOK_MODE", "audit").lower()
     output: dict[str, Any] = {}
     state_path, _, _, _ = session_paths(event)
     try:
