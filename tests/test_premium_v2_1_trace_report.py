@@ -126,56 +126,69 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         builder_model: str = "gpt-5.6-luna",
     ) -> Path:
         path = self.root / "otel.jsonl"
-        self.write_jsonl(
-            path,
-            [
-                {
-                    "type": "span",
-                    "name": "invoke_agent Premium Cascade v2.1",
-                    "spanId": "root-invoke",
-                    "attributes": {
-                        "gen_ai.operation.name": "invoke_agent",
-                        "gen_ai.agent.name": "Premium Cascade v2.1 (Experimental)",
-                        "gen_ai.request.model": "gpt-5.6-terra",
-                        "server.address": "api.githubcopilot.com",
-                        "github.copilot.nano_aiu": 2_500_000_000,
-                    },
+        rows = [
+            {
+                "type": "span",
+                "name": "invoke_agent Premium Cascade v2.1",
+                "spanId": "root-invoke",
+                "attributes": {
+                    "gen_ai.operation.name": "invoke_agent",
+                    "gen_ai.agent.name": "Premium Cascade v2.1 (Experimental)",
+                    "gen_ai.request.model": "gpt-5.6-terra",
+                    "server.address": "api.githubcopilot.com",
+                    "github.copilot.nano_aiu": 2_500_000_000,
                 },
+            },
+            {
+                "type": "span",
+                "name": f"chat {root_model}",
+                "spanId": "root-chat",
+                "parentSpanId": "root-invoke",
+                "attributes": {
+                    "gen_ai.operation.name": "chat",
+                    "gen_ai.request.model": "gpt-5.6-terra",
+                    "gen_ai.response.model": root_model,
+                },
+            },
+            {
+                "type": "span",
+                "name": "invoke_agent Premium v2.1 Luna Builder",
+                "spanId": "builder-invoke",
+                "parentSpanId": "root-invoke",
+                "attributes": {
+                    "gen_ai.operation.name": "invoke_agent",
+                    "gen_ai.agent.name": "Premium v2.1 Luna Builder",
+                    "gen_ai.request.model": "gpt-5.6-luna",
+                },
+            },
+            {
+                "type": "span",
+                "name": f"chat {builder_model}",
+                "spanId": "builder-chat",
+                "parentSpanId": "builder-invoke",
+                "attributes": {
+                    "gen_ai.operation.name": "chat",
+                    "gen_ai.request.model": "gpt-5.6-luna",
+                    "gen_ai.response.model": builder_model,
+                },
+            },
+        ]
+        for index, hook_type in enumerate(reporter.EXPECTED_EVENTS):
+            rows.append(
                 {
                     "type": "span",
-                    "name": f"chat {root_model}",
-                    "spanId": "root-chat",
+                    "name": f"execute_hook {hook_type}",
+                    "spanId": f"hook-{index}",
                     "parentSpanId": "root-invoke",
                     "attributes": {
-                        "gen_ai.operation.name": "chat",
-                        "gen_ai.request.model": "gpt-5.6-terra",
-                        "gen_ai.response.model": root_model,
+                        "gen_ai.operation.name": "execute_hook",
+                        "copilot_chat.hook_type": hook_type,
+                        "copilot_chat.hook_result_kind": "success",
+                        "github.copilot.hook.decision": "pass",
                     },
-                },
-                {
-                    "type": "span",
-                    "name": "invoke_agent Premium v2.1 Luna Builder",
-                    "spanId": "builder-invoke",
-                    "parentSpanId": "root-invoke",
-                    "attributes": {
-                        "gen_ai.operation.name": "invoke_agent",
-                        "gen_ai.agent.name": "Premium v2.1 Luna Builder",
-                        "gen_ai.request.model": "gpt-5.6-luna",
-                    },
-                },
-                {
-                    "type": "span",
-                    "name": f"chat {builder_model}",
-                    "spanId": "builder-chat",
-                    "parentSpanId": "builder-invoke",
-                    "attributes": {
-                        "gen_ai.operation.name": "chat",
-                        "gen_ai.request.model": "gpt-5.6-luna",
-                        "gen_ai.response.model": builder_model,
-                    },
-                },
-            ],
-        )
+                }
+            )
+        self.write_jsonl(path, rows)
         return path
 
     def test_complete_audit_trace_is_enforce_candidate(self) -> None:
@@ -258,32 +271,44 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         self.write_controller_state()
         cli = self.write_cli_identity()
         otel = self.root / "invoke-only-otel.jsonl"
-        self.write_jsonl(
-            otel,
-            [
-                {
-                    "type": "span",
-                    "spanId": "root",
-                    "attributes": {
-                        "gen_ai.operation.name": "invoke_agent",
-                        "gen_ai.agent.name": "Premium Cascade v2.1 (Experimental)",
-                        "gen_ai.request.model": "gpt-5.6-terra",
-                        "gen_ai.response.model": "gpt-5.6-terra",
-                    },
+        invoke_rows = [
+            {
+                "type": "span",
+                "spanId": "root",
+                "attributes": {
+                    "gen_ai.operation.name": "invoke_agent",
+                    "gen_ai.agent.name": "Premium Cascade v2.1 (Experimental)",
+                    "gen_ai.request.model": "gpt-5.6-terra",
+                    "gen_ai.response.model": "gpt-5.6-terra",
                 },
-                {
-                    "type": "span",
-                    "spanId": "builder",
-                    "parentSpanId": "root",
-                    "attributes": {
-                        "gen_ai.operation.name": "invoke_agent",
-                        "gen_ai.agent.name": "Premium v2.1 Luna Builder",
-                        "gen_ai.request.model": "gpt-5.6-luna",
-                        "gen_ai.response.model": "gpt-5.6-luna",
-                    },
+            },
+            {
+                "type": "span",
+                "spanId": "builder",
+                "parentSpanId": "root",
+                "attributes": {
+                    "gen_ai.operation.name": "invoke_agent",
+                    "gen_ai.agent.name": "Premium v2.1 Luna Builder",
+                    "gen_ai.request.model": "gpt-5.6-luna",
+                    "gen_ai.response.model": "gpt-5.6-luna",
                 },
-            ],
+            },
+        ]
+        invoke_rows.extend(
+            {
+                "type": "span",
+                "spanId": f"hook-direct-{index}",
+                "parentSpanId": "root",
+                "attributes": {
+                    "gen_ai.operation.name": "execute_hook",
+                    "copilot_chat.hook_type": hook_type,
+                    "copilot_chat.hook_result_kind": "success",
+                    "github.copilot.hook.decision": "pass",
+                },
+            }
+            for index, hook_type in enumerate(reporter.EXPECTED_EVENTS)
         )
+        self.write_jsonl(otel, invoke_rows)
 
         report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
 
@@ -484,6 +509,75 @@ class PremiumV21TraceReportTests(unittest.TestCase):
             report["controller"]["final_record_sources"]["both_expected_copies_present"]
         )
         self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+
+    def test_missing_otel_hook_span_blocks_calibration(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        rows = [
+            row
+            for row in reporter.read_jsonl(otel)
+            if reporter.span_attributes(row).get("copilot_chat.hook_type") != "Stop"
+        ]
+        self.write_jsonl(otel, rows)
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertIn("Stop", report["otel"]["missing_expected_hook_spans"])
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_failed_otel_hook_span_blocks_calibration(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        rows = reporter.read_jsonl(otel)
+        for row in rows:
+            attrs = reporter.span_attributes(row)
+            if attrs.get("copilot_chat.hook_type") == "PreToolUse":
+                attrs["copilot_chat.hook_result_kind"] = "non_blocking_error"
+                break
+        self.write_jsonl(otel, rows)
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertTrue(report["otel"]["hook_span_failures"])
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_single_top_level_invoke_can_identify_root_without_custom_name(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        rows = reporter.read_jsonl(otel)
+        for row in rows:
+            attrs = reporter.span_attributes(row)
+            if row.get("spanId") == "root-invoke":
+                attrs["gen_ai.agent.name"] = "copilot"
+        self.write_jsonl(otel, rows)
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(
+            report["otel"]["root_invoke_selection"],
+            "single_top_level_invoke",
+        )
+        self.assertEqual(report["backend_identity"]["root_terra"], "OBSERVED")
+        self.assertTrue(report["calibration"]["ready_for_enforce_mode_candidate"])
 
 
 if __name__ == "__main__":
