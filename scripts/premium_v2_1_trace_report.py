@@ -23,6 +23,13 @@ EXPECTED_EVENTS = (
     "Stop",
 )
 BUILDER_NAME = "Premium v2.1 Luna Builder"
+TERMINAL_OUTCOMES = {
+    "COMPLETE",
+    "BLOCKED",
+    "FAILED",
+    "PARTIAL_WITH_USER_WAIVER",
+    "NO_VERIFIED_COMPLETION",
+}
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -343,12 +350,38 @@ def summarize(
     workspace: Path | None = None,
     cli_output: Path | None = None,
     otel_output: Path | None = None,
+    session_key: str | None = None,
 ) -> dict[str, Any]:
-    event_files = sorted(state_dir.glob("*.events.jsonl")) if state_dir.exists() else []
-    state_files = sorted(
-        p for p in state_dir.glob("*.json")
-        if not p.name.endswith(".events.jsonl")
-    ) if state_dir.exists() else []
+    all_event_files = sorted(state_dir.glob("*.events.jsonl")) if state_dir.exists() else []
+    available_keys = [
+        path.name[: -len(".events.jsonl")]
+        for path in all_event_files
+    ]
+    selected_key: str | None = None
+    selection_error: str | None = None
+
+    if session_key:
+        if session_key in available_keys:
+            selected_key = session_key
+        else:
+            selection_error = f"requested session key not found: {session_key}"
+    elif len(available_keys) == 1:
+        selected_key = available_keys[0]
+    elif len(available_keys) > 1:
+        selection_error = (
+            "multiple runtime sessions are present; pass --session-key explicitly"
+        )
+
+    event_files = (
+        [state_dir / f"{selected_key}.events.jsonl"]
+        if selected_key is not None
+        else []
+    )
+    state_files = (
+        [state_dir / f"{selected_key}.json"]
+        if selected_key is not None and (state_dir / f"{selected_key}.json").exists()
+        else []
+    )
 
     events: list[dict[str, Any]] = []
     for path in event_files:
@@ -401,6 +434,35 @@ def summarize(
         if isinstance(final, dict) and final not in final_records:
             final_records.append(final)
 
+    expected_session_id = session_ids[0] if len(session_ids) == 1 else None
+    final_record_assessments: list[dict[str, Any]] = []
+    for record in final_records:
+        errors: list[str] = []
+        if record.get("schema") != "premium-v2.1-final-v1":
+            errors.append("invalid schema")
+        outcome = record.get("outcome")
+        if outcome not in TERMINAL_OUTCOMES:
+            errors.append("invalid outcome")
+        trusted = record.get("trusted_complete")
+        if not isinstance(trusted, bool):
+            errors.append("trusted_complete must be boolean")
+        elif trusted is not (outcome == "COMPLETE"):
+            errors.append("trusted_complete/outcome mismatch")
+        run_id = record.get("run_id")
+        if not isinstance(run_id, str) or not run_id:
+            errors.append("run_id missing")
+        elif expected_session_id is not None and run_id != expected_session_id:
+            errors.append("run_id does not match selected hook session")
+        final_record_assessments.append(
+            {
+                "valid": not errors,
+                "trusted_complete": trusted is True,
+                "outcome": outcome,
+                "run_id": run_id,
+                "errors": errors,
+            }
+        )
+
     cli = parse_cli_jsonl(cli_output)
     otel = parse_otel_jsonl(otel_output)
     model_identity = classify_model_identity(cli, otel)
@@ -412,16 +474,35 @@ def summarize(
         if builder_starts == 1 and builder_stops == 1
         else "NOT_OBSERVED"
     )
-    controller_final = "OBSERVED" if final_records else "NOT_OBSERVED"
+    valid_complete_records = [
+        item
+        for item in final_record_assessments
+        if item["valid"] and item["trusted_complete"]
+    ]
+    if not final_records:
+        controller_final = "NOT_OBSERVED"
+    elif valid_complete_records:
+        controller_final = "VALID_COMPLETE"
+    elif all(item["valid"] for item in final_record_assessments):
+        controller_final = "VALID_NONCOMPLETE"
+    else:
+        controller_final = "INVALID"
 
     calibration_ready = (
-        not missing_events
+        selection_error is None
+        and selected_key is not None
+        and len(session_ids) == 1
+        and not missing_events
         and builder_starts == 1
         and builder_stops == 1
-        and controller_final == "OBSERVED"
+        and receipt_count >= 1
+        and collected_pass_receipts >= 1
+        and controller_final == "VALID_COMPLETE"
         and model_identity["root_terra"] == "OBSERVED"
         and model_identity["builder_luna"] == "OBSERVED"
         and not any(event.get("_parse_error") is True for event in events)
+        and cli.get("parse_errors", 0) == 0
+        and otel.get("parse_errors", 0) == 0
     )
 
     return {
@@ -429,6 +510,13 @@ def summarize(
         "zero_ai": True,
         "state_dir": str(state_dir),
         "workspace": str(workspace) if workspace else None,
+        "session_selection": {
+            "requested_key": session_key,
+            "available_keys": available_keys,
+            "selected_key": selected_key,
+            "ambiguous": len(available_keys) > 1 and session_key is None,
+            "error": selection_error,
+        },
         "hook_trace": {
             "status": hook_firing,
             "event_files": [str(path) for path in event_files],
@@ -452,6 +540,7 @@ def summarize(
             "collected_pass_receipts": collected_pass_receipts,
             "final_record_status": controller_final,
             "final_records": final_records,
+            "final_record_assessments": final_record_assessments,
         },
         "cli": cli,
         "otel": otel,
@@ -478,6 +567,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workspace", type=Path)
     parser.add_argument("--cli-output", type=Path)
     parser.add_argument("--otel-output", type=Path)
+    parser.add_argument("--session-key")
     parser.add_argument("--require-calibration-ready", action="store_true")
     args = parser.parse_args(argv)
 
@@ -486,6 +576,7 @@ def main(argv: list[str] | None = None) -> int:
         args.workspace.expanduser().resolve() if args.workspace else None,
         args.cli_output.expanduser().resolve() if args.cli_output else None,
         args.otel_output.expanduser().resolve() if args.otel_output else None,
+        args.session_key,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
     if args.require_calibration_ready and not report["calibration"]["ready_for_enforce_mode_candidate"]:
