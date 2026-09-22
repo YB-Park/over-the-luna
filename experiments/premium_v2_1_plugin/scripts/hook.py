@@ -227,12 +227,14 @@ def handle_session_start(event: dict[str, Any], state: dict[str, Any]) -> None:
         return
 
     state["session_start_count"] = start_count + 1
+    # Do not assume SessionStart precedes UserPromptSubmit. The first start is
+    # accepted with at most one already-captured prompt; repeated starts or any
+    # Builder activity before the first start are inconsistent.
     prior_activity = (
         start_count > 0
-        or bool(state.get("obligations"))
         or state.get("builder_invocation_seen") is True
         or builder_count > 0
-        or prompt_count > 0
+        or prompt_count > 1
     )
     if prior_activity:
         append_control_errors(
@@ -846,11 +848,37 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         admission_errors.append(
             f"exactly one Luna Builder start required; observed {state.get('builder_count', 0)!r}"
         )
+    if state.get("builder_invocation_seen") is not True:
+        admission_errors.append("Luna Builder invocation was not observed")
+    if state.get("builder_agent_tool_completion_seen") is not True:
+        admission_errors.append("Luna Builder agent-tool completion was not observed")
+
     phase = state.get("phase")
     if phase not in TERMINAL_RECONCILABLE_PHASES:
         admission_errors.append(
             f"final reconciliation requires a terminal-reconcilable phase; observed {phase!r}"
         )
+
+    takeover = state.get("takeover")
+    basis = state.get("takeover_basis_ids", [])
+    if not isinstance(takeover, bool):
+        admission_errors.append("takeover flag must be boolean")
+    if not isinstance(basis, list) or not all(
+        isinstance(cid, str) and cid for cid in basis
+    ):
+        admission_errors.append("takeover_basis_ids must be a list of criterion IDs")
+        basis = []
+    if phase == "TERRA_TAKEOVER":
+        if takeover is not True:
+            admission_errors.append("TERRA_TAKEOVER phase requires takeover=true")
+        if not basis:
+            admission_errors.append("TERRA_TAKEOVER phase requires a captured takeover basis")
+    elif phase == "ROOT_RECONCILE":
+        if takeover is not False:
+            admission_errors.append("ROOT_RECONCILE phase requires takeover=false")
+        if basis:
+            admission_errors.append("ROOT_RECONCILE phase cannot retain takeover basis IDs")
+
     if state.get("weak_session_key") is True:
         admission_errors.append("session_id not observed; trusted completion unavailable")
     if admission_errors:
