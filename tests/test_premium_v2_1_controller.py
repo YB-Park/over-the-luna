@@ -414,6 +414,19 @@ class WorkspaceDigestTests(unittest.TestCase):
             d2 = workspace_digest(root)
             self.assertEqual(d1, d2)
 
+    def test_controller_metadata_directory_is_excluded(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "a.txt").write_text("stable", encoding="utf-8")
+            meta = root / ".otl-v2-1"
+            meta.mkdir()
+            (meta / "controller-proposal.json").write_text('{"v": 1}', encoding="utf-8")
+            d1 = workspace_digest(root)
+            (meta / "controller-proposal.json").write_text('{"v": 2}', encoding="utf-8")
+            (meta / "receipt-index.json").write_text('{"receipts": []}', encoding="utf-8")
+            d2 = workspace_digest(root)
+            self.assertEqual(d1, d2)
+
 
 if __name__ == "__main__":
     unittest.main()
