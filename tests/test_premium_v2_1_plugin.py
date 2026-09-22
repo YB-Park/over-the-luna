@@ -245,5 +245,76 @@ class PluginControllerTests(unittest.TestCase):
 
 
 
+    def test_weak_session_key_never_trusted_complete(self) -> None:
+        event = {
+            "hook_event_name": "UserPromptSubmit",
+            "cwd": str(self.workspace),
+            "timestamp": "2026-09-17T00:00:00Z",
+            "prompt": "Make the local check pass",
+        }
+        state, _, _ = hook.ensure_state(event)
+        hook.init_user_obligation(event, state)
+        self.assertTrue(state["weak_session_key"])
+
+        post = {
+            "hook_event_name": "PostToolUse",
+            "cwd": str(self.workspace),
+            "timestamp": "2026-09-17T00:00:01Z",
+            "tool_name": "execute",
+            "tool_input": {"command": "python -m unittest"},
+            "tool_response": "Process exited with code 0",
+        }
+        hook.record_post_tool(post, state)
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["current"]["U0"] = {"disposition": "VERIFIED", "evidence_refs": ["E1"]}
+        controller.atomic_json(proposal_path, proposal)
+
+        stop = {
+            "hook_event_name": "Stop",
+            "cwd": str(self.workspace),
+            "timestamp": "2026-09-17T00:00:02Z",
+            "stop_hook_active": False,
+        }
+        result, record = hook.final_reconcile(stop, state)
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+        self.assertTrue(any("session_id not observed" in e for e in result.errors))
+
+    def test_digest_error_never_trusted_complete(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.init_user_obligation(prompt, state)
+
+        original_digest = hook.workspace_digest
+        hook.workspace_digest = lambda _: (_ for _ in ()).throw(OSError("digest failed"))
+        self.addCleanup(setattr, hook, "workspace_digest", original_digest)
+
+        post = self.event(
+            "PostToolUse",
+            tool_name="execute",
+            tool_input={"command": "python -m unittest"},
+            tool_response="Process exited with code 0",
+        )
+        hook.record_post_tool(post, state)
+        self.assertEqual(state["receipts"]["E1"]["workspace_after"], "DIGEST_ERROR")
+
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["current"]["U0"] = {"disposition": "VERIFIED", "evidence_refs": ["E1"]}
+        controller.atomic_json(proposal_path, proposal)
+
+        result, record = hook.final_reconcile(self.event("Stop", stop_hook_active=False), state)
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+
+    def test_state_lock_cleans_up_lock_file(self) -> None:
+        state_path = self.state_dir / "session.json"
+        with hook.state_lock(state_path):
+            lock_path = state_path.with_name(state_path.name + ".lock")
+            self.assertTrue(lock_path.exists())
+        self.assertFalse(lock_path.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
