@@ -16,7 +16,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from scripts import premium_v2_1_trace_report as trace_report
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import premium_v2_1_trace_report as trace_report  # noqa: E402
 
 SMOKE_SCHEMA = "premium-v2.1-runtime-smoke-fixture-v1"
 
