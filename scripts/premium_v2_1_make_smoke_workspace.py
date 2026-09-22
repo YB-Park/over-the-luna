@@ -63,12 +63,17 @@ def create_workspace(output: Path) -> dict[str, object]:
     )
     vscode = output / ".vscode"
     vscode.mkdir(exist_ok=True)
+    otel_output = (output.parent / f"{output.name}-copilot-otel.jsonl").resolve()
     (vscode / "settings.json").write_text(
         json.dumps(
             {
                 "chat.pluginLocations": {
                     str(PLUGIN): True,
-                }
+                },
+                "github.copilot.chat.otel.enabled": True,
+                "github.copilot.chat.otel.exporterType": "file",
+                "github.copilot.chat.otel.outfile": str(otel_output),
+                "github.copilot.chat.otel.captureContent": False,
             },
             indent=2,
             sort_keys=True,
@@ -122,6 +127,7 @@ def create_workspace(output: Path) -> dict[str, object]:
         "purpose": INTENT["purpose"],
         "plugin_location": str(PLUGIN),
         "vscode_workspace_setting": str(vscode / "settings.json"),
+        "otel_output": str(otel_output),
         "next_check": f"cd {output} && python -m unittest -v",
     }
 
