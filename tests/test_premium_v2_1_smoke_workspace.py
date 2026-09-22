@@ -37,6 +37,7 @@ class PremiumV21SmokeWorkspaceTests(unittest.TestCase):
             settings = json.loads(
                 (workspace / ".vscode" / "settings.json").read_text(encoding="utf-8")
             )
+            self.assertIs(settings["chat.plugins.enabled"], True)
             self.assertEqual(
                 settings["chat.pluginLocations"],
                 {str(smoke.PLUGIN): True},
