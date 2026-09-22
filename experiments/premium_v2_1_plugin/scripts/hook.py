@@ -330,13 +330,18 @@ def is_metadata_only(event: dict[str, Any]) -> bool:
     paths = metadata_target_paths(event_tool_input(event))
     if not paths:
         return False
-    normalized = [path.replace("\\", "/") for path in paths]
-    return all(
-        path == META_DIR
-        or path.startswith(META_DIR + "/")
-        or ("/" + META_DIR + "/") in ("/" + path.lstrip("/"))
-        for path in normalized
-    )
+
+    metadata_root = (cwd_path(event) / META_DIR).resolve()
+    for raw in paths:
+        candidate = Path(raw).expanduser()
+        if not candidate.is_absolute():
+            candidate = cwd_path(event) / candidate
+        try:
+            resolved = candidate.resolve()
+            resolved.relative_to(metadata_root)
+        except (OSError, ValueError):
+            return False
+    return True
 
 
 def takeover_blocking_ids(event: dict[str, Any], state: dict[str, Any]) -> list[str]:
