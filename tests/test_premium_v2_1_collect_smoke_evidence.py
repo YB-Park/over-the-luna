@@ -101,6 +101,7 @@ class PremiumV21SmokeEvidenceCollectorTests(unittest.TestCase):
 
         self.assertEqual(manifest["selected_session_key"], "abc")
         self.assertEqual(manifest["focused_test_exit"], 0)
+        self.assertTrue(manifest["trace_snapshot_before_collector_test"])
         self.assertTrue((self.output / "trace-report.json").exists())
         self.assertTrue((self.output / "manifest.json").exists())
         self.assertIn("raw/hook_events.jsonl", manifest["artifacts"])
@@ -155,6 +156,18 @@ class PremiumV21SmokeEvidenceCollectorTests(unittest.TestCase):
                 self.workspace,
                 state_dir=self.state_dir,
                 output=self.output,
+            )
+
+
+    def test_refuses_evidence_output_inside_workspace(self) -> None:
+        self.write_session("abc")
+        inside = self.workspace / "evidence"
+
+        with self.assertRaises(ValueError):
+            collector.collect(
+                self.workspace,
+                state_dir=self.state_dir,
+                output=inside,
             )
 
 
