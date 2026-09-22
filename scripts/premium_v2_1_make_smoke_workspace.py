@@ -51,8 +51,13 @@ INTENT = {
 
 def create_workspace(output: Path) -> dict[str, object]:
     output = output.expanduser().resolve()
+    otel_output = (output.parent / f"{output.name}-copilot-otel.jsonl").resolve()
     if output.exists() and any(output.iterdir()):
         raise ValueError(f"refusing non-empty smoke workspace: {output}")
+    if otel_output.exists():
+        raise ValueError(
+            f"refusing existing smoke OTel output; archive/remove it first: {otel_output}"
+        )
     output.mkdir(parents=True, exist_ok=True)
 
     (output / "counter.py").write_text(COUNTER, encoding="utf-8")
@@ -63,7 +68,6 @@ def create_workspace(output: Path) -> dict[str, object]:
     )
     vscode = output / ".vscode"
     vscode.mkdir(exist_ok=True)
-    otel_output = (output.parent / f"{output.name}-copilot-otel.jsonl").resolve()
     (vscode / "settings.json").write_text(
         json.dumps(
             {
