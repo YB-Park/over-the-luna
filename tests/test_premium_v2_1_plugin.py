@@ -394,12 +394,57 @@ class PluginControllerTests(unittest.TestCase):
         self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_root_repo_tool_after_builder_marks_takeover(self) -> None:
-        state = {"phase": "ROOT_RECONCILE", "builder_count": 1, "takeover": False}
+        state = {
+            "phase": "ROOT_RECONCILE",
+            "builder_count": 1,
+            "takeover": False,
+            "obligations": {
+                "U0": {"blocking": True, "required": True},
+            },
+        }
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        controller.atomic_json(
+            proposal_path,
+            {
+                "requested_outcome": "COMPLETE",
+                "current": {
+                    "U0": {"disposition": "UNRESOLVED", "evidence_refs": []},
+                },
+                "discovered_obligations": [],
+            },
+        )
         event = self.event("PreToolUse", tool_name="read_file", tool_input={"path": "src.txt"})
         output = hook.pre_tool_decision(event, state, "enforce")
         self.assertEqual(output, {})
         self.assertEqual(state["phase"], "TERRA_TAKEOVER")
         self.assertTrue(state["takeover"])
+        self.assertEqual(state["takeover_basis_ids"], ["U0"])
+
+    def test_root_repo_tool_without_blocking_residual_is_denied(self) -> None:
+        state = {
+            "phase": "ROOT_RECONCILE",
+            "builder_count": 1,
+            "takeover": False,
+            "obligations": {
+                "U0": {"blocking": True, "required": True},
+            },
+        }
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        controller.atomic_json(
+            proposal_path,
+            {
+                "requested_outcome": "COMPLETE",
+                "current": {
+                    "U0": {"disposition": "VERIFIED", "evidence_refs": ["E1"]},
+                },
+                "discovered_obligations": [],
+            },
+        )
+        event = self.event("PreToolUse", tool_name="read_file", tool_input={"path": "src.txt"})
+        output = hook.pre_tool_decision(event, state, "enforce")
+        self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertEqual(state["phase"], "ROOT_RECONCILE")
+        self.assertFalse(state["takeover"])
 
     def test_metadata_edit_does_not_count_as_takeover(self) -> None:
         state = {"phase": "ROOT_RECONCILE", "builder_count": 1, "takeover": False}
@@ -669,7 +714,21 @@ class PluginControllerTests(unittest.TestCase):
             "builder_invocation_seen": True,
             "takeover": False,
             "control_errors": [],
+            "obligations": {
+                "U0": {"blocking": True, "required": True},
+            },
         }
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        controller.atomic_json(
+            proposal_path,
+            {
+                "requested_outcome": "COMPLETE",
+                "current": {
+                    "U0": {"disposition": "FAILED", "evidence_refs": []},
+                },
+                "discovered_obligations": [],
+            },
+        )
         event = self.event(
             "PostToolUse",
             tool_name="read_file",
@@ -679,6 +738,40 @@ class PluginControllerTests(unittest.TestCase):
         self.assertEqual(hook.observe_post_tool_phase(event, state), [])
         self.assertEqual(state["phase"], "TERRA_TAKEOVER")
         self.assertTrue(state["takeover"])
+        self.assertEqual(state["takeover_basis_ids"], ["U0"])
+
+    def test_post_tool_bypass_without_blocking_residual_is_control_error(self) -> None:
+        state = {
+            "phase": "ROOT_RECONCILE",
+            "builder_count": 1,
+            "builder_invocation_seen": True,
+            "takeover": False,
+            "control_errors": [],
+            "obligations": {
+                "U0": {"blocking": True, "required": True},
+            },
+        }
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        controller.atomic_json(
+            proposal_path,
+            {
+                "requested_outcome": "COMPLETE",
+                "current": {
+                    "U0": {"disposition": "VERIFIED", "evidence_refs": ["E1"]},
+                },
+                "discovered_obligations": [],
+            },
+        )
+        event = self.event(
+            "PostToolUse",
+            tool_name="read_file",
+            tool_input={"path": "src.txt"},
+            tool_response="ok",
+        )
+        errors = hook.observe_post_tool_phase(event, state)
+        self.assertTrue(any("without a captured FAILED/UNRESOLVED" in e for e in errors))
+        self.assertTrue(state["control_errors"])
+        self.assertFalse(state["takeover"])
 
     def test_post_tool_rejects_agent_after_builder_if_pretool_was_bypassed(self) -> None:
         state = {
