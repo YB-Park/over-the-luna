@@ -185,6 +185,7 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
             "obligations": {},
             "receipts": {},
             "user_events": [],
+            "control_errors": [],
             "correction_count": 0,
         }
     return state, state_path, events_path
@@ -394,6 +395,51 @@ def admit_discovered(proposal: dict[str, Any], state: dict[str, Any]) -> list[st
     return errors
 
 
+def append_control_errors(
+    state: dict[str, Any],
+    errors: list[str],
+    *,
+    event: dict[str, Any] | None = None,
+) -> None:
+    if not errors:
+        return
+    records = state.setdefault("control_errors", [])
+    if not isinstance(records, list):
+        records = []
+        state["control_errors"] = records
+    event_name = (
+        str(first_value(event or {}, "hook_event_name", "hookEventName", "event_name", "eventName") or "")
+        if event is not None
+        else ""
+    )
+    for error in errors:
+        record = {
+            "error": error,
+            "hook_event_name": event_name,
+            "tool_use_id": first_value(event or {}, "tool_use_id", "toolUseId"),
+        }
+        if record not in records:
+            records.append(record)
+
+
+def sync_proposal_authority(event: dict[str, Any], state: dict[str, Any]) -> list[str]:
+    """Capture repository-derived obligations as soon as they become observable.
+
+    Once an R obligation appears in the model-editable proposal, it is copied
+    into controller-owned external state. Later deletion from the proposal does
+    not delete the captured obligation.
+    """
+    proposal_path, _, _ = metadata_paths(cwd_path(event))
+    proposal = load_json(proposal_path, {})
+    if not isinstance(proposal, dict):
+        errors = ["controller proposal must be an object"]
+        append_control_errors(state, errors, event=event)
+        return errors
+    errors = admit_discovered(proposal, state)
+    append_control_errors(state, errors, event=event)
+    return errors
+
+
 def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Reconciliation, dict[str, Any]]:
     cwd = cwd_path(event)
     proposal_path, _, final_path = metadata_paths(cwd)
@@ -401,6 +447,13 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
     if not isinstance(proposal, dict):
         proposal = {}
     admission_errors = admit_discovered(proposal, state)
+    persisted = state.get("control_errors", [])
+    if isinstance(persisted, list):
+        admission_errors.extend(
+            str(item.get("error"))
+            for item in persisted
+            if isinstance(item, dict) and isinstance(item.get("error"), str)
+        )
     try:
         revision = workspace_digest(cwd)
     except OSError:
@@ -466,6 +519,7 @@ def main() -> int:
                 output = pre_tool_decision(event, state, mode)
             elif event_name in {"PostToolUse", "postToolUse"}:
                 record_post_tool(event, state)
+                sync_proposal_authority(event, state)
             elif event_name in {"SubagentStart", "subagentStart"}:
                 if is_builder_event(event):
                     state["builder_count"] = int(state.get("builder_count", 0)) + 1
