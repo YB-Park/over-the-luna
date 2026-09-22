@@ -643,5 +643,61 @@ class PluginControllerTests(unittest.TestCase):
         self.assertTrue(any("incomplete Builder lifecycle" in e for e in result.errors))
 
 
+    def test_post_tool_catches_pre_builder_repository_work(self) -> None:
+        state = {
+            "phase": "ROOT_INTAKE",
+            "builder_count": 0,
+            "builder_invocation_seen": False,
+            "takeover": False,
+            "control_errors": [],
+        }
+        event = self.event(
+            "PostToolUse",
+            tool_name="read_file",
+            tool_input={"path": "src.txt"},
+            tool_response="ok",
+        )
+        errors = hook.observe_post_tool_phase(event, state)
+        self.assertTrue(errors)
+        self.assertTrue(any("before Builder ownership" in e for e in errors))
+        self.assertTrue(state["control_errors"])
+
+    def test_post_tool_marks_takeover_if_pretool_was_bypassed(self) -> None:
+        state = {
+            "phase": "ROOT_RECONCILE",
+            "builder_count": 1,
+            "builder_invocation_seen": True,
+            "takeover": False,
+            "control_errors": [],
+        }
+        event = self.event(
+            "PostToolUse",
+            tool_name="read_file",
+            tool_input={"path": "src.txt"},
+            tool_response="ok",
+        )
+        self.assertEqual(hook.observe_post_tool_phase(event, state), [])
+        self.assertEqual(state["phase"], "TERRA_TAKEOVER")
+        self.assertTrue(state["takeover"])
+
+    def test_post_tool_rejects_agent_after_builder_if_pretool_was_bypassed(self) -> None:
+        state = {
+            "phase": "ROOT_RECONCILE",
+            "builder_count": 1,
+            "builder_invocation_seen": True,
+            "takeover": False,
+            "control_errors": [],
+        }
+        event = self.event(
+            "PostToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder"},
+            tool_response="done",
+        )
+        errors = hook.observe_post_tool_phase(event, state)
+        self.assertTrue(any("after the single Builder attempt" in e for e in errors))
+        self.assertTrue(state["control_errors"])
+
+
 if __name__ == "__main__":
     unittest.main()
