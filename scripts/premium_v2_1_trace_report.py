@@ -211,6 +211,12 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
         "root_invoke_count": 0,
         "root_invoke_selection": "none",
         "builder_invoke_count": 0,
+        "hook_span_count": 0,
+        "hook_span_counts": {},
+        "hook_result_kinds": {},
+        "hook_decisions": {},
+        "missing_expected_hook_spans": list(EXPECTED_EVENTS),
+        "hook_span_failures": [],
         "root_requested_models": [],
         "root_resolved_models": [],
         "builder_requested_models": [],
@@ -247,6 +253,27 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
         if _root_agent_name(span_attributes(row).get("gen_ai.agent.name"))
         or _root_agent_name(span_attributes(row).get("gen_ai.agent.id"))
     ]
+
+    def has_invoke_ancestor(row: dict[str, Any]) -> bool:
+        current = parent_span_id(row)
+        seen: set[str] = set()
+        while current and current not in seen:
+            seen.add(current)
+            parent = by_id.get(current)
+            if parent is None:
+                return False
+            if span_attributes(parent).get("gen_ai.operation.name") == "invoke_agent":
+                return True
+            current = parent_span_id(parent)
+        return False
+
+    top_level_invokes = [
+        row
+        for row in invoke_spans
+        if not has_invoke_ancestor(row)
+        and not _builder_agent_name(span_attributes(row).get("gen_ai.agent.name"))
+        and not _builder_agent_name(span_attributes(row).get("gen_ai.agent.id"))
+    ]
     legacy_server_root_invokes = [
         row
         for row in invoke_spans
@@ -260,6 +287,9 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
     if named_root_invokes:
         root_invokes = named_root_invokes
         result["root_invoke_selection"] = "named_root_agent"
+    elif len(top_level_invokes) == 1:
+        root_invokes = top_level_invokes
+        result["root_invoke_selection"] = "single_top_level_invoke"
     elif legacy_server_root_invokes:
         root_invokes = legacy_server_root_invokes
         result["root_invoke_selection"] = "legacy_server_heuristic"
@@ -316,6 +346,51 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
             append_unique(root_resolved, model)
         elif owner in builder_ids:
             append_unique(builder_resolved, model)
+
+    hook_spans = [
+        row
+        for row in spans
+        if span_attributes(row).get("gen_ai.operation.name") == "execute_hook"
+    ]
+    hook_counts: collections.Counter[str] = collections.Counter()
+    hook_result_kinds: dict[str, list[str]] = {}
+    hook_decisions: dict[str, list[str]] = {}
+    hook_failures: list[str] = []
+    for row in hook_spans:
+        attrs = span_attributes(row)
+        hook_type = attrs.get("copilot_chat.hook_type")
+        if not isinstance(hook_type, str) or not hook_type:
+            hook_failures.append("execute_hook span missing copilot_chat.hook_type")
+            continue
+        normalized_type = event_name({"hook_event_name": hook_type}) or hook_type
+        hook_counts[normalized_type] += 1
+        result_kind = attrs.get("copilot_chat.hook_result_kind")
+        if isinstance(result_kind, str) and result_kind:
+            hook_result_kinds.setdefault(normalized_type, [])
+            if result_kind not in hook_result_kinds[normalized_type]:
+                hook_result_kinds[normalized_type].append(result_kind)
+            if result_kind != "success":
+                hook_failures.append(
+                    f"{normalized_type}: OTel hook result kind is {result_kind!r}"
+                )
+        else:
+            hook_failures.append(
+                f"{normalized_type}: OTel hook result kind missing"
+            )
+        decision = attrs.get("github.copilot.hook.decision")
+        if isinstance(decision, str) and decision:
+            hook_decisions.setdefault(normalized_type, [])
+            if decision not in hook_decisions[normalized_type]:
+                hook_decisions[normalized_type].append(decision)
+
+    result["hook_span_count"] = len(hook_spans)
+    result["hook_span_counts"] = dict(sorted(hook_counts.items()))
+    result["hook_result_kinds"] = hook_result_kinds
+    result["hook_decisions"] = hook_decisions
+    result["missing_expected_hook_spans"] = [
+        name for name in EXPECTED_EVENTS if hook_counts.get(name, 0) == 0
+    ]
+    result["hook_span_failures"] = hook_failures
 
     credits: list[float] = []
     for row in root_invokes:
@@ -619,6 +694,10 @@ def summarize(
         and controller_final == "VALID_COMPLETE"
         and model_identity["root_terra"] == "OBSERVED"
         and model_identity["builder_luna"] == "OBSERVED"
+        and otel.get("root_invoke_count") == 1
+        and otel.get("builder_invoke_count") == 1
+        and not otel.get("missing_expected_hook_spans")
+        and not otel.get("hook_span_failures")
         and not any(event.get("_parse_error") is True for event in events)
         and cli.get("parse_errors", 0) == 0
         and otel.get("parse_errors", 0) == 0
