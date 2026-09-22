@@ -766,7 +766,7 @@ class PluginControllerTests(unittest.TestCase):
         )
         self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
         self.assertFalse(record["trusted_complete"])
-        self.assertTrue(any("incomplete Builder lifecycle" in e for e in result.errors))
+        self.assertTrue(any("terminal-reconcilable phase" in e for e in result.errors))
 
 
     def test_post_tool_catches_pre_builder_repository_work(self) -> None:
