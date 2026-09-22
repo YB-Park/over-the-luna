@@ -480,6 +480,35 @@ class PluginControllerTests(unittest.TestCase):
         self.assertEqual(receipt["result_class"], "PASS")
         self.assertEqual(receipt["exit_status"], 0)
 
+    def test_non_execution_tool_cannot_forge_pass_receipt_from_text(self) -> None:
+        state = {
+            "session_key": "fallback",
+            "receipts": {},
+            "last_workspace_revision": None,
+        }
+        event = self.event(
+            "PostToolUse",
+            tool_name="read_file",
+            tool_input={"path": "src.txt"},
+            tool_response="Documentation example: Process exited with code 0",
+        )
+        hook.record_post_tool(event, state)
+        receipt = state["receipts"]["E1"]
+        self.assertFalse(receipt["execution_eligible"])
+        self.assertEqual(receipt["collection_status"], "OBSERVED")
+        self.assertEqual(receipt["result_class"], "UNCLASSIFIED")
+        self.assertIsNone(receipt["exit_status"])
+
+    def test_command_bearing_terminal_tool_is_execution_eligible(self) -> None:
+        event = self.event(
+            "PostToolUse",
+            tool_name="runTerminalCommand",
+            tool_input={"command": "python -m unittest"},
+            tool_response={"exitCode": 0},
+        )
+        self.assertTrue(hook.is_execution_tool(event))
+        self.assertEqual(hook.execution_command(event), "python -m unittest")
+
     def test_camelcase_runtime_fields_are_normalized(self) -> None:
         event = {
             "sessionId": "cli-session",
