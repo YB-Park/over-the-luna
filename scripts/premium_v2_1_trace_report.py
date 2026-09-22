@@ -25,6 +25,7 @@ EXPECTED_EVENTS = (
     "SubagentStop",
     "Stop",
 )
+ROOT_AGENT_NAME = "Premium Cascade v2.1 (Experimental)"
 BUILDER_NAME = "Premium v2.1 Luna Builder"
 TERMINAL_OUTCOMES = {
     "COMPLETE",
@@ -180,6 +181,17 @@ def parent_span_id(row: dict[str, Any]) -> str | None:
     return None
 
 
+def _root_agent_name(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    normalized = value.strip().lower()
+    return normalized in {
+        ROOT_AGENT_NAME.lower(),
+        "premium-cascade-v2-1",
+        "premium-v2-1-cascade",
+    } or ("premium" in normalized and "cascade" in normalized and "v2.1" in normalized)
+
+
 def _builder_agent_name(value: Any) -> bool:
     if not isinstance(value, str):
         return False
@@ -197,6 +209,7 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
         "parse_errors": 0,
         "span_count": 0,
         "root_invoke_count": 0,
+        "root_invoke_selection": "none",
         "builder_invoke_count": 0,
         "root_requested_models": [],
         "root_resolved_models": [],
@@ -228,12 +241,30 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
         elif operation == "chat":
             chat_spans.append(row)
 
-    root_invokes = [
+    named_root_invokes = [
         row
         for row in invoke_spans
-        if "server.address" in span_attributes(row)
-        or "server.port" in span_attributes(row)
+        if _root_agent_name(span_attributes(row).get("gen_ai.agent.name"))
+        or _root_agent_name(span_attributes(row).get("gen_ai.agent.id"))
     ]
+    legacy_server_root_invokes = [
+        row
+        for row in invoke_spans
+        if (
+            "server.address" in span_attributes(row)
+            or "server.port" in span_attributes(row)
+        )
+        and not _builder_agent_name(span_attributes(row).get("gen_ai.agent.name"))
+        and not _builder_agent_name(span_attributes(row).get("gen_ai.agent.id"))
+    ]
+    if named_root_invokes:
+        root_invokes = named_root_invokes
+        result["root_invoke_selection"] = "named_root_agent"
+    elif legacy_server_root_invokes:
+        root_invokes = legacy_server_root_invokes
+        result["root_invoke_selection"] = "legacy_server_heuristic"
+    else:
+        root_invokes = []
     builder_invokes = [
         row
         for row in invoke_spans
@@ -266,13 +297,17 @@ def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
 
     root_requested: list[str] = []
     builder_requested: list[str] = []
-    for row in root_invokes:
-        append_unique(root_requested, span_attributes(row).get("gen_ai.request.model"))
-    for row in builder_invokes:
-        append_unique(builder_requested, span_attributes(row).get("gen_ai.request.model"))
-
     root_resolved: list[str] = []
     builder_resolved: list[str] = []
+    for row in root_invokes:
+        attrs = span_attributes(row)
+        append_unique(root_requested, attrs.get("gen_ai.request.model"))
+        append_unique(root_resolved, attrs.get("gen_ai.response.model"))
+    for row in builder_invokes:
+        attrs = span_attributes(row)
+        append_unique(builder_requested, attrs.get("gen_ai.request.model"))
+        append_unique(builder_resolved, attrs.get("gen_ai.response.model"))
+
     for row in chat_spans:
         attrs = span_attributes(row)
         owner = nearest_invoke_id(row)
