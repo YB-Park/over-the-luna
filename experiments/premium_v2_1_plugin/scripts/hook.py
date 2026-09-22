@@ -199,6 +199,9 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
             "session_start_count": 0,
             "builder_count": 0,
             "builder_invocation_seen": False,
+            "builder_dispatch_count": 0,
+            "builder_tool_use_id": None,
+            "builder_agent_tool_completion_seen": False,
             "takeover": False,
             "takeover_basis_ids": [],
             "obligations": {},
@@ -412,6 +415,69 @@ def validate_event_context(event: dict[str, Any], state: dict[str, Any]) -> list
     return errors
 
 
+def observe_pre_tool_phase(event: dict[str, Any], state: dict[str, Any]) -> list[str]:
+    """Record routing attempts independently of enforce-mode decisions."""
+    errors: list[str] = []
+    phase = state.get("phase")
+    agent_tool = is_agent_tool(event)
+    builder_tool = is_builder_agent_tool(event)
+
+    if agent_tool:
+        if not builder_tool:
+            errors.append("non-Builder subagent dispatch attempted")
+        else:
+            count = nonnegative_int(state.get("builder_dispatch_count", 0))
+            if count is None:
+                errors.append("malformed builder_dispatch_count in controller state")
+            else:
+                count += 1
+                state["builder_dispatch_count"] = count
+                if count == 1:
+                    state["builder_tool_use_id"] = first_value(
+                        event, "tool_use_id", "toolUseId"
+                    )
+                else:
+                    errors.append("more than one Luna Builder dispatch attempted")
+    elif phase == "ROOT_INTAKE":
+        errors.append("repository/tool dispatch attempted before Builder ownership")
+    elif phase in {"LUNA_DISPATCHED", "LUNA_MUTATING"}:
+        # Root should not be issuing tools while the child owns mutation. Hook
+        # payloads from the child share the session, so only record this when
+        # runtime evidence identifies the current event as root-owned later.
+        # The first live trace calibrates whether such ownership is observable.
+        pass
+    elif phase == "ROOT_RECONCILE" and not is_metadata_only(event):
+        # A direct root repository tool is not necessarily a violation; it may
+        # be the authorized Terra takeover and is adjudicated by the takeover
+        # gate in pre_tool_decision / observe_post_tool_phase.
+        pass
+
+    append_control_errors(state, errors, event=event)
+    return errors
+
+
+def expected_builder_agent_completion(
+    event: dict[str, Any], state: dict[str, Any]
+) -> bool:
+    if not is_builder_agent_tool(event):
+        return False
+    if state.get("builder_agent_tool_completion_seen") is True:
+        return False
+    if nonnegative_int(state.get("builder_dispatch_count", 0)) != 1:
+        return False
+    if nonnegative_int(state.get("builder_count", 0)) != 1:
+        return False
+    if state.get("phase") != "ROOT_RECONCILE":
+        return False
+
+    expected_id = state.get("builder_tool_use_id")
+    observed_id = first_value(event, "tool_use_id", "toolUseId")
+    if isinstance(expected_id, str) and expected_id:
+        if not isinstance(observed_id, str) or observed_id != expected_id:
+            return False
+    return True
+
+
 def _deny_pre_tool(reason: str) -> dict[str, Any]:
     return {
         "hookSpecificOutput": {
@@ -553,21 +619,22 @@ def observe_post_tool_phase(event: dict[str, Any], state: dict[str, Any]) -> lis
     metadata_only = is_metadata_only(event)
     errors: list[str] = []
 
-    if phase in {"ROOT_INTAKE", "LUNA_DISPATCHED"}:
+    if agent_tool and expected_builder_agent_completion(event, state):
+        state["builder_agent_tool_completion_seen"] = True
+    elif phase in {"ROOT_INTAKE", "LUNA_DISPATCHED"}:
         if agent_tool:
             # A completed agent call without an observed Builder lifecycle is
-            # already caught by exact builder_count/final-phase checks.
-            if state.get("builder_count", 0) == 0:
-                errors.append(
-                    f"agent tool completed before an observed Builder lifecycle: phase={phase!r}"
-                )
+            # caught here and again by final lifecycle cardinality checks.
+            errors.append(
+                f"agent tool completed before an observed Builder lifecycle: phase={phase!r}"
+            )
         else:
             errors.append(
                 f"repository/tool work completed before Builder ownership: phase={phase!r}"
             )
     elif phase == "ROOT_RECONCILE":
         if agent_tool:
-            errors.append("subagent tool completed after the single Builder attempt")
+            errors.append("unexpected subagent tool completed after the single Builder attempt")
         elif not metadata_only:
             blocking_ids = takeover_blocking_ids(event, state)
             if not blocking_ids:
@@ -768,6 +835,12 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         admission_errors.append(
             f"exactly one UserPromptSubmit required; observed {state.get('user_prompt_count', 0)!r}"
         )
+    builder_dispatch_count = nonnegative_int(state.get("builder_dispatch_count", 0))
+    if builder_dispatch_count != 1:
+        admission_errors.append(
+            "exactly one Luna Builder dispatch required; "
+            f"observed {state.get('builder_dispatch_count', 0)!r}"
+        )
     builder_count = nonnegative_int(state.get("builder_count", 0))
     if builder_count != 1:
         admission_errors.append(
@@ -790,7 +863,9 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         "phase": state.get("phase"),
         "session_start_count": state.get("session_start_count"),
         "user_prompt_count": state.get("user_prompt_count"),
+        "builder_dispatch_count": state.get("builder_dispatch_count"),
         "builder_count": state.get("builder_count"),
+        "builder_agent_tool_completion_seen": state.get("builder_agent_tool_completion_seen"),
         "takeover": state.get("takeover"),
         "takeover_basis_ids": state.get("takeover_basis_ids", []),
         "requested_outcome": proposal.get("requested_outcome", "COMPLETE"),
@@ -858,6 +933,7 @@ def main() -> int:
             elif event_name in {"UserPromptSubmit", "userPromptSubmit", "userPromptSubmitted"}:
                 init_user_obligation(event, state)
             elif event_name in {"PreToolUse", "preToolUse"}:
+                observe_pre_tool_phase(event, state)
                 output = pre_tool_decision(event, state, mode)
             elif event_name in {"PostToolUse", "postToolUse"}:
                 observe_post_tool_phase(event, state)
