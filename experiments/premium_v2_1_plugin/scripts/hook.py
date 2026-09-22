@@ -428,6 +428,43 @@ def command_identity(event: dict[str, Any]) -> str:
     return f"{event_tool_name(event) or 'tool'}:{hashlib.sha256(json.dumps(tool_input, sort_keys=True, default=str).encode()).hexdigest()[:16]}"
 
 
+def observe_post_tool_phase(event: dict[str, Any], state: dict[str, Any]) -> list[str]:
+    """Persist phase violations even if PreToolUse enforcement was bypassed.
+
+    Command-hook timeouts can be fail-open on supported runtimes. PostToolUse is
+    therefore a defense-in-depth signal: it cannot prevent the already executed
+    call, but it can ensure the run never becomes trusted COMPLETE unnoticed.
+    """
+    phase = state.get("phase")
+    agent_tool = is_agent_tool(event)
+    metadata_only = is_metadata_only(event)
+    errors: list[str] = []
+
+    if phase in {"ROOT_INTAKE", "LUNA_DISPATCHED"}:
+        if agent_tool:
+            # A completed agent call without an observed Builder lifecycle is
+            # already caught by exact builder_count/final-phase checks.
+            if state.get("builder_count", 0) == 0:
+                errors.append(
+                    f"agent tool completed before an observed Builder lifecycle: phase={phase!r}"
+                )
+        else:
+            errors.append(
+                f"repository/tool work completed before Builder ownership: phase={phase!r}"
+            )
+    elif phase == "ROOT_RECONCILE":
+        if agent_tool:
+            errors.append("subagent tool completed after the single Builder attempt")
+        elif not metadata_only:
+            state["phase"] = "TERRA_TAKEOVER"
+            state["takeover"] = True
+    elif phase == "TERRA_TAKEOVER" and agent_tool:
+        errors.append("subagent tool completed during Terra takeover")
+
+    append_control_errors(state, errors, event=event)
+    return errors
+
+
 def record_post_tool(event: dict[str, Any], state: dict[str, Any]) -> None:
     cwd = cwd_path(event)
     try:
@@ -643,6 +680,7 @@ def main() -> int:
             elif event_name in {"PreToolUse", "preToolUse"}:
                 output = pre_tool_decision(event, state, mode)
             elif event_name in {"PostToolUse", "postToolUse"}:
+                observe_post_tool_phase(event, state)
                 record_post_tool(event, state)
                 sync_proposal_authority(event, state)
             elif event_name in {"SubagentStart", "subagentStart"}:
