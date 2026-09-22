@@ -271,11 +271,13 @@ def main(argv: list[str] | None = None) -> int:
         "Diagnostic only. Premium v2.1 uses plugin-level hooks; "
         "chat.useCustomAgentHooks gates hooks embedded in custom-agent frontmatter."
     )
-    local_hooks["required_for_agent_host_plugin_hooks"] = "NOT_ASSERTED"
+    local_hooks["required_for_agent_host_plugin_hooks"] = "EFFECTIVE_POLICY_NOT_PROVEN"
     local_hooks["note"] = (
-        "Recorded for diagnostics only. Current VS Code enterprise documentation "
-        "describes chat.useHooks as the Local-harness setting; do not use this text "
-        "scan to claim Agent Host hook enablement."
+        "Recorded as a possible policy/configuration gate. Current VS Code policy "
+        "documentation states that disabling chat.useHooks causes hook configurations "
+        "to be ignored, while the settings reference also describes Local-harness "
+        "scope. A text scan cannot resolve effective Agent Host policy; prove hook "
+        "execution with Agent Host debug/OTel evidence."
     )
     plugin_enabled["note"] = (
         "Text scan cannot establish the effective plugin policy. Verify installed/"
@@ -333,6 +335,7 @@ def main(argv: list[str] | None = None) -> int:
     report["configuration_prerequisites"] = prerequisites
     report["manual_runtime_prerequisites_not_proven_by_this_script"] = [
         "organization policy permits Agent Plugins",
+        "effective chat.useHooks / hook policy permits hook execution",
         "the experimental Copilot-format plugin is installed/enabled in this VS Code profile",
         "plugin hooks are permitted by the active Agent Host policy",
         "Premium Cascade v2.1 (Experimental) is selectable as a custom agent",
