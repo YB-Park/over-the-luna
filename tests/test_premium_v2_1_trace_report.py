@@ -81,6 +81,7 @@ class PremiumV21TraceReportTests(unittest.TestCase):
             },
             "final_record": {
                 "schema": "premium-v2.1-final-v1",
+                "run_id": "session-1",
                 "outcome": "COMPLETE",
                 "trusted_complete": True,
             },
@@ -263,6 +264,81 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
 
         self.assertEqual(report["backend_identity"]["root_terra"], "CONFLICT")
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_multiple_state_sessions_require_explicit_selection(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        other_events = [
+            {**event, "session_id": "session-2"}
+            for event in self.complete_hook_events()
+        ]
+        self.write_jsonl(self.state_dir / "other.events.jsonl", other_events)
+        (self.state_dir / "other.json").write_text(
+            json.dumps({"final_record": {"schema": "premium-v2.1-final-v1"}}),
+            encoding="utf-8",
+        )
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertTrue(report["session_selection"]["ambiguous"])
+        self.assertIsNone(report["session_selection"]["selected_key"])
+        self.assertEqual(report["hook_trace"]["event_count"], 0)
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_explicit_session_key_selects_one_runtime(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        self.write_jsonl(
+            self.state_dir / "other.events.jsonl",
+            [{"session_id": "session-2", "hook_event_name": "SessionStart"}],
+        )
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(
+            self.state_dir,
+            self.workspace,
+            cli,
+            otel,
+            "session",
+        )
+
+        self.assertEqual(report["session_selection"]["selected_key"], "session")
+        self.assertFalse(report["session_selection"]["ambiguous"])
+        self.assertTrue(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_noncomplete_final_record_blocks_enforce_candidate(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        state_path = self.state_dir / "session.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["final_record"]["outcome"] = "BLOCKED"
+        state["final_record"]["trusted_complete"] = False
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "VALID_NONCOMPLETE")
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_wrong_run_final_record_is_invalid(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        state_path = self.state_dir / "session.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["final_record"]["run_id"] = "other-session"
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "INVALID")
         self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
 
 
