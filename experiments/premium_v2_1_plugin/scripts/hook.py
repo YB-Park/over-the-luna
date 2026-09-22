@@ -48,21 +48,33 @@ def event_tool_result(event: dict[str, Any]) -> Any:
     return first_value(event, "tool_response", "tool_result", "toolResult")
 
 
+def event_agent_names(event: dict[str, Any]) -> list[str]:
+    # Keep every documented name/type variant. Some runtimes expose both a
+    # generic type and a concrete custom-agent name, so matching only the first
+    # field can miss the Builder lifecycle.
+    names: list[str] = []
+    for key in (
+        "agent_type",
+        "agent_name",
+        "agentName",
+        "agent_display_name",
+        "agentDisplayName",
+    ):
+        value = event.get(key)
+        if isinstance(value, str) and value and value not in names:
+            names.append(value)
+    return names
+
+
 def event_agent_name(event: dict[str, Any]) -> str:
-    # VS Code uses agent_type for custom agents. Copilot CLI also exposes
-    # agent_name/agentName on subagent lifecycle payloads. Keep all variants in
-    # audit support so the first live trace can pin the actual runtime schema.
-    return str(
-        first_value(
-            event,
-            "agent_type",
-            "agent_name",
-            "agentName",
-            "agent_display_name",
-            "agentDisplayName",
-        )
-        or ""
-    )
+    names = event_agent_names(event)
+    if BUILDER_NAME in names:
+        return BUILDER_NAME
+    return names[0] if names else ""
+
+
+def is_builder_event(event: dict[str, Any]) -> bool:
+    return BUILDER_NAME in event_agent_names(event)
 
 
 def state_root() -> Path:
@@ -402,11 +414,11 @@ def main() -> int:
     elif event_name == "PostToolUse":
         record_post_tool(event, state)
     elif event_name == "SubagentStart":
-        if event_agent_name(event) == BUILDER_NAME:
+        if is_builder_event(event):
             state["builder_count"] = int(state.get("builder_count", 0)) + 1
             state["phase"] = "LUNA_MUTATING"
     elif event_name == "SubagentStop":
-        if event_agent_name(event) == BUILDER_NAME:
+        if is_builder_event(event):
             state["phase"] = "ROOT_RECONCILE"
     elif event_name == "Stop":
         result, record = final_reconcile(event, state)
