@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 VALID_DISPOSITIONS = {"OPEN", "VERIFIED", "FAILED", "UNRESOLVED", "WAIVED_BY_USER"}
+INVALID_WORKSPACE_REVISIONS = {"DIGEST_ERROR"}
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,10 @@ def workspace_digest(root: Path, exclude_names: Iterable[str] = (".git", ".otl-v
 
 
 def _valid_receipt(receipt: dict[str, Any], run_id: str, revision: str) -> tuple[bool, str]:
+    if revision in INVALID_WORKSPACE_REVISIONS:
+        return False, "workspace revision is unavailable"
+    if receipt.get("workspace_after") in INVALID_WORKSPACE_REVISIONS:
+        return False, "receipt workspace revision is unavailable"
     if receipt.get("run_id") != run_id:
         return False, "wrong run"
     if receipt.get("collection_status") != "COLLECTED":
@@ -96,6 +101,8 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
         errors.append("run_id required")
     if not isinstance(revision, str) or not revision:
         errors.append("workspace_revision required")
+    elif revision in INVALID_WORKSPACE_REVISIONS:
+        errors.append("workspace_revision unavailable")
     if not isinstance(obligations, dict):
         obligations = {}
         errors.append("obligations must be an object")
