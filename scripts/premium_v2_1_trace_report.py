@@ -101,6 +101,150 @@ def flatten_dicts(value: Any) -> Iterable[dict[str, Any]]:
             yield from flatten_dicts(child)
 
 
+def span_attributes(row: dict[str, Any]) -> dict[str, Any]:
+    for key in ("attributes", "attrs"):
+        value = row.get(key)
+        if isinstance(value, dict):
+            return value
+    data = row.get("data")
+    if isinstance(data, dict):
+        for key in ("attributes", "attrs"):
+            value = data.get(key)
+            if isinstance(value, dict):
+                return value
+    return {}
+
+
+def span_id(row: dict[str, Any]) -> str | None:
+    value = first_value(row, "spanId", "span_id")
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def parent_span_id(row: dict[str, Any]) -> str | None:
+    value = first_value(row, "parentSpanId", "parent_span_id")
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def _builder_agent_name(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    normalized = value.strip().lower()
+    return normalized in {
+        BUILDER_NAME.lower(),
+        "premium-v2-1-luna-builder",
+        "luna-builder-v2-1",
+    } or ("premium" in normalized and "luna" in normalized and "builder" in normalized)
+
+
+def parse_otel_jsonl(path: Path | None) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "present": bool(path and path.exists()),
+        "parse_errors": 0,
+        "span_count": 0,
+        "root_invoke_count": 0,
+        "builder_invoke_count": 0,
+        "root_requested_models": [],
+        "root_resolved_models": [],
+        "builder_requested_models": [],
+        "builder_resolved_models": [],
+        "root_usage_credits": None,
+    }
+    if path is None:
+        return result
+
+    rows = read_jsonl(path)
+    result["parse_errors"] = sum(1 for row in rows if row.get("_parse_error") is True)
+    spans = [row for row in rows if span_attributes(row)]
+    result["span_count"] = len(spans)
+
+    by_id = {
+        sid: row
+        for row in spans
+        if (sid := span_id(row)) is not None
+    }
+
+    invoke_spans: list[dict[str, Any]] = []
+    chat_spans: list[dict[str, Any]] = []
+    for row in spans:
+        attrs = span_attributes(row)
+        operation = attrs.get("gen_ai.operation.name")
+        if operation == "invoke_agent":
+            invoke_spans.append(row)
+        elif operation == "chat":
+            chat_spans.append(row)
+
+    root_invokes = [
+        row
+        for row in invoke_spans
+        if "server.address" in span_attributes(row)
+        or "server.port" in span_attributes(row)
+    ]
+    builder_invokes = [
+        row
+        for row in invoke_spans
+        if _builder_agent_name(span_attributes(row).get("gen_ai.agent.name"))
+        or _builder_agent_name(span_attributes(row).get("gen_ai.agent.id"))
+    ]
+    result["root_invoke_count"] = len(root_invokes)
+    result["builder_invoke_count"] = len(builder_invokes)
+
+    root_ids = {sid for row in root_invokes if (sid := span_id(row))}
+    builder_ids = {sid for row in builder_invokes if (sid := span_id(row))}
+
+    def nearest_invoke_id(row: dict[str, Any]) -> str | None:
+        current = parent_span_id(row)
+        seen: set[str] = set()
+        while current and current not in seen:
+            seen.add(current)
+            parent = by_id.get(current)
+            if parent is None:
+                return None
+            attrs = span_attributes(parent)
+            if attrs.get("gen_ai.operation.name") == "invoke_agent":
+                return current
+            current = parent_span_id(parent)
+        return None
+
+    def append_unique(target: list[str], value: Any) -> None:
+        if isinstance(value, str) and value and value not in target:
+            target.append(value)
+
+    root_requested: list[str] = []
+    builder_requested: list[str] = []
+    for row in root_invokes:
+        append_unique(root_requested, span_attributes(row).get("gen_ai.request.model"))
+    for row in builder_invokes:
+        append_unique(builder_requested, span_attributes(row).get("gen_ai.request.model"))
+
+    root_resolved: list[str] = []
+    builder_resolved: list[str] = []
+    for row in chat_spans:
+        attrs = span_attributes(row)
+        owner = nearest_invoke_id(row)
+        model = attrs.get("gen_ai.response.model")
+        if owner in root_ids:
+            append_unique(root_resolved, model)
+        elif owner in builder_ids:
+            append_unique(builder_resolved, model)
+
+    credits: list[float] = []
+    for row in root_invokes:
+        value = span_attributes(row).get("github.copilot.nano_aiu")
+        if isinstance(value, (int, float)):
+            credits.append(float(value) / 1_000_000_000)
+
+    result["root_requested_models"] = root_requested
+    result["root_resolved_models"] = root_resolved
+    result["builder_requested_models"] = builder_requested
+    result["builder_resolved_models"] = builder_resolved
+    result["root_usage_credits"] = sum(credits) if credits else None
+    return result
+
+
 def parse_cli_jsonl(path: Path | None) -> dict[str, Any]:
     result: dict[str, Any] = {
         "present": bool(path and path.exists()),
@@ -149,29 +293,48 @@ def parse_cli_jsonl(path: Path | None) -> dict[str, Any]:
     return result
 
 
-def classify_model_identity(cli: dict[str, Any]) -> dict[str, Any]:
-    models = [str(x).lower() for x in cli.get("model_call_models", []) if isinstance(x, str)]
-    root = "OBSERVED" if any("terra" in model for model in models) else "NOT_OBSERVED"
+def _family_status(models: list[str], family: str) -> str:
+    if not models:
+        return "NOT_OBSERVED"
+    lowered = [model.lower() for model in models]
+    if all(family in model for model in lowered):
+        return "OBSERVED"
+    return "CONFLICT"
+
+
+def classify_model_identity(cli: dict[str, Any], otel: dict[str, Any]) -> dict[str, Any]:
+    # Root backend identity is accepted only from resolved chat spans attributed
+    # to a top-level invoke_agent span. Unscoped legacy model.call_start events
+    # are retained for diagnostics but cannot prove root identity.
+    root_resolved = [
+        model for model in otel.get("root_resolved_models", [])
+        if isinstance(model, str)
+    ]
 
     builder_models: list[str] = []
+    for model in otel.get("builder_resolved_models", []):
+        if isinstance(model, str) and model not in builder_models:
+            builder_models.append(model)
     for subagent in cli.get("subagents", []):
         if not isinstance(subagent, dict):
             continue
         name = str(subagent.get("agent") or "")
         model = subagent.get("model")
-        if name == BUILDER_NAME and isinstance(model, str):
+        if name == BUILDER_NAME and isinstance(model, str) and model not in builder_models:
             builder_models.append(model)
 
-    child = (
-        "OBSERVED"
-        if builder_models and all("luna" in model.lower() for model in builder_models)
-        else "NOT_OBSERVED"
-    )
     return {
-        "root_terra": root,
-        "builder_luna": child,
+        "root_terra": _family_status(root_resolved, "terra"),
+        "builder_luna": _family_status(builder_models, "luna"),
+        "root_resolved_models": root_resolved,
         "builder_models": builder_models,
-        "all_model_call_models": cli.get("model_call_models", []),
+        "root_requested_models": otel.get("root_requested_models", []),
+        "builder_requested_models": otel.get("builder_requested_models", []),
+        "legacy_unscoped_model_call_models": cli.get("model_call_models", []),
+        "evidence_rule": (
+            "root requires resolved chat-span model under top-level invoke_agent; "
+            "builder may use builder invoke-agent chat spans or subagent.completed model"
+        ),
     }
 
 
@@ -179,6 +342,7 @@ def summarize(
     state_dir: Path,
     workspace: Path | None = None,
     cli_output: Path | None = None,
+    otel_output: Path | None = None,
 ) -> dict[str, Any]:
     event_files = sorted(state_dir.glob("*.events.jsonl")) if state_dir.exists() else []
     state_files = sorted(
@@ -238,7 +402,8 @@ def summarize(
             final_records.append(final)
 
     cli = parse_cli_jsonl(cli_output)
-    model_identity = classify_model_identity(cli)
+    otel = parse_otel_jsonl(otel_output)
+    model_identity = classify_model_identity(cli, otel)
 
     missing_events = [name for name in EXPECTED_EVENTS if counts.get(name, 0) == 0]
     hook_firing = "OBSERVED" if events else "NOT_OBSERVED"
@@ -289,6 +454,7 @@ def summarize(
             "final_records": final_records,
         },
         "cli": cli,
+        "otel": otel,
         "backend_identity": model_identity,
         "calibration": {
             "ready_for_enforce_mode_candidate": calibration_ready,
@@ -311,6 +477,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state-dir", type=Path, required=True)
     parser.add_argument("--workspace", type=Path)
     parser.add_argument("--cli-output", type=Path)
+    parser.add_argument("--otel-output", type=Path)
     parser.add_argument("--require-calibration-ready", action="store_true")
     args = parser.parse_args(argv)
 
@@ -318,6 +485,7 @@ def main(argv: list[str] | None = None) -> int:
         args.state_dir.expanduser().resolve(),
         args.workspace.expanduser().resolve() if args.workspace else None,
         args.cli_output.expanduser().resolve() if args.cli_output else None,
+        args.otel_output.expanduser().resolve() if args.otel_output else None,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
     if args.require_calibration_ready and not report["calibration"]["ready_for_enforce_mode_candidate"]:
