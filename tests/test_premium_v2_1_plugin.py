@@ -924,5 +924,115 @@ class PluginControllerTests(unittest.TestCase):
         self.assertEqual(hook.noncomplete_visibility_output(result), {})
 
 
+    def test_invalid_phase_denies_enforce_tool(self) -> None:
+        state = {
+            "phase": "CORRUPT",
+            "builder_count": 0,
+            "builder_invocation_seen": False,
+            "takeover": False,
+        }
+        event = self.event(
+            "PreToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder"},
+        )
+        output = hook.pre_tool_decision(event, state, "enforce")
+        self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn("phase is invalid", output["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_invalid_final_phase_never_trusted_complete(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.handle_session_start(self.event("SessionStart"), state)
+        hook.init_user_obligation(prompt, state)
+        post = self.event(
+            "PostToolUse",
+            tool_name="execute",
+            tool_input={"command": "python -m unittest"},
+            tool_response="Process exited with code 0",
+        )
+        hook.record_post_tool(post, state)
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["current"]["U0"] = {
+            "disposition": "VERIFIED",
+            "evidence_refs": ["E1"],
+        }
+        controller.atomic_json(proposal_path, proposal)
+        state["builder_count"] = 1
+        state["phase"] = "CORRUPT"
+
+        result, record = hook.final_reconcile(
+            self.event("Stop", stop_hook_active=False),
+            state,
+        )
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+        self.assertTrue(
+            any("terminal-reconcilable phase" in e for e in result.errors)
+        )
+
+    def test_workspace_binding_drift_is_persisted(self) -> None:
+        state = {
+            "phase": "ROOT_INTAKE",
+            "cwd": str(self.workspace),
+            "control_errors": [],
+        }
+        other = Path(self.temp.name) / "other"
+        other.mkdir()
+        event = self.event("PreToolUse", cwd=str(other))
+        errors = hook.validate_event_context(event, state)
+        self.assertTrue(any("cwd drifted" in e for e in errors))
+        self.assertTrue(state["control_errors"])
+
+    def test_workspace_binding_match_is_clean(self) -> None:
+        state = {
+            "phase": "ROOT_INTAKE",
+            "cwd": str(self.workspace),
+            "control_errors": [],
+        }
+        self.assertEqual(
+            hook.validate_event_context(self.event("PreToolUse"), state),
+            [],
+        )
+
+    def test_unexpected_subagent_lifecycle_persists_control_error(self) -> None:
+        state = {
+            "control_errors": [],
+        }
+        event = self.event(
+            "SubagentStart",
+            agent_type="Other Agent",
+        )
+        hook.append_control_errors(
+            state,
+            ["unexpected non-Builder subagent started"],
+            event=event,
+        )
+        self.assertTrue(
+            any(
+                item.get("error") == "unexpected non-Builder subagent started"
+                for item in state["control_errors"]
+            )
+        )
+
+    def test_post_tool_invalid_phase_persists_control_error(self) -> None:
+        state = {
+            "phase": "CORRUPT",
+            "builder_count": 1,
+            "takeover": False,
+            "control_errors": [],
+        }
+        event = self.event(
+            "PostToolUse",
+            tool_name="read_file",
+            tool_input={"path": "src.txt"},
+            tool_response="ok",
+        )
+        errors = hook.observe_post_tool_phase(event, state)
+        self.assertTrue(any("phase was invalid" in e for e in errors))
+        self.assertTrue(state["control_errors"])
+
+
 if __name__ == "__main__":
     unittest.main()
