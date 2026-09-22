@@ -234,5 +234,16 @@ class PluginControllerTests(unittest.TestCase):
         self.assertTrue(hook.is_agent_tool(event))
 
 
+    def test_builder_match_uses_concrete_name_when_agent_type_is_generic(self) -> None:
+        event = self.event(
+            "SubagentStart",
+            agent_type="custom",
+            agent_name="Premium v2.1 Luna Builder",
+        )
+        self.assertTrue(hook.is_builder_event(event))
+        self.assertEqual(hook.event_agent_name(event), "Premium v2.1 Luna Builder")
+
+
+
 if __name__ == "__main__":
     unittest.main()
