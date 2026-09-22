@@ -676,6 +676,17 @@ def sync_proposal_authority(event: dict[str, Any], state: dict[str, Any]) -> lis
     return errors
 
 
+def noncomplete_visibility_output(result: Reconciliation) -> dict[str, Any]:
+    if result.outcome == "COMPLETE":
+        return {}
+    return {
+        "systemMessage": (
+            f"Premium v2.1 trusted controller outcome: {result.outcome}. "
+            "The agent's final prose is not a trusted completion signal."
+        )
+    }
+
+
 def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Reconciliation, dict[str, Any]]:
     cwd = cwd_path(event)
     proposal_path, _, final_path = metadata_paths(cwd)
@@ -831,6 +842,8 @@ def main() -> int:
                                 "reason": "Trusted Premium v2.1 controller outcome is not COMPLETE. Reconcile the existing obligations/evidence once without weakening scope or fabricating a waiver.",
                             }
                         }
+                if mode == "enforce" and not output:
+                    output = noncomplete_visibility_output(result)
 
             save_state(state_path, state)
     except TimeoutError as exc:
