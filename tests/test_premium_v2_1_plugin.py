@@ -105,10 +105,30 @@ class PluginControllerTests(unittest.TestCase):
         self.assertFalse(record["trusted_complete"])
         self.assertTrue(any("exactly one SessionStart" in e for e in result.errors))
 
-    def test_repeated_session_start_after_mission_activity_is_control_error(self) -> None:
+    def test_first_session_start_after_prompt_is_order_tolerant(self) -> None:
         prompt = self.event("UserPromptSubmit", prompt="Implement X")
         state, _, _ = hook.ensure_state(prompt)
         hook.init_user_obligation(prompt, state)
+
+        hook.handle_session_start(self.event("SessionStart"), state)
+
+        self.assertEqual(state["session_start_count"], 1)
+        self.assertEqual(state["phase"], "ROOT_INTAKE")
+        self.assertFalse(
+            any(
+                "repeated/resumed SessionStart" in item.get("error", "")
+                for item in state["control_errors"]
+            )
+        )
+
+    def test_second_session_start_after_prompt_is_control_error(self) -> None:
+        start = self.event("SessionStart")
+        state, _, _ = hook.ensure_state(start)
+        hook.handle_session_start(start, state)
+        hook.init_user_obligation(
+            self.event("UserPromptSubmit", prompt="Implement X"),
+            state,
+        )
         state["phase"] = "ROOT_RECONCILE"
 
         hook.handle_session_start(self.event("SessionStart"), state)
@@ -159,6 +179,7 @@ class PluginControllerTests(unittest.TestCase):
         state["builder_dispatch_count"] = 1
         state["builder_count"] = 1
         state["builder_invocation_seen"] = True
+        state["builder_agent_tool_completion_seen"] = True
         state["phase"] = "ROOT_RECONCILE"
         result, record = hook.final_reconcile(self.event("Stop", stop_hook_active=False), state)
         self.assertEqual(result.outcome, "COMPLETE")
@@ -1120,6 +1141,66 @@ class PluginControllerTests(unittest.TestCase):
         self.assertTrue(any("more than one Luna Builder dispatch" in e for e in errors))
         self.assertEqual(state["builder_dispatch_count"], 2)
         self.assertTrue(state["control_errors"])
+
+
+    def test_final_reconcile_rejects_missing_builder_agent_tool_completion(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.handle_session_start(self.event("SessionStart"), state)
+        hook.init_user_obligation(prompt, state)
+        post = self.event(
+            "PostToolUse",
+            tool_name="execute",
+            tool_input={"command": "python -m unittest"},
+            tool_response="Process exited with code 0",
+        )
+        hook.record_post_tool(post, state)
+        proposal_path, _, _ = hook.metadata_paths(self.workspace)
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["current"]["U0"] = {
+            "disposition": "VERIFIED",
+            "evidence_refs": ["E1"],
+        }
+        controller.atomic_json(proposal_path, proposal)
+        state["builder_dispatch_count"] = 1
+        state["builder_count"] = 1
+        state["builder_invocation_seen"] = True
+        state["builder_agent_tool_completion_seen"] = False
+        state["phase"] = "ROOT_RECONCILE"
+
+        result, record = hook.final_reconcile(
+            self.event("Stop", stop_hook_active=False),
+            state,
+        )
+
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+        self.assertTrue(
+            any("agent-tool completion" in e for e in result.errors)
+        )
+
+    def test_final_reconcile_rejects_inconsistent_takeover_phase(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.handle_session_start(self.event("SessionStart"), state)
+        hook.init_user_obligation(prompt, state)
+        state["builder_dispatch_count"] = 1
+        state["builder_count"] = 1
+        state["builder_invocation_seen"] = True
+        state["builder_agent_tool_completion_seen"] = True
+        state["phase"] = "TERRA_TAKEOVER"
+        state["takeover"] = False
+        state["takeover_basis_ids"] = []
+
+        result, record = hook.final_reconcile(
+            self.event("Stop", stop_hook_active=False),
+            state,
+        )
+
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+        self.assertTrue(any("takeover=true" in e for e in result.errors))
+        self.assertTrue(any("captured takeover basis" in e for e in result.errors))
 
 
 if __name__ == "__main__":
