@@ -61,10 +61,10 @@ Intermediate pre-live baseline:
 - head `ed68d11a5bad726a719d4dc595a1590ec06f6e7d`;
 - **57/57 PASS**.
 
-Latest code-hardening baseline:
-- run `35747955477`;
-- head `76c7c96d964a034a9bbe4da79c61d19dd925b5ec`;
-- **89/89 PASS**.
+Latest pre-live code baseline:
+- run `35799509383`;
+- head `2c3db3c19a30bf8b2efa9ccabfe3d9acf6095770`;
+- **137/137 PASS**.
 
 Coverage includes:
 - immutable captured U obligation;
@@ -114,9 +114,16 @@ The first implementation review before authenticated runtime calibration found a
 - `809591a72ab8cf2f6180c773349a872b4cadd266` / `425b5561495a245788d18f11389c714069ca6dad` — add PostToolUse defense in depth when a pre-tool control is bypassed;
 - `eefa8521ec124a9e7ed1d9290ad2ef4aeaa0e613` / `03b7339568f3b9bd3c069859e3edb9e6269bf108` — require current-workspace and non-conflicting final-state evidence in the trace gate;
 - `4ba9ada1a498074018f9352a77ab4cb2af866a0c` / `617dadef0cb7b91f189cb6ce61d768bc3c02dac1` — require an explicit captured FAILED/UNRESOLVED blocking criterion before Terra repository takeover;
-- `8ca5d4a272721485bed4c12ad2426cfb96222c0e` / `76c7c96d964a034a9bbe4da79c61d19dd925b5ec` — make malformed/non-object hook input stop enforce-mode execution rather than fail open.
+- `8ca5d4a272721485bed4c12ad2426cfb96222c0e` / `76c7c96d964a034a9bbe4da79c61d19dd925b5ec` — make malformed/non-object hook input stop enforce-mode execution rather than fail open;
+- `7fd4c5e48e943830be834ca56a9a86e0d6e1b46c` through `8c7f44d1fb29119c4a292790e3abff480cba545f` — bind controller state to valid phases and a fixed workspace, fail closed on unexpected lifecycle events, and align lifecycle fixtures;
+- `f722a81a13fe164fc9781b623ffed603ae99e342` / `b12c48c2bf118d0784953ade8bb86e9d690cf01f` — cross-check configured hook firing against Agent Host `execute_hook` OTel evidence;
+- `8e9a04879321ff68ac0e837b4b65b390774ec70a` / `d947a5f444de1adf1c06a836b898775ef8dd7750` — require Builder and hook OTel evidence to be rooted under the selected root invoke rather than accepting disconnected/stale spans;
+- `af6cc61aa5518978e9c67c6b1767721c7c363a5d` through `1d430bb0eb56a8b576499c8b662359ced8939c80` — model the Builder Agent-tool wrapper lifecycle explicitly so the normal matching PostToolUse is not mistaken for a second child, and require exact dispatch/start/stop/completion evidence;
+- `ae01e5b2e1d4cc786049401a04e251cf8eebff5c` / `0229b7a4892255fddc1a45acbb7e4fe80880b1ed` — tighten trusted final lifecycle and takeover phase/flag/basis consistency;
+- `b103ee8d601731b09575ce2dcf42f5a69bae9082` / `f98e1769be27bafa5c103021fed87932237c6dc7` — align plugin-local controller fail-closed behavior with the reference controller and add adversarial terminal-outcome parity tests;
+- `5e01d19ee0e7025d3f0c0556b69c54f578960326` through `2c3db3c19a30bf8b2efa9ccabfe3d9acf6095770` — add a zero-AI post-smoke evidence collector that selects the matching session, reruns the focused test, captures diff/state/OTel, and emits a SHA-256 manifest.
 
-The trace reporter only marks a run as an enforce-mode **candidate** when the minimum runtime facts are actually present: one unambiguous runtime session, single-mission lifecycle counts, exactly one complete Builder lifecycle, at least one collected PASS receipt, a current and non-conflicting VALID_COMPLETE final record, observed root Terra identity, observed Builder Luna identity, and parse-clean hook/CLI/OTel evidence. This is an implementation gate, not a product-success verdict.
+The trace reporter only marks a run as an enforce-mode **candidate** when the minimum runtime facts are actually present: one unambiguous runtime session, single-mission lifecycle counts, all seven raw lifecycle event types, successful rooted Agent Host `execute_hook` evidence, exactly one Builder Agent-tool dispatch plus one start/stop lifecycle and matching wrapper completion, at least one collected PASS execution receipt, both current/non-conflicting VALID_COMPLETE final-record copies, exactly one selected root invoke, exactly one Builder invoke rooted under it, observed root Terra identity, observed Builder Luna identity, and parse-clean hook/CLI/OTel evidence. This is an implementation gate, not a product-success verdict.
 
 The hardening pass does not solve semantic criterion completeness, evidence relevance, same-user tamper resistance, or runtime waiver authentication.
 
@@ -246,12 +253,14 @@ A secondary authenticated Actions template is stored outside `.github/workflows/
 Before paid development tasks:
 
 1. zero-AI validation must remain green;
-2. one real **audit-mode** runtime trace must establish plugin hook firing and a single Builder lifecycle;
-3. root/child backend identity must be observed rather than inferred from agent frontmatter;
-4. PostToolUse and Stop payloads must be sufficient for current receipt/final-record parsing;
-5. any parser mismatch is fixed and re-audited before changing `hooks.json` to enforce mode;
-6. authenticated interactive waiver creation remains out of scope until a trustworthy runtime user-event path is designed;
-7. controller-state tamper protection remains **NOT_OBSERVED** and must not be represented as a security boundary;
-8. only after runtime calibration succeeds may real development-task spending begin.
+2. one real **audit-mode** VS Code Agent Host trace must establish raw hook firing and matching successful rooted `execute_hook` OTel evidence;
+3. the trace must show one Builder Agent-tool dispatch, one Builder start/stop lifecycle, and the matching wrapper completion;
+4. root/child resolved backend identity must be observed from rooted runtime telemetry rather than inferred from agent frontmatter;
+5. PostToolUse and Stop payloads must be sufficient for current receipt/final-record parsing, with both final-record copies current and consistent;
+6. any parser or topology mismatch is fixed and re-audited before changing `hooks.json` to enforce mode;
+7. the live evidence should be collected with `scripts/premium_v2_1_collect_smoke_evidence.py` so hostile review receives the raw matching session plus a hashed bundle;
+8. authenticated interactive waiver creation remains out of scope until a trustworthy runtime user-event path is designed;
+9. controller-state tamper protection remains **NOT_OBSERVED** and must not be represented as a security boundary;
+10. only after runtime calibration succeeds may real development-task spending begin.
 
 Promotion holdouts remain unauthorized and unselected. H1-H4 are not fresh holdouts for this redesign.
