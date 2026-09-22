@@ -26,6 +26,7 @@ VALID_DISPOSITIONS = {
     "UNRESOLVED",
     "WAIVED_BY_USER",
 }
+INVALID_WORKSPACE_REVISIONS = {"DIGEST_ERROR"}
 TERMINAL_OUTCOMES = {
     "COMPLETE",
     "BLOCKED",
@@ -85,6 +86,10 @@ def _receipt_is_current(
     run_id: str,
     workspace_revision: str,
 ) -> tuple[bool, str]:
+    if workspace_revision in INVALID_WORKSPACE_REVISIONS:
+        return False, "workspace revision is unavailable"
+    if receipt.get("workspace_after") in INVALID_WORKSPACE_REVISIONS:
+        return False, "receipt workspace revision is unavailable"
     if receipt.get("run_id") != run_id:
         return False, "receipt belongs to another run"
     if receipt.get("collection_status") != "COLLECTED":
@@ -121,6 +126,8 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
         errors.append("run_id is required")
     if not workspace_revision:
         errors.append("workspace_revision is required")
+    elif workspace_revision in INVALID_WORKSPACE_REVISIONS:
+        errors.append("workspace_revision is unavailable")
 
     obligations = _require_mapping(state.get("obligations"), "obligations", errors)
     current = _require_mapping(state.get("current"), "current", errors)
@@ -371,7 +378,11 @@ def consume_final_record(
         errors.append("invalid final record schema")
     if record.get("run_id") != run_id:
         errors.append("final record belongs to another run")
-    if record.get("workspace_revision") != workspace_revision:
+    if workspace_revision in INVALID_WORKSPACE_REVISIONS:
+        errors.append("current workspace revision is unavailable")
+    if record.get("workspace_revision") in INVALID_WORKSPACE_REVISIONS:
+        errors.append("final record workspace revision is unavailable")
+    elif record.get("workspace_revision") != workspace_revision:
         errors.append("final record is stale for the current workspace")
     outcome = record.get("outcome")
     if outcome not in TERMINAL_OUTCOMES:
