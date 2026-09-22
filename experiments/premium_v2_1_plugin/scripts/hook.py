@@ -188,6 +188,7 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
             "weak_session_key": weak,
             "cwd": str(cwd_path(event)),
             "phase": "ROOT_INTAKE",
+            "session_start_count": 0,
             "builder_count": 0,
             "builder_invocation_seen": False,
             "takeover": False,
@@ -203,17 +204,21 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
 
 
 def handle_session_start(event: dict[str, Any], state: dict[str, Any]) -> None:
+    start_count = nonnegative_int(state.get("session_start_count", 0))
     builder_count = nonnegative_int(state.get("builder_count", 0))
     prompt_count = nonnegative_int(state.get("user_prompt_count", 0))
-    if builder_count is None or prompt_count is None:
+    if start_count is None or builder_count is None or prompt_count is None:
         append_control_errors(
             state,
             ["malformed lifecycle counter in controller state"],
             event=event,
         )
         return
+
+    state["session_start_count"] = start_count + 1
     prior_activity = (
-        bool(state.get("obligations"))
+        start_count > 0
+        or bool(state.get("obligations"))
         or state.get("builder_invocation_seen") is True
         or builder_count > 0
         or prompt_count > 0
@@ -715,6 +720,16 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         "user_events": state.get("user_events", []),
     }
     result = reconcile(controller_state)
+    session_start_count = nonnegative_int(state.get("session_start_count", 0))
+    if session_start_count != 1:
+        admission_errors.append(
+            f"exactly one SessionStart required; observed {state.get('session_start_count', 0)!r}"
+        )
+    user_prompt_count = nonnegative_int(state.get("user_prompt_count", 0))
+    if user_prompt_count != 1:
+        admission_errors.append(
+            f"exactly one UserPromptSubmit required; observed {state.get('user_prompt_count', 0)!r}"
+        )
     builder_count = nonnegative_int(state.get("builder_count", 0))
     if builder_count != 1:
         admission_errors.append(
@@ -734,6 +749,8 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         "session_id": event_session_id(event),
         "workspace_revision": revision,
         "phase": state.get("phase"),
+        "session_start_count": state.get("session_start_count"),
+        "user_prompt_count": state.get("user_prompt_count"),
         "builder_count": state.get("builder_count"),
         "takeover": state.get("takeover"),
         "takeover_basis_ids": state.get("takeover_basis_ids", []),
