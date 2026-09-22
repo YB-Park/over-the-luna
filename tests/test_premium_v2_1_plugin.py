@@ -76,6 +76,35 @@ class PluginControllerTests(unittest.TestCase):
             )
         )
 
+    def test_second_session_start_before_prompt_is_control_error(self) -> None:
+        start = self.event("SessionStart")
+        state, _, _ = hook.ensure_state(start)
+        hook.handle_session_start(start, state)
+        self.assertEqual(state["session_start_count"], 1)
+
+        hook.handle_session_start(self.event("SessionStart"), state)
+
+        self.assertEqual(state["session_start_count"], 2)
+        self.assertTrue(
+            any(
+                "repeated/resumed SessionStart" in item.get("error", "")
+                for item in state["control_errors"]
+            )
+        )
+
+    def test_final_reconcile_requires_one_session_start(self) -> None:
+        prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
+        state, _, _ = hook.ensure_state(prompt)
+        hook.init_user_obligation(prompt, state)
+        state["builder_count"] = 1
+        state["phase"] = "ROOT_RECONCILE"
+
+        result, record = hook.final_reconcile(self.event("Stop"), state)
+
+        self.assertEqual(result.outcome, "NO_VERIFIED_COMPLETION")
+        self.assertFalse(record["trusted_complete"])
+        self.assertTrue(any("exactly one SessionStart" in e for e in result.errors))
+
     def test_repeated_session_start_after_mission_activity_is_control_error(self) -> None:
         prompt = self.event("UserPromptSubmit", prompt="Implement X")
         state, _, _ = hook.ensure_state(prompt)
@@ -107,6 +136,7 @@ class PluginControllerTests(unittest.TestCase):
     def test_post_tool_runtime_receipt_can_support_complete(self) -> None:
         prompt = self.event("UserPromptSubmit", prompt="Make the local check pass")
         state, state_path, _ = hook.ensure_state(prompt)
+        hook.handle_session_start(self.event("SessionStart"), state)
         hook.init_user_obligation(prompt, state)
 
         post = self.event(
