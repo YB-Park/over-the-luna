@@ -92,7 +92,7 @@ def scan_boolean_setting(path: Path, setting: str) -> dict[str, Any]:
 
     # JSONC-safe narrow extraction. This is an observation only; it does not
     # prove VS Code profile or enterprise-policy precedence.
-    pattern = rf'["\\\']{re.escape(setting)}["\\\']\\s*:\\s*(true|false)'
+    pattern = rf'"{re.escape(setting)}"\s*:\s*(true|false)'
     matches = re.findall(pattern, text, flags=re.IGNORECASE)
     value: bool | None
     if not matches:
