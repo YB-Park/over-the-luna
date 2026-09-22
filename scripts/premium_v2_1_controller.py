@@ -293,7 +293,7 @@ def reconcile(state: dict[str, Any]) -> Reconciliation:
 def workspace_digest(
     root: Path,
     *,
-    exclude_names: Iterable[str] = (".git",),
+    exclude_names: Iterable[str] = (".git", ".otl-v2-1"),
 ) -> str:
     """Hash relevant worktree bytes, symlink targets, paths, and executable bits."""
 
