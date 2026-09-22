@@ -56,10 +56,15 @@ Initial plugin-lifecycle baseline:
 - head `6dfc11f0680889fe7cfe4d024fe28563f57ca196`;
 - **41/41 PASS**.
 
-Latest hardened baseline before this ledger update:
+Intermediate pre-live baseline:
 - run `35689194399`;
 - head `ed68d11a5bad726a719d4dc595a1590ec06f6e7d`;
 - **57/57 PASS**.
+
+Latest code-hardening baseline:
+- run `35747955477`;
+- head `76c7c96d964a034a9bbe4da79c61d19dd925b5ec`;
+- **89/89 PASS**.
 
 Coverage includes:
 - immutable captured U obligation;
@@ -77,7 +82,16 @@ Coverage includes:
 - single-Builder enforcement logic;
 - post-Builder Terra takeover marking;
 - metadata edits not counting as takeover;
-- runtime receipt → COMPLETE fixture.
+- runtime receipt → COMPLETE fixture;
+- ambiguous multi-session trace selection rejection;
+- resumed/multi-prompt mission fail-closed behavior;
+- malformed lifecycle state and unexpected hook-error fail-closed behavior;
+- non-Builder and second-Builder dispatch rejection;
+- PostToolUse defense in depth for pre-tool bypass;
+- current-workspace final-record consistency;
+- conflicting workspace/external final-record rejection;
+- explicit FAILED/UNRESOLVED blocking-row gate before Terra takeover;
+- malformed JSON/non-object hook input fail-closed behavior in enforce mode.
 
 A separate static validator pins the experimental plugin's two-agent / seven-hook topology and audit-mode boundary before live calibration.
 
@@ -93,9 +107,16 @@ The first implementation review before authenticated runtime calibration found a
 - `be43157aba57cd5dadaa7dc887d89bf216caee22` / `a6bdc37d8f9c9c69ca70510a5f086bba94e2839e` — add a deterministic runtime-trace reporter and fail-closed calibration fixtures;
 - `d91c40448e494c0e06c261bb1cefec8bf0790986` / `33f427b1bcdc9108a455b5a13f5735e50daed1a9` — add a synthetic, explicitly non-heldout smoke workspace generator;
 - `434b26e8c62fd1daad5fb1b6d0a7fd8c975599fa` — add the product-target live audit runbook;
-- `ed68d11a5bad726a719d4dc595a1590ec06f6e7d` — add a non-executable authenticated Actions smoke template.
+- `ed68d11a5bad726a719d4dc595a1590ec06f6e7d` — add a non-executable authenticated Actions smoke template;
+- `bea8af3dd34e958ef436438a10b12530f7e74bbd` / `635ee73bb0078c619cfb239683cabdf6e62b3b79` — fail closed on ambiguous session selection and resumed/single-mission violations;
+- `8854f3e42ee0d6e807e7cdc6d626a26b981af365` through `31f6d92d7080de405dce801a0dca8cf41ab62277` — reject malformed lifecycle state and unexpected hook failures;
+- `5e374d8a3478d8d8d9b5839ad88c557100aa803e` / `c2fd4cbbb84f7aee7da30301ab7430fca158abc6` — harden Builder dispatch cardinality and metadata-only gating;
+- `809591a72ab8cf2f6180c773349a872b4cadd266` / `425b5561495a245788d18f11389c714069ca6dad` — add PostToolUse defense in depth when a pre-tool control is bypassed;
+- `eefa8521ec124a9e7ed1d9290ad2ef4aeaa0e613` / `03b7339568f3b9bd3c069859e3edb9e6269bf108` — require current-workspace and non-conflicting final-state evidence in the trace gate;
+- `4ba9ada1a498074018f9352a77ab4cb2af866a0c` / `617dadef0cb7b91f189cb6ce61d768bc3c02dac1` — require an explicit captured FAILED/UNRESOLVED blocking criterion before Terra repository takeover;
+- `8ca5d4a272721485bed4c12ad2426cfb96222c0e` / `76c7c96d964a034a9bbe4da79c61d19dd925b5ec` — make malformed/non-object hook input stop enforce-mode execution rather than fail open.
 
-The trace reporter only marks a run as an enforce-mode **candidate** when the minimum runtime facts are actually present: expected hook coverage, exactly one complete Builder lifecycle, a final controller record, root Terra identity, Builder Luna identity, and no hook-event parse error. This is an implementation gate, not a product-success verdict.
+The trace reporter only marks a run as an enforce-mode **candidate** when the minimum runtime facts are actually present: one unambiguous runtime session, single-mission lifecycle counts, exactly one complete Builder lifecycle, at least one collected PASS receipt, a current and non-conflicting VALID_COMPLETE final record, observed root Terra identity, observed Builder Luna identity, and parse-clean hook/CLI/OTel evidence. This is an implementation gate, not a product-success verdict.
 
 The hardening pass does not solve semantic criterion completeness, evidence relevance, same-user tamper resistance, or runtime waiver authentication.
 
