@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,14 @@ class PremiumV21SmokeWorkspaceTests(unittest.TestCase):
             self.assertEqual(result["purpose"], "runtime calibration only; never product scoring")
             intent = (workspace / ".premium-v2-1-smoke.json").read_text(encoding="utf-8")
             self.assertIn('"promotion holdout"', intent)
+            settings = json.loads(
+                (workspace / ".vscode" / "settings.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                settings["chat.pluginLocations"],
+                {str(smoke.PLUGIN): True},
+            )
+            self.assertEqual(result["plugin_location"], str(smoke.PLUGIN))
 
             proc = subprocess.run(
                 [sys.executable, "-m", "unittest", "-v"],
