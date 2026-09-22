@@ -657,8 +657,12 @@ def summarize(
             errors.append("current workspace revision unavailable")
         elif revision != current_workspace_revision:
             errors.append("final record is stale for current workspace")
+        if record.get("builder_dispatch_count") != 1:
+            errors.append("final record builder_dispatch_count is not exactly one")
         if record.get("builder_count") != 1:
             errors.append("final record builder_count is not exactly one")
+        if record.get("builder_agent_tool_completion_seen") is not True:
+            errors.append("final record did not observe Builder agent-tool completion")
         if record.get("phase") not in {"ROOT_RECONCILE", "TERRA_TAKEOVER"}:
             errors.append("final record phase is not terminal-reconcilable")
         final_record_assessments.append(
