@@ -90,6 +90,8 @@ def _receipt_is_current(
         return False, "workspace revision is unavailable"
     if receipt.get("workspace_after") in INVALID_WORKSPACE_REVISIONS:
         return False, "receipt workspace revision is unavailable"
+    if receipt.get("execution_eligible") is not True:
+        return False, "receipt is not from an execution tool"
     if receipt.get("run_id") != run_id:
         return False, "receipt belongs to another run"
     if receipt.get("collection_status") != "COLLECTED":
