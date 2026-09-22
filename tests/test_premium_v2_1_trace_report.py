@@ -214,22 +214,25 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
 
     def test_camelcase_cli_event_names_are_normalized(self) -> None:
+        base = {"sessionId": "session-1"}
         events = [
-            {"eventName": "sessionStart"},
-            {"eventName": "userPromptSubmitted"},
-            {"eventName": "preToolUse"},
-            {"eventName": "postToolUse"},
+            {**base, "eventName": "sessionStart"},
+            {**base, "eventName": "userPromptSubmitted"},
+            {**base, "eventName": "preToolUse"},
+            {**base, "eventName": "postToolUse"},
             {
+                **base,
                 "eventName": "subagentStart",
                 "agentType": "custom",
                 "agentName": "Premium v2.1 Luna Builder",
             },
             {
+                **base,
                 "eventName": "subagentStop",
                 "agentType": "custom",
                 "agentName": "Premium v2.1 Luna Builder",
             },
-            {"eventName": "agentStop"},
+            {**base, "eventName": "agentStop"},
         ]
         self.write_jsonl(self.state_dir / "session.events.jsonl", events)
         self.write_controller_state()
