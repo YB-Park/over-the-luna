@@ -51,11 +51,15 @@ Plugin hooks are initially in **audit mode** so the first real runtime trace can
 
 ### Zero-AI CI result
 
-Run: `35164850687`  
-Head: `6dfc11f0680889fe7cfe4d024fe28563f57ca196`  
-Conclusion: **PASS**
+Initial plugin-lifecycle baseline:
+- run `35164850687`;
+- head `6dfc11f0680889fe7cfe4d024fe28563f57ca196`;
+- **41/41 PASS**.
 
-Observed: **41/41 tests passed**.
+Latest hardened baseline before this ledger update:
+- run `35689194399`;
+- head `ed68d11a5bad726a719d4dc595a1590ec06f6e7d`;
+- **57/57 PASS**.
 
 Coverage includes:
 - immutable captured U obligation;
@@ -76,6 +80,24 @@ Coverage includes:
 - runtime receipt → COMPLETE fixture.
 
 A separate static validator pins the experimental plugin's two-agent / seven-hook topology and audit-mode boundary before live calibration.
+
+### Pre-live hardening pass
+
+The first implementation review before authenticated runtime calibration found and closed several control-plane issues without invoking AI:
+
+- `5209dacc5c89f09750b0a063ca155e37ae9867fc` / `88cbf21eda937d66217d19de20b6a3f4d0bfa884` — normalize VS Code-compatible and Copilot CLI hook payload variants, including `tool_response`, `tool_result`, camelCase tool fields, and agent-name variants;
+- `8f616cdcd264368cf6fa1b6f73d18a5382418cf4` / `abdf8c1f4dbe7318ecd6acd52b918c866134f95d` — prefer the concrete Builder name when a runtime also emits a generic agent type;
+- `ead8cefba2298deea0f0295c3da1e019a79895ac` through `a1cebe94f2aa35e4e3c79853d58aa9157d927bf4` — replace the obsolete agent-scoped-hook readiness assumption with plugin-level preflight checks and regression-test the settings scan;
+- `6da8f98a8b6bf2a3cdadb88e58d8a1ceb3437778` / `c1a47bcf8245be055f8dfafb178eb645827bad56` — fix a real fail-open edge where the sentinel `DIGEST_ERROR` could otherwise be treated as a matching workspace revision;
+- `c6b0e2ad72f2c67b8291a24e29e65e6d1b8052e8` — serialize external controller-state updates with a cross-platform lock and refuse trusted completion when no real session ID is observed;
+- `be43157aba57cd5dadaa7dc887d89bf216caee22` / `a6bdc37d8f9c9c69ca70510a5f086bba94e2839e` — add a deterministic runtime-trace reporter and fail-closed calibration fixtures;
+- `d91c40448e494c0e06c261bb1cefec8bf0790986` / `33f427b1bcdc9108a455b5a13f5735e50daed1a9` — add a synthetic, explicitly non-heldout smoke workspace generator;
+- `434b26e8c62fd1daad5fb1b6d0a7fd8c975599fa` — add the product-target live audit runbook;
+- `ed68d11a5bad726a719d4dc595a1590ec06f6e7d` — add a non-executable authenticated Actions smoke template.
+
+The trace reporter only marks a run as an enforce-mode **candidate** when the minimum runtime facts are actually present: expected hook coverage, exactly one complete Builder lifecycle, a final controller record, root Terra identity, Builder Luna identity, and no hook-event parse error. This is an implementation gate, not a product-success verdict.
+
+The hardening pass does not solve semantic criterion completeness, evidence relevance, same-user tamper resistance, or runtime waiver authentication.
 
 ### Zero-AI Copilot CLI plugin-parser smoke
 
@@ -128,7 +150,7 @@ Current official documentation supports plugin-level hooks independently of `.ag
 
 Purpose: calibrate actual Copilot CLI plugin/hook event schemas on a trivial one-file repository before any development benchmark.
 
-Planned ceiling: `--max-ai-credits=30` (runaway ceiling, not intended spend).
+Planned CLI response limit: `--max-ai-credits=30` (a **soft** runaway guard, not intended spend or an exact billing ceiling).
 
 ### R0a — workflow bootstrap invalid
 
@@ -186,14 +208,29 @@ This repository is user-owned. Repeating R0b with the same built-in-token path h
 
 No secret/token should ever be pasted into chat or committed to the repository.
 
+A one-shot secret-presence probe was later run without exposing any token value:
+
+- run: `35183896173`;
+- result: `copilot_pat_secret_present=no`;
+- the probe workflow was immediately removed at branch head `b4d519cd2af35c48112e334b0cd742ac281ef045`.
+
+Therefore an authenticated GitHub Actions paid smoke is still blocked until the owner configures a user-owned fine-grained PAT as the repository secret `COPILOT_GITHUB_TOKEN`. Repeating the built-in-token failure has no decision value.
+
+The preferred product-target calibration path is now documented in `docs/PREMIUM_V2_1_LIVE_AUDIT_RUNBOOK.md`: load the nested experimental plugin directly in VS Code, keep all hooks in audit mode, run only the synthetic smoke workspace, preserve the raw lifecycle trace, and run `scripts/premium_v2_1_trace_report.py`.
+
+A secondary authenticated Actions template is stored outside `.github/workflows/` under `experiments/premium_v2_1_plugin/smoke/`, so it cannot accidentally spend credits while authentication is absent.
+
 ## Current gate
 
 Before paid development tasks:
 
-1. static experimental-plugin validation must pass;
-2. runtime authentication must reach a real model call through an authorized supported path;
-3. first real plugin trace must show whether hooks load and expose expected event schemas;
-4. audit-mode schema calibration must be completed before switching plugin hooks to enforce mode;
-5. real development costs begin only after runtime calibration succeeds.
+1. zero-AI validation must remain green;
+2. one real **audit-mode** runtime trace must establish plugin hook firing and a single Builder lifecycle;
+3. root/child backend identity must be observed rather than inferred from agent frontmatter;
+4. PostToolUse and Stop payloads must be sufficient for current receipt/final-record parsing;
+5. any parser mismatch is fixed and re-audited before changing `hooks.json` to enforce mode;
+6. authenticated interactive waiver creation remains out of scope until a trustworthy runtime user-event path is designed;
+7. controller-state tamper protection remains **NOT_OBSERVED** and must not be represented as a security boundary;
+8. only after runtime calibration succeeds may real development-task spending begin.
 
-Promotion holdouts remain unauthorized and unselected.
+Promotion holdouts remain unauthorized and unselected. H1-H4 are not fresh holdouts for this redesign.
