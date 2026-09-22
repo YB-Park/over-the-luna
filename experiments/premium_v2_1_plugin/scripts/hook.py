@@ -628,13 +628,13 @@ def main() -> int:
         return 0
 
     mode = os.environ.get("OTL_V2_1_HOOK_MODE", "audit").lower()
+    output: dict[str, Any] = {}
     state_path, _, _, _ = session_paths(event)
     try:
         with state_lock(state_path):
             state, state_path, events_path = ensure_state(event)
             append_event(events_path, event)
             event_name = str(first_value(event, "hook_event_name", "hookEventName", "event_name", "eventName") or "")
-            output: dict[str, Any] = {}
 
             if event_name in {"SessionStart", "sessionStart"}:
                 handle_session_start(event, state)
@@ -698,6 +698,20 @@ def main() -> int:
         else:
             output = {
                 "systemMessage": "Premium v2.1 audit trace incomplete because controller state lock was unavailable."
+            }
+    except Exception as exc:
+        if mode == "enforce":
+            output = {
+                "continue": False,
+                "stopReason": "Premium v2.1 controller hook failed; refusing untracked execution.",
+                "systemMessage": f"{type(exc).__name__}: {exc}",
+            }
+        else:
+            output = {
+                "systemMessage": (
+                    "Premium v2.1 audit trace is incomplete because the hook adapter "
+                    f"failed: {type(exc).__name__}: {exc}"
+                )
             }
 
     print(json.dumps(output, sort_keys=True))
