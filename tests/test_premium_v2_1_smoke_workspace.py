@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -41,6 +42,19 @@ class PremiumV21SmokeWorkspaceTests(unittest.TestCase):
                 {str(smoke.PLUGIN): True},
             )
             self.assertEqual(result["plugin_location"], str(smoke.PLUGIN))
+            self.assertIs(settings["github.copilot.chat.otel.enabled"], True)
+            self.assertEqual(
+                settings["github.copilot.chat.otel.exporterType"],
+                "file",
+            )
+            self.assertIs(
+                settings["github.copilot.chat.otel.captureContent"],
+                False,
+            )
+            otel_output = Path(settings["github.copilot.chat.otel.outfile"])
+            self.assertEqual(otel_output, Path(result["otel_output"]))
+            self.assertNotEqual(otel_output.parent, workspace)
+            self.assertFalse(str(otel_output).startswith(str(workspace) + os.sep))
 
             proc = subprocess.run(
                 [sys.executable, "-m", "unittest", "-v"],
