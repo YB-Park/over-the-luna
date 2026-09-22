@@ -81,11 +81,19 @@ cannot access it.
 The stable root of this repository is a different plugin. Do **not** install the
 repository root and assume that it represents v2.1.
 
-Preferred local-development registration is to point VS Code directly at:
+The synthetic workspace generator in the next section now writes a workspace
+`.vscode/settings.json` that registers the exact current checkout path:
 
 `<checkout>/experiments/premium_v2_1_plugin`
 
-For example, in the active VS Code profile settings:
+through `chat.pluginLocations`.
+
+This is the preferred smoke path because the plugin source stays outside the
+synthetic mutation workspace while VS Code receives an explicit local plugin
+location.
+
+If automatic workspace registration is not honored in the active profile,
+manually add the same path:
 
 ```jsonc
 {
@@ -99,7 +107,7 @@ Then confirm in Agent Customizations / Plugins that
 `over-the-luna-premium-v2-1-experiment` is enabled and that
 `Premium Cascade v2.1 (Experimental)` is selectable.
 
-Do not infer hook loading from installation alone. In VS Code, use
+Do not infer hook loading from registration alone. In VS Code, use
 **Developer: Show Agent Debug Logs** or the **GitHub Copilot Chat Hooks** output
 channel and look for hook loading/execution diagnostics.
 
@@ -113,6 +121,15 @@ python scripts/premium_v2_1_make_smoke_workspace.py \
 ```
 
 On Windows, choose any disposable local path instead of `/tmp`.
+
+The generator also records the experimental plugin path in:
+
+`/tmp/otl-premium-v2-1-smoke/.vscode/settings.json`
+
+(or the equivalent path you selected).
+
+Open **this synthetic directory**, not the main Over the Luna checkout, as the
+VS Code workspace for the paid smoke.
 
 The generated test is expected to fail before the agent runs:
 
