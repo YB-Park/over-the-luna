@@ -191,6 +191,7 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
             "builder_count": 0,
             "builder_invocation_seen": False,
             "takeover": False,
+            "takeover_basis_ids": [],
             "obligations": {},
             "receipts": {},
             "user_events": [],
@@ -338,6 +339,37 @@ def is_metadata_only(event: dict[str, Any]) -> bool:
     )
 
 
+def takeover_blocking_ids(event: dict[str, Any], state: dict[str, Any]) -> list[str]:
+    """Return captured required criteria that explicitly justify Terra takeover.
+
+    This is a consistency gate, not a semantic classifier. It only proves that
+    the model-editable proposal left a captured required criterion FAILED or
+    UNRESOLVED; it cannot prove that the residual is repository-local rather
+    than infrastructure-only.
+    """
+    proposal_path, _, _ = metadata_paths(cwd_path(event))
+    proposal = load_json(proposal_path, {})
+    if not isinstance(proposal, dict):
+        return []
+    current = proposal.get("current")
+    obligations = state.get("obligations")
+    if not isinstance(current, dict) or not isinstance(obligations, dict):
+        return []
+
+    ids: list[str] = []
+    for cid, obligation in obligations.items():
+        if not isinstance(cid, str) or not isinstance(obligation, dict):
+            continue
+        if obligation.get("required") is not True or obligation.get("blocking") is not True:
+            continue
+        row = current.get(cid)
+        if not isinstance(row, dict):
+            continue
+        if row.get("disposition") in {"FAILED", "UNRESOLVED"}:
+            ids.append(cid)
+    return sorted(ids)
+
+
 def _deny_pre_tool(reason: str) -> dict[str, Any]:
     return {
         "hookSpecificOutput": {
@@ -387,8 +419,15 @@ def pre_tool_decision(event: dict[str, Any], state: dict[str, Any], mode: str) -
         )
 
     if phase == "ROOT_RECONCILE" and not metadata_only:
+        blocking_ids = takeover_blocking_ids(event, state)
+        if not blocking_ids:
+            return _deny_pre_tool(
+                "Premium v2.1 Terra takeover requires a captured blocking criterion "
+                "left FAILED or UNRESOLVED by the Luna attempt."
+            )
         state["phase"] = "TERRA_TAKEOVER"
         state["takeover"] = True
+        state["takeover_basis_ids"] = blocking_ids
     return {}
 
 
@@ -456,8 +495,15 @@ def observe_post_tool_phase(event: dict[str, Any], state: dict[str, Any]) -> lis
         if agent_tool:
             errors.append("subagent tool completed after the single Builder attempt")
         elif not metadata_only:
-            state["phase"] = "TERRA_TAKEOVER"
-            state["takeover"] = True
+            blocking_ids = takeover_blocking_ids(event, state)
+            if not blocking_ids:
+                errors.append(
+                    "Terra repository work completed without a captured FAILED/UNRESOLVED blocking criterion"
+                )
+            else:
+                state["phase"] = "TERRA_TAKEOVER"
+                state["takeover"] = True
+                state["takeover_basis_ids"] = blocking_ids
     elif phase == "TERRA_TAKEOVER" and agent_tool:
         errors.append("subagent tool completed during Terra takeover")
 
@@ -642,6 +688,7 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         "phase": state.get("phase"),
         "builder_count": state.get("builder_count"),
         "takeover": state.get("takeover"),
+        "takeover_basis_ids": state.get("takeover_basis_ids", []),
         "requested_outcome": proposal.get("requested_outcome", "COMPLETE"),
         "outcome": result.outcome,
         "trusted_complete": result.trusted_complete,
