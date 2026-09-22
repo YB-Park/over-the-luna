@@ -85,7 +85,9 @@ class PremiumV21TraceReportTests(unittest.TestCase):
                 "run_id": "session-1",
                 "workspace_revision": revision,
                 "phase": "ROOT_RECONCILE",
+                "builder_dispatch_count": 1,
                 "builder_count": 1,
+                "builder_agent_tool_completion_seen": True,
                 "takeover": False,
                 "outcome": "COMPLETE",
                 "trusted_complete": True,
@@ -626,6 +628,51 @@ class PremiumV21TraceReportTests(unittest.TestCase):
             set(report["otel"]["missing_expected_hook_spans"]),
             set(reporter.EXPECTED_EVENTS),
         )
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+
+    def test_missing_builder_agent_tool_completion_blocks_calibration(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        state_path = self.state_dir / "session.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["final_record"]["builder_agent_tool_completion_seen"] = False
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(state["final_record"]),
+            encoding="utf-8",
+        )
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "INVALID")
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_wrong_builder_dispatch_count_blocks_calibration(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        state_path = self.state_dir / "session.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["final_record"]["builder_dispatch_count"] = 2
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(state["final_record"]),
+            encoding="utf-8",
+        )
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "INVALID")
         self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
 
 
