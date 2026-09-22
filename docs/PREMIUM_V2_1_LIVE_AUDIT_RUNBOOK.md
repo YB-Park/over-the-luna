@@ -128,6 +128,15 @@ The generator also records the experimental plugin path in:
 
 (or the equivalent path you selected).
 
+The same workspace settings enable **metadata-only OTel capture** with content
+capture disabled and write JSONL **outside** the mutation workspace, for example:
+
+`/tmp/otl-premium-v2-1-smoke-copilot-otel.jsonl`
+
+The generator prints the exact `otel_output` path. Keeping telemetry outside
+the workspace is required so telemetry writes do not invalidate the controller's
+workspace digest.
+
 Open **this synthetic directory**, not the main Over the Luna checkout, as the
 VS Code workspace for the paid smoke.
 
@@ -179,7 +188,8 @@ Preserve:
 - `.otl-v2-1/final-record.json`;
 - the final working-tree diff;
 - the focused unittest result;
-- Agent Debug Logs / hook diagnostics needed to prove plugin hook loading.
+- Agent Debug Logs / hook diagnostics needed to prove plugin hook loading;
+- the generator-reported external VS Code OTel JSONL file.
 
 Raw event logs can contain prompts/tool arguments. The synthetic smoke is safe
 for repository review; do not upload analogous raw traces from proprietary
@@ -192,7 +202,8 @@ Run:
 ```bash
 python scripts/premium_v2_1_trace_report.py \
   --state-dir ~/.copilot/over-the-luna-v2-1/state \
-  --workspace /tmp/otl-premium-v2-1-smoke
+  --workspace /tmp/otl-premium-v2-1-smoke \
+  --otel-output /tmp/otl-premium-v2-1-smoke-copilot-otel.jsonl
 ```
 
 For the first calibration, inspect the raw `field_shapes` as well as the
@@ -206,9 +217,12 @@ A candidate for a later enforce-mode change requires, at minimum:
 - no hook-event parse errors;
 - backend identities established by runtime evidence where available.
 
-The VS Code trace alone may not expose backend model identity strongly enough.
-If it does not, leave identity as `NOT_OBSERVED`; do not infer it from
-frontmatter.
+The smoke workspace now enables the VS Code file OTel exporter specifically so
+resolved root/child model identity can be attempted in the same run. If the
+actual Agent Host OTel shape does not provide enough parentage/model evidence,
+leave identity as `NOT_OBSERVED`; do not infer it from frontmatter. Treat any
+parser mismatch as calibration evidence, not as permission to weaken identity
+requirements.
 
 ## 10. Copilot CLI audit smoke — secondary evaluation adapter
 
