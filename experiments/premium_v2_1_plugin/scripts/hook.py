@@ -462,13 +462,41 @@ def recursive_exit_code(value: Any) -> int | None:
     return None
 
 
-def command_identity(event: dict[str, Any]) -> str:
+def execution_command(event: dict[str, Any]) -> str | None:
     tool_input = event_tool_input(event)
-    if isinstance(tool_input, dict):
-        for key in ("command", "cmd", "script", "input"):
-            value = tool_input.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()[:500]
+    if not isinstance(tool_input, dict):
+        return None
+    for key in ("command", "cmd", "script"):
+        value = tool_input.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def is_execution_tool(event: dict[str, Any]) -> bool:
+    command = execution_command(event)
+    if command is None:
+        return False
+    name = event_tool_name(event).lower()
+    return any(
+        token in name
+        for token in (
+            "execute",
+            "terminal",
+            "shell",
+            "bash",
+            "command",
+            "powershell",
+            "test",
+        )
+    )
+
+
+def command_identity(event: dict[str, Any]) -> str:
+    command = execution_command(event)
+    if command is not None:
+        return command[:500]
+    tool_input = event_tool_input(event)
     return f"{event_tool_name(event) or 'tool'}:{hashlib.sha256(json.dumps(tool_input, sort_keys=True, default=str).encode()).hexdigest()[:16]}"
 
 
@@ -523,15 +551,17 @@ def record_post_tool(event: dict[str, Any], state: dict[str, Any]) -> None:
     except OSError:
         revision = "DIGEST_ERROR"
     response = event_tool_result(event)
-    exit_code = recursive_exit_code(response)
+    execution_eligible = is_execution_tool(event)
+    exit_code = recursive_exit_code(response) if execution_eligible else None
     receipt_id = f"E{len(state.get('receipts', {})) + 1}"
     receipt = {
         "run_id": trusted_run_id(event, state),
         "tool_use_id": first_value(event, "tool_use_id", "toolUseId"),
         "tool_name": event_tool_name(event),
         "command_or_test_id": command_identity(event),
-        "collection_status": "COLLECTED" if exit_code is not None else "OBSERVED",
-        "result_class": "PASS" if exit_code == 0 else ("ASSERTION_FAIL" if isinstance(exit_code, int) else "UNCLASSIFIED"),
+        "execution_eligible": execution_eligible,
+        "collection_status": "COLLECTED" if execution_eligible and exit_code is not None else "OBSERVED",
+        "result_class": "PASS" if execution_eligible and exit_code == 0 else ("ASSERTION_FAIL" if execution_eligible and isinstance(exit_code, int) else "UNCLASSIFIED"),
         "exit_status": exit_code,
         "workspace_before": state.get("last_workspace_revision"),
         "workspace_after": revision,
@@ -549,6 +579,8 @@ def record_post_tool(event: dict[str, Any], state: dict[str, Any]) -> None:
                     "id": rid,
                     "tool_name": r.get("tool_name"),
                     "command_or_test_id": r.get("command_or_test_id"),
+                    "execution_eligible": r.get("execution_eligible"),
+                    "collection_status": r.get("collection_status"),
                     "result_class": r.get("result_class"),
                     "exit_status": r.get("exit_status"),
                     "workspace_after": r.get("workspace_after"),
