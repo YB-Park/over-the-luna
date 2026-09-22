@@ -31,6 +31,14 @@ def first_value(event: dict[str, Any], *names: str) -> Any:
     return None
 
 
+def nonnegative_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value >= 0:
+        return value
+    return None
+
+
 def event_session_id(event: dict[str, Any]) -> Any:
     return first_value(event, "session_id", "sessionId")
 
@@ -194,11 +202,20 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
 
 
 def handle_session_start(event: dict[str, Any], state: dict[str, Any]) -> None:
+    builder_count = nonnegative_int(state.get("builder_count", 0))
+    prompt_count = nonnegative_int(state.get("user_prompt_count", 0))
+    if builder_count is None or prompt_count is None:
+        append_control_errors(
+            state,
+            ["malformed lifecycle counter in controller state"],
+            event=event,
+        )
+        return
     prior_activity = (
         bool(state.get("obligations"))
         or state.get("builder_invocation_seen") is True
-        or int(state.get("builder_count", 0) or 0) > 0
-        or int(state.get("user_prompt_count", 0) or 0) > 0
+        or builder_count > 0
+        or prompt_count > 0
     )
     if prior_activity:
         append_control_errors(
@@ -338,6 +355,12 @@ def pre_tool_decision(event: dict[str, Any], state: dict[str, Any], mode: str) -
     agent_tool = is_agent_tool(event)
     builder_tool = is_builder_agent_tool(event)
     metadata_only = is_metadata_only(event)
+    builder_count = nonnegative_int(state.get("builder_count", 0))
+    builder_seen = state.get("builder_invocation_seen", False)
+    if builder_count is None or not isinstance(builder_seen, bool):
+        return _deny_pre_tool(
+            "Premium v2.1 controller lifecycle state is malformed; refusing untracked execution."
+        )
 
     if phase == "ROOT_INTAKE":
         if not agent_tool:
@@ -348,7 +371,7 @@ def pre_tool_decision(event: dict[str, Any], state: dict[str, Any], mode: str) -
             return _deny_pre_tool(
                 "Premium v2.1 bounded intake permits only Premium v2.1 Luna Builder as the first and only subagent."
             )
-        if state.get("builder_invocation_seen") is True or int(state.get("builder_count", 0)) >= 1:
+        if builder_seen is True or builder_count >= 1:
             return _deny_pre_tool(
                 "Premium v2.1 permits exactly one Luna Builder invocation."
             )
@@ -561,10 +584,10 @@ def final_reconcile(event: dict[str, Any], state: dict[str, Any]) -> tuple[Recon
         "user_events": state.get("user_events", []),
     }
     result = reconcile(controller_state)
-    builder_count = state.get("builder_count", 0)
-    if not isinstance(builder_count, int) or builder_count != 1:
+    builder_count = nonnegative_int(state.get("builder_count", 0))
+    if builder_count != 1:
         admission_errors.append(
-            f"exactly one Luna Builder start required; observed {builder_count!r}"
+            f"exactly one Luna Builder start required; observed {state.get('builder_count', 0)!r}"
         )
     if state.get("phase") in {"ROOT_INTAKE", "LUNA_DISPATCHED", "LUNA_MUTATING"}:
         admission_errors.append(
@@ -625,7 +648,15 @@ def main() -> int:
             elif event_name in {"SubagentStart", "subagentStart"}:
                 if is_builder_event(event):
                     state["builder_invocation_seen"] = True
-                    state["builder_count"] = int(state.get("builder_count", 0)) + 1
+                    count = nonnegative_int(state.get("builder_count", 0))
+                    if count is None:
+                        append_control_errors(
+                            state,
+                            ["malformed builder_count in controller state"],
+                            event=event,
+                        )
+                    else:
+                        state["builder_count"] = count + 1
                     state["phase"] = "LUNA_MUTATING"
             elif event_name in {"SubagentStop", "subagentStop"}:
                 if is_builder_event(event):
@@ -635,8 +666,19 @@ def main() -> int:
                 requested = record.get("requested_outcome")
                 if mode == "enforce" and requested == "COMPLETE" and result.outcome != "COMPLETE":
                     stop_active = first_value(event, "stop_hook_active", "stopHookActive") is True
-                    if not stop_active and int(state.get("correction_count", 0)) < 1:
-                        state["correction_count"] = int(state.get("correction_count", 0)) + 1
+                    correction_count = nonnegative_int(state.get("correction_count", 0))
+                    if correction_count is None:
+                        append_control_errors(
+                            state,
+                            ["malformed correction_count in controller state"],
+                            event=event,
+                        )
+                        output = {
+                            "continue": False,
+                            "stopReason": "Premium v2.1 controller state is malformed; refusing trusted completion.",
+                        }
+                    elif not stop_active and correction_count < 1:
+                        state["correction_count"] = correction_count + 1
                         output = {
                             "hookSpecificOutput": {
                                 "hookEventName": "Stop",
