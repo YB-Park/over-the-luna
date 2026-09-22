@@ -156,6 +156,7 @@ class PluginControllerTests(unittest.TestCase):
         proposal["current"]["U0"] = {"disposition": "VERIFIED", "evidence_refs": ["E1"]}
         controller.atomic_json(proposal_path, proposal)
 
+        state["builder_dispatch_count"] = 1
         state["builder_count"] = 1
         state["builder_invocation_seen"] = True
         state["phase"] = "ROOT_RECONCILE"
@@ -1031,6 +1032,93 @@ class PluginControllerTests(unittest.TestCase):
         )
         errors = hook.observe_post_tool_phase(event, state)
         self.assertTrue(any("phase was invalid" in e for e in errors))
+        self.assertTrue(state["control_errors"])
+
+
+    def test_expected_builder_agent_posttool_is_not_second_subagent(self) -> None:
+        state = {
+            "phase": "ROOT_INTAKE",
+            "builder_count": 0,
+            "builder_invocation_seen": False,
+            "builder_dispatch_count": 0,
+            "builder_tool_use_id": None,
+            "builder_agent_tool_completion_seen": False,
+            "takeover": False,
+            "control_errors": [],
+        }
+        dispatch = self.event(
+            "PreToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder"},
+            tool_use_id="builder-call-1",
+        )
+        self.assertEqual(hook.observe_pre_tool_phase(dispatch, state), [])
+        self.assertEqual(state["builder_dispatch_count"], 1)
+        self.assertEqual(state["builder_tool_use_id"], "builder-call-1")
+
+        state["builder_invocation_seen"] = True
+        state["builder_count"] = 1
+        state["phase"] = "ROOT_RECONCILE"
+        completion = self.event(
+            "PostToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder"},
+            tool_use_id="builder-call-1",
+            tool_response="builder completed",
+        )
+        self.assertEqual(hook.observe_post_tool_phase(completion, state), [])
+        self.assertTrue(state["builder_agent_tool_completion_seen"])
+        self.assertEqual(state["control_errors"], [])
+
+    def test_builder_agent_posttool_with_wrong_tool_id_is_rejected(self) -> None:
+        state = {
+            "phase": "ROOT_RECONCILE",
+            "builder_count": 1,
+            "builder_invocation_seen": True,
+            "builder_dispatch_count": 1,
+            "builder_tool_use_id": "builder-call-1",
+            "builder_agent_tool_completion_seen": False,
+            "takeover": False,
+            "control_errors": [],
+        }
+        completion = self.event(
+            "PostToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder"},
+            tool_use_id="other-call",
+            tool_response="builder completed",
+        )
+        errors = hook.observe_post_tool_phase(completion, state)
+        self.assertTrue(any("unexpected subagent tool" in e for e in errors))
+        self.assertFalse(state["builder_agent_tool_completion_seen"])
+
+    def test_second_builder_dispatch_attempt_is_persisted_in_audit_state(self) -> None:
+        state = {
+            "phase": "ROOT_INTAKE",
+            "builder_count": 0,
+            "builder_invocation_seen": False,
+            "builder_dispatch_count": 0,
+            "builder_tool_use_id": None,
+            "builder_agent_tool_completion_seen": False,
+            "takeover": False,
+            "control_errors": [],
+        }
+        first = self.event(
+            "PreToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder"},
+            tool_use_id="builder-call-1",
+        )
+        second = self.event(
+            "PreToolUse",
+            tool_name="agent",
+            tool_input={"agent": "Premium v2.1 Luna Builder"},
+            tool_use_id="builder-call-2",
+        )
+        self.assertEqual(hook.observe_pre_tool_phase(first, state), [])
+        errors = hook.observe_pre_tool_phase(second, state)
+        self.assertTrue(any("more than one Luna Builder dispatch" in e for e in errors))
+        self.assertEqual(state["builder_dispatch_count"], 2)
         self.assertTrue(state["control_errors"])
 
 
