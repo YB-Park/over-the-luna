@@ -37,7 +37,7 @@ we have observed the actual Agent Host payload.
 
 ## 3. Current VS Code plugin/hook facts
 
-As of 2026-09-22, the current VS Code documentation states:
+As of 2026-09-23, the current VS Code documentation states:
 
 - existing Copilot-format plugins without the Agent Plugins 1.0 schema remain
   supported;
@@ -46,7 +46,14 @@ As of 2026-09-22, the current VS Code documentation states:
 - `chat.useCustomAgentHooks` is specifically for hooks embedded in custom
   agent frontmatter and is not the enablement switch for plugin-level hooks;
 - local plugin directories can be registered with `chat.pluginLocations`;
-- hook execution can still be disabled by VS Code/organization policy.
+- hook execution can still be disabled by VS Code/organization policy;
+- Agent Host OTel can emit `invoke_agent`, `chat`, and `execute_hook` spans;
+  `execute_hook` carries the hook type and execution result, giving an
+  independent cross-check that a configured hook actually ran;
+- `chat.useHooks` is treated here as a possible policy/configuration gate:
+  current documentation describes both hook-disable policy behavior and
+  Local-harness scope, so effective Agent Host behavior is proved by the live
+  trace rather than inferred from a text setting.
 
 References:
 
@@ -200,6 +207,21 @@ Raw event logs can contain prompts/tool arguments. The synthetic smoke is safe
 for repository review; do not upload analogous raw traces from proprietary
 workspaces without review/redaction.
 
+After the run, prefer collecting the review packet with the zero-AI collector:
+
+```bash
+python scripts/premium_v2_1_collect_smoke_evidence.py \
+  --workspace /tmp/otl-premium-v2-1-smoke \
+  --output /tmp/otl-premium-v2-1-evidence
+```
+
+The collector refuses non-smoke workspaces, selects exactly one matching hook
+session unless a session key is supplied, reruns the focused unittest, captures
+the diff/status, copies controller/OTel evidence, produces the deterministic
+trace report, and writes a SHA-256 manifest. These hashes protect the collected
+copy; they do **not** prove that same-user state was untampered before
+collection.
+
 ## 9. Deterministic trace summary
 
 Run:
@@ -216,18 +238,25 @@ summary. The reporter deliberately fails to infer missing facts.
 
 A candidate for a later enforce-mode change requires, at minimum:
 
-- all expected lifecycle events observed;
-- exactly one Builder start and one Builder stop;
-- a controller final record;
-- no hook-event parse errors;
-- backend identities established by runtime evidence where available.
+- one unambiguous single-mission runtime session;
+- all seven configured lifecycle events in the raw hook trace;
+- successful Agent Host `execute_hook` OTel evidence for those same hook
+  types under the selected root trace;
+- exactly one Builder Agent-tool dispatch, one Builder start, one Builder stop,
+  and the matching Builder Agent-tool completion;
+- at least one current collected PASS execution receipt;
+- matching current workspace/external final-record copies with trusted
+  `COMPLETE`;
+- exactly one selected root invoke and one rooted Builder invoke;
+- resolved root Terra and Builder Luna identities;
+- no parse errors or unexplained OTel topology conflicts.
 
-The smoke workspace now enables the VS Code file OTel exporter specifically so
-resolved root/child model identity can be attempted in the same run. If the
-actual Agent Host OTel shape does not provide enough parentage/model evidence,
-leave identity as `NOT_OBSERVED`; do not infer it from frontmatter. Treat any
-parser mismatch as calibration evidence, not as permission to weaken identity
-requirements.
+The smoke workspace enables the VS Code file OTel exporter specifically so hook
+execution and resolved root/child model identity can be cross-checked in the
+same run. If the actual Agent Host OTel shape differs, leave the affected fact
+as `NOT_OBSERVED` or `CONFLICT`; do not infer it from frontmatter. Fix the
+parser against the raw trace and repeat the synthetic audit rather than
+weakening the gate.
 
 ## 10. Copilot CLI audit smoke — secondary evaluation adapter
 
@@ -266,11 +295,13 @@ A separate enforce-mode commit is permitted only after review of a real audit
 trace establishes:
 
 - exact PreToolUse tool names/argument shapes needed for gating;
-- exact SubagentStart/SubagentStop Builder identity fields;
+- exact Builder Agent-tool + SubagentStart/SubagentStop identity/ordering fields;
 - exact PostToolUse result shape needed for receipt classification;
 - usable session identity;
 - Stop semantics and one-correction behavior;
-- no unexplained missing lifecycle event.
+- no unexplained missing lifecycle event;
+- OTel `execute_hook` coverage agrees with the hook adapter's own event log;
+- root/Builder invoke parentage is unambiguous.
 
 If the runtime differs from the parser, fix the parser and repeat a synthetic
 audit run. Do not weaken controller invariants merely to obtain COMPLETE.
