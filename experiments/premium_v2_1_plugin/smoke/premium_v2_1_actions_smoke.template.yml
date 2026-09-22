@@ -1,0 +1,168 @@
+name: Premium v2.1 one-shot authenticated audit smoke TEMPLATE
+
+# TEMPLATE ONLY.
+# This file lives outside .github/workflows so it cannot run automatically.
+# Copy it there only after COPILOT_GITHUB_TOKEN is configured as a repository
+# secret, then remove the one-shot workflow after collecting the trace.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact experiment commit
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify personal Copilot token is configured
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if [ -z "$COPILOT_GITHUB_TOKEN" ]; then
+            echo "COPILOT_GITHUB_TOKEN repository secret is not configured." >&2
+            exit 1
+          fi
+          echo "copilot_pat_secret_present=yes"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install pinned Copilot CLI
+        run: |
+          npm install -g @github/copilot@1.0.85
+          copilot --version | tee "${{ runner.temp }}/copilot-version.txt"
+
+      - name: Validate zero-AI experiment boundary
+        run: |
+          python scripts/validate_premium_v2_1_plugin.py
+          python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Prepare isolated synthetic workspace
+        run: |
+          python scripts/premium_v2_1_make_smoke_workspace.py \
+            --output "${{ runner.temp }}/v2-1-smoke-workspace"
+
+      - name: Confirm fixture fails before AI
+        working-directory: ${{ runner.temp }}/v2-1-smoke-workspace
+        shell: bash
+        run: |
+          set +e
+          python -m unittest -v > "${{ runner.temp }}/baseline-tests.txt" 2>&1
+          code=$?
+          set -e
+          cat "${{ runner.temp }}/baseline-tests.txt"
+          if [ "$code" -eq 0 ]; then
+            echo "Synthetic fixture unexpectedly passed before AI." >&2
+            exit 1
+          fi
+
+      - name: Run one authenticated audit-mode Premium v2.1 session
+        working-directory: ${{ runner.temp }}/v2-1-smoke-workspace
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          OTL_V2_1_STATE_DIR: ${{ runner.temp }}/otl-v2-1-state
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/v2-1-smoke-otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+          TASK_PROMPT: >-
+            RUNTIME SMOKE ONLY. Work only in this tiny local repository.
+            The public function increment(value) is documented to return value plus one,
+            but the implementation is wrong and the included unittest fails.
+            Make the smallest correct fix, preserve the function signature,
+            run the focused local test, and stop. Follow the Premium v2.1
+            controller metadata contract exactly. Do not add unrelated files or features.
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          start=$(date +%s)
+          copilot \
+            --plugin-dir="${{ github.workspace }}/experiments/premium_v2_1_plugin" \
+            --agent='over-the-luna-premium-v2-1-experiment:premium-cascade-v2-1' \
+            --model=gpt-5.6-terra \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --no-ask-user \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$TASK_PROMPT" \
+            | tee "${{ runner.temp }}/v2-1-smoke-output.jsonl"
+          code=${PIPESTATUS[0]}
+          end=$(date +%s)
+          echo "$code" > "${{ runner.temp }}/v2-1-smoke-agent.exit"
+          echo "$((end-start))" > "${{ runner.temp }}/v2-1-smoke-wall-seconds.txt"
+          exit 0
+
+      - name: Capture final workspace evidence
+        if: always()
+        working-directory: ${{ runner.temp }}/v2-1-smoke-workspace
+        shell: bash
+        run: |
+          set +e
+          git diff --no-ext-diff > "${{ runner.temp }}/v2-1-smoke.diff"
+          git status --short > "${{ runner.temp }}/v2-1-smoke.status"
+          python -m unittest -v > "${{ runner.temp }}/v2-1-smoke-tests.txt" 2>&1
+          echo "$?" > "${{ runner.temp }}/v2-1-smoke-tests.exit"
+          exit 0
+
+      - name: Produce deterministic runtime trace report
+        if: always()
+        shell: bash
+        run: |
+          python scripts/premium_v2_1_trace_report.py \
+            --state-dir "${{ runner.temp }}/otl-v2-1-state" \
+            --workspace "${{ runner.temp }}/v2-1-smoke-workspace" \
+            --cli-output "${{ runner.temp }}/v2-1-smoke-output.jsonl" \
+            > "${{ runner.temp }}/v2-1-smoke-trace-report.json"
+          cat "${{ runner.temp }}/v2-1-smoke-trace-report.json"
+
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-v2-1-authenticated-audit-smoke
+          path: |
+            ${{ runner.temp }}/copilot-version.txt
+            ${{ runner.temp }}/baseline-tests.txt
+            ${{ runner.temp }}/v2-1-smoke-output.jsonl
+            ${{ runner.temp }}/v2-1-smoke-otel.jsonl
+            ${{ runner.temp }}/v2-1-smoke.diff
+            ${{ runner.temp }}/v2-1-smoke.status
+            ${{ runner.temp }}/v2-1-smoke-agent.exit
+            ${{ runner.temp }}/v2-1-smoke-wall-seconds.txt
+            ${{ runner.temp }}/v2-1-smoke-tests.txt
+            ${{ runner.temp }}/v2-1-smoke-tests.exit
+            ${{ runner.temp }}/v2-1-smoke-trace-report.json
+            ${{ runner.temp }}/otl-v2-1-state/
+            ${{ runner.temp }}/v2-1-smoke-workspace/.otl-v2-1/
+          if-no-files-found: warn
+
+      - name: Classify smoke after artifacts are captured
+        shell: bash
+        run: |
+          agent_exit=$(cat "${{ runner.temp }}/v2-1-smoke-agent.exit" 2>/dev/null || echo missing)
+          test_exit=$(cat "${{ runner.temp }}/v2-1-smoke-tests.exit" 2>/dev/null || echo missing)
+          echo "agent_exit=$agent_exit test_exit=$test_exit"
+          test "$agent_exit" = "0"
+          test "$test_exit" = "0"
+          python scripts/premium_v2_1_trace_report.py \
+            --state-dir "${{ runner.temp }}/otl-v2-1-state" \
+            --workspace "${{ runner.temp }}/v2-1-smoke-workspace" \
+            --cli-output "${{ runner.temp }}/v2-1-smoke-output.jsonl" \
+            --require-calibration-ready
