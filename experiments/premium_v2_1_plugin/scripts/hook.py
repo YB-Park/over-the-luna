@@ -876,9 +876,21 @@ def main() -> int:
                     else:
                         state["builder_count"] = count + 1
                     state["phase"] = "LUNA_MUTATING"
+                else:
+                    append_control_errors(
+                        state,
+                        ["unexpected non-Builder subagent started"],
+                        event=event,
+                    )
             elif event_name in {"SubagentStop", "subagentStop"}:
                 if is_builder_event(event):
                     state["phase"] = "ROOT_RECONCILE"
+                else:
+                    append_control_errors(
+                        state,
+                        ["unexpected non-Builder subagent stopped"],
+                        event=event,
+                    )
             elif event_name in {"Stop", "agentStop", "stop"}:
                 result, record = final_reconcile(event, state)
                 requested = record.get("requested_outcome")
@@ -906,6 +918,25 @@ def main() -> int:
                         }
                 if mode == "enforce" and not output:
                     output = noncomplete_visibility_output(result)
+            else:
+                append_control_errors(
+                    state,
+                    [f"unrecognized hook event name: {event_name!r}"],
+                    event=event,
+                )
+                if mode == "enforce":
+                    output = {
+                        "continue": False,
+                        "stopReason": "Premium v2.1 received an unrecognized hook event; refusing untracked execution.",
+                        "systemMessage": f"unrecognized hook event name: {event_name!r}",
+                    }
+                else:
+                    output = {
+                        "systemMessage": (
+                            "Premium v2.1 audit trace includes an unrecognized hook event: "
+                            f"{event_name!r}"
+                        )
+                    }
 
             save_state(state_path, state)
     except TimeoutError as exc:
