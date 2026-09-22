@@ -95,6 +95,10 @@ class PremiumV21TraceReportTests(unittest.TestCase):
             json.dumps(state),
             encoding="utf-8",
         )
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(state["final_record"]),
+            encoding="utf-8",
+        )
 
     def write_cli_identity(self, *, builder_model: str = "gpt-5.6-luna") -> Path:
         path = self.root / "cli.jsonl"
@@ -400,6 +404,38 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
 
         self.assertFalse(report["hook_trace"]["single_mission_counts_valid"])
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+
+    def test_missing_workspace_final_copy_blocks_calibration(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        (self.workspace / ".otl-v2-1" / "final-record.json").unlink()
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertFalse(
+            report["controller"]["final_record_sources"]["both_expected_copies_present"]
+        )
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_missing_external_final_copy_blocks_calibration(self) -> None:
+        self.write_jsonl(self.state_dir / "session.events.jsonl", self.complete_hook_events())
+        self.write_controller_state()
+        state_path = self.state_dir / "session.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state.pop("final_record")
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertFalse(
+            report["controller"]["final_record_sources"]["both_expected_copies_present"]
+        )
         self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
 
 
