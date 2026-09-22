@@ -3,8 +3,8 @@
 Status: **PRE-LIVE / AUDIT MODE / NOT A PROMOTION CANDIDATE**  
 Branch: `experiment/premium-v2-1-minimal-cascade`  
 Approved design closure: `5e1c7ac425acf2e35b2b015260301f150af2c65d`  
-Implementation snapshot before this packet: `76c7c96d964a034a9bbe4da79c61d19dd925b5ec`  
-Zero-AI CI run: `35747955477` — **89/89 PASS**
+Code snapshot covered by this packet: `2c3db3c19a30bf8b2efa9ccabfe3d9acf6095770`  
+Zero-AI CI run: `35799509383` — **137/137 PASS**
 
 This document is intentionally written for hostile review. It is not a product
 announcement and it does not claim that Premium v2.1 is correct, secure,
@@ -80,14 +80,14 @@ The first live run is schema/runtime calibration only.
 
 ## 4. Zero-AI evidence already established
 
-At implementation snapshot `76c7c96d...`:
+At code snapshot `2c3db3c1...`:
 
 - static plugin validator: PASS;
 - agent topology: exactly 2 agents;
 - lifecycle topology: exactly 7 configured hooks;
 - audit-mode boundary: preserved;
-- Python/controller suite: **89/89 PASS**;
-- CI run: `35747955477`.
+- Python/controller suite: **137/137 PASS**;
+- CI run: `35799509383`.
 
 The zero-AI suite now exercises, among other cases:
 
@@ -113,9 +113,19 @@ The zero-AI suite now exercises, among other cases:
 - metadata-exemption abuse through command tools;
 - post-tool defense-in-depth for a bypassed pre-tool gate;
 - Terra takeover without an explicit captured blocking residual;
+- valid controller phase and fixed-workspace binding;
+- exact Builder Agent-tool dispatch/start/stop/completion lifecycle;
+- normal Builder Agent-tool PostToolUse not being mistaken for a second child;
+- execution-only receipt eligibility;
+- reference/plugin-local controller terminal-outcome parity;
+- rooted OTel parentage for Builder and hook evidence;
+- missing/failed Agent Host `execute_hook` spans;
+- zero-AI live-smoke evidence selection and SHA-256 bundle generation;
 - one-correction Stop behavior.
 
-These tests prove only the coded consistency rules.
+These tests prove only the coded consistency rules. They do not prove that the
+target Agent Host emits the assumed event/OTel shapes; that is the purpose of
+the first live audit.
 
 ## 5. Runtime parser evidence already established
 
@@ -189,11 +199,15 @@ Later deletion, narrowing, re-sourcing, or downgrade does not erase it.
 Enforce logic permits only the named
 `Premium v2.1 Luna Builder`.
 
-The dispatch is marked at PreToolUse, before SubagentStart, so losing a start
-event cannot silently authorize a second child.
+The dispatch is observed at the Builder Agent-tool PreToolUse and counted
+independently from SubagentStart. The controller records that wrapper tool-use
+identity so the normal matching Agent-tool PostToolUse after SubagentStop is not
+misclassified as a second child.
 
-Trusted final reconciliation separately requires exactly one observed Builder
-start and a completed Builder lifecycle.
+Trusted final reconciliation separately requires exactly one Builder dispatch,
+one observed Builder start, a terminal Builder lifecycle, and the matching
+Builder Agent-tool completion. A second dispatch attempt is a persisted control
+error even in audit mode.
 
 ### 7.4 Pre-Builder work
 
@@ -259,8 +273,11 @@ The trace gate fails closed when:
 - schema/outcome is malformed;
 - run ID disagrees with the selected hook session;
 - workspace revision is stale;
-- Builder count is not exactly one;
+- Builder dispatch/start cardinality is not exactly one;
+- matching Builder Agent-tool completion is not observed;
 - final phase is not reconcilable;
+- takeover phase/flag/basis are internally inconsistent at runtime
+  reconciliation;
 - workspace and external final records disagree.
 
 ### 7.9 Trace selection
@@ -392,17 +409,20 @@ A code fix passing is insufficient.
 
 The deterministic trace gate currently requires:
 
-- one selected runtime session;
-- exactly one session ID;
-- required lifecycle events observed;
-- single-mission lifecycle counts;
-- exactly one Builder start and stop;
-- at least one collected PASS receipt;
-- a current, non-conflicting, VALID_COMPLETE final record;
+- one selected runtime session and exactly one session ID;
+- single-mission SessionStart/UserPromptSubmit/Stop counts;
+- all seven configured lifecycle event types in raw hook evidence;
+- successful rooted Agent Host `execute_hook` OTel evidence for those hook
+  types;
+- exactly one Builder Agent-tool dispatch, one Builder start/stop lifecycle,
+  and matching wrapper-tool completion;
+- at least one collected PASS execution receipt;
+- both expected final-record copies, current and non-conflicting, with trusted
+  COMPLETE;
 - current workspace revision match;
-- observed root Terra resolved identity;
-- observed Builder Luna resolved identity;
-- parse-clean hook, CLI, and OTel evidence.
+- exactly one selected root invoke and one Builder invoke rooted under it;
+- observed root Terra resolved identity and Builder Luna resolved identity;
+- no disconnected Builder invoke and parse-clean hook/CLI/OTel evidence.
 
 If any item is absent, the result remains **NOT READY FOR ENFORCE MODE**.
 
@@ -447,6 +467,14 @@ questions:
     blocks nor leaves enough evidence to invalidate completion?
 18. Does any current assertion exceed what the target runtime actually
     demonstrates?
+19. Can a normal Builder Agent-tool PostToolUse be confused with a second child,
+    or can a second dispatch masquerade as the first wrapper completion?
+20. Can hook JSONL from one session and `execute_hook` OTel spans from another
+    satisfy the gate through ambiguous parentage?
+21. Can controller state be replayed from the correct session ID but a different
+    workspace without triggering the workspace binding?
+22. Can reference and plugin-local controller semantics drift on an adversarial
+    malformed state while ordinary fixtures remain green?
 
 A useful review should distinguish:
 
@@ -458,7 +486,22 @@ A useful review should distinguish:
 
 Do not collapse those into one generic verdict.
 
-## 12. Explicit non-goals / forbidden regression
+## 12. Evidence bundle for external review
+
+After the live synthetic smoke, reviewers should receive the output of:
+
+`scripts/premium_v2_1_collect_smoke_evidence.py`
+
+rather than selected screenshots or hand-copied excerpts. The bundle includes
+the matching hook event/state files, workspace controller metadata, Agent Host
+OTel, final diff/status, a rerun of the focused unittest, the deterministic
+trace report, and a SHA-256 manifest.
+
+The manifest establishes integrity of the collected copy only. It does not
+convert same-user files into an unforgeable security boundary, and it does not
+make the synthetic task a product benchmark.
+
+## 13. Explicit non-goals / forbidden regression
 
 Do not respond to a failure by:
 
