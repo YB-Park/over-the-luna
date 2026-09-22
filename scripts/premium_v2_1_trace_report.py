@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import argparse
 import collections
+import hashlib
 import json
+import os
+import stat
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -30,6 +33,47 @@ TERMINAL_OUTCOMES = {
     "PARTIAL_WITH_USER_WAIVER",
     "NO_VERIFIED_COMPLETION",
 }
+
+
+def workspace_digest(
+    root: Path,
+    exclude_names: Iterable[str] = (".git", ".otl-v2-1"),
+) -> str:
+    """Recompute the plugin-compatible worktree digest for trace validation."""
+    root = root.resolve()
+    excluded = set(exclude_names)
+    hasher = hashlib.sha256()
+    entries: list[Path] = []
+    for path in root.rglob("*"):
+        relative = path.relative_to(root)
+        if any(part in excluded for part in relative.parts):
+            continue
+        entries.append(path)
+
+    for path in sorted(entries, key=lambda p: p.relative_to(root).as_posix()):
+        relative = path.relative_to(root).as_posix()
+        info = path.lstat()
+        executable = bool(info.st_mode & stat.S_IXUSR)
+        if path.is_symlink():
+            kind = "L"
+            payload = os.readlink(path).encode("utf-8", "surrogateescape")
+        elif path.is_file():
+            kind = "F"
+            payload = path.read_bytes()
+        elif path.is_dir():
+            kind = "D"
+            payload = b""
+        else:
+            kind = "O"
+            payload = b""
+        hasher.update(kind.encode("ascii"))
+        hasher.update(b"\0")
+        hasher.update(relative.encode("utf-8", "surrogateescape"))
+        hasher.update(b"\0")
+        hasher.update(b"x" if executable else b"-")
+        hasher.update(b"\0")
+        hasher.update(hashlib.sha256(payload).digest())
+    return hasher.hexdigest()
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -424,6 +468,14 @@ def summarize(
             and receipt.get("result_class") == "PASS"
         )
 
+    current_workspace_revision: str | None = None
+    workspace_digest_error: str | None = None
+    if workspace is not None:
+        try:
+            current_workspace_revision = workspace_digest(workspace)
+        except OSError as exc:
+            workspace_digest_error = str(exc)
+
     final_records: list[dict[str, Any]] = []
     if workspace is not None:
         final = read_json(workspace / ".otl-v2-1" / "final-record.json")
@@ -453,6 +505,17 @@ def summarize(
             errors.append("run_id missing")
         elif expected_session_id is not None and run_id != expected_session_id:
             errors.append("run_id does not match selected hook session")
+        revision = record.get("workspace_revision")
+        if not isinstance(revision, str) or not revision:
+            errors.append("workspace_revision missing")
+        elif current_workspace_revision is None:
+            errors.append("current workspace revision unavailable")
+        elif revision != current_workspace_revision:
+            errors.append("final record is stale for current workspace")
+        if record.get("builder_count") != 1:
+            errors.append("final record builder_count is not exactly one")
+        if record.get("phase") not in {"ROOT_RECONCILE", "TERRA_TAKEOVER"}:
+            errors.append("final record phase is not terminal-reconcilable")
         final_record_assessments.append(
             {
                 "valid": not errors,
@@ -481,6 +544,10 @@ def summarize(
     ]
     if not final_records:
         controller_final = "NOT_OBSERVED"
+    elif len(final_records) > 1:
+        # Equal records are deduplicated above. More than one record therefore
+        # means workspace and external controller state disagree.
+        controller_final = "CONFLICT"
     elif valid_complete_records:
         controller_final = "VALID_COMPLETE"
     elif all(item["valid"] for item in final_record_assessments):
@@ -488,11 +555,20 @@ def summarize(
     else:
         controller_final = "INVALID"
 
+    lifecycle_counts_valid = (
+        counts.get("SessionStart", 0) == 1
+        and counts.get("UserPromptSubmit", 0) == 1
+        and counts.get("Stop", 0) == 1
+    )
+
     calibration_ready = (
         selection_error is None
         and selected_key is not None
         and len(session_ids) == 1
         and not missing_events
+        and lifecycle_counts_valid
+        and current_workspace_revision is not None
+        and workspace_digest_error is None
         and builder_starts == 1
         and builder_stops == 1
         and receipt_count >= 1
@@ -526,6 +602,11 @@ def summarize(
             "session_ids": session_ids,
             "field_shapes": field_shapes,
             "parse_errors": sum(1 for event in events if event.get("_parse_error") is True),
+            "single_mission_counts_valid": lifecycle_counts_valid,
+        },
+        "workspace_revision": {
+            "current": current_workspace_revision,
+            "error": workspace_digest_error,
         },
         "delegation": {
             "status": delegation,
