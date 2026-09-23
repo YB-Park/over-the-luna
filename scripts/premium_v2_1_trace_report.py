@@ -650,6 +650,11 @@ def summarize(
             errors.append("run_id missing")
         elif expected_session_id is not None and run_id != expected_session_id:
             errors.append("run_id does not match selected hook session")
+        record_session_id = record.get("session_id")
+        if not isinstance(record_session_id, str) or not record_session_id:
+            errors.append("session_id missing")
+        elif expected_session_id is not None and record_session_id != expected_session_id:
+            errors.append("session_id does not match selected hook session")
         revision = record.get("workspace_revision")
         if not isinstance(revision, str) or not revision:
             errors.append("workspace_revision missing")
@@ -657,14 +662,55 @@ def summarize(
             errors.append("current workspace revision unavailable")
         elif revision != current_workspace_revision:
             errors.append("final record is stale for current workspace")
+        if record.get("session_start_count") != 1:
+            errors.append("final record session_start_count is not exactly one")
+        if record.get("user_prompt_count") != 1:
+            errors.append("final record user_prompt_count is not exactly one")
         if record.get("builder_dispatch_count") != 1:
             errors.append("final record builder_dispatch_count is not exactly one")
         if record.get("builder_count") != 1:
             errors.append("final record builder_count is not exactly one")
         if record.get("builder_agent_tool_completion_seen") is not True:
             errors.append("final record did not observe Builder agent-tool completion")
-        if record.get("phase") not in {"ROOT_RECONCILE", "TERRA_TAKEOVER"}:
+
+        phase = record.get("phase")
+        takeover = record.get("takeover")
+        basis = record.get("takeover_basis_ids")
+        if phase not in {"ROOT_RECONCILE", "TERRA_TAKEOVER"}:
             errors.append("final record phase is not terminal-reconcilable")
+        if not isinstance(takeover, bool):
+            errors.append("final record takeover flag must be boolean")
+        if not isinstance(basis, list) or not all(
+            isinstance(cid, str) and cid for cid in basis
+        ):
+            errors.append("final record takeover_basis_ids is malformed")
+            basis = []
+        if phase == "ROOT_RECONCILE":
+            if takeover is not False:
+                errors.append("ROOT_RECONCILE final record requires takeover=false")
+            if basis:
+                errors.append("ROOT_RECONCILE final record cannot retain takeover basis")
+        elif phase == "TERRA_TAKEOVER":
+            if takeover is not True:
+                errors.append("TERRA_TAKEOVER final record requires takeover=true")
+            if not basis:
+                errors.append("TERRA_TAKEOVER final record requires takeover basis")
+
+        record_errors = record.get("errors")
+        record_blocking = record.get("blocking")
+        if not isinstance(record_errors, list) or not all(
+            isinstance(item, str) for item in record_errors
+        ):
+            errors.append("final record errors must be a string list")
+        if not isinstance(record_blocking, list) or not all(
+            isinstance(item, str) for item in record_blocking
+        ):
+            errors.append("final record blocking must be a string list")
+        if outcome == "COMPLETE":
+            if record_errors:
+                errors.append("COMPLETE final record cannot contain controller errors")
+            if record_blocking:
+                errors.append("COMPLETE final record cannot contain blocking criteria")
         final_record_assessments.append(
             {
                 "valid": not errors,
