@@ -3,8 +3,8 @@
 Status: **PRE-LIVE / AUDIT MODE / NOT A PROMOTION CANDIDATE**  
 Branch: `experiment/premium-v2-1-minimal-cascade`  
 Approved design closure: `5e1c7ac425acf2e35b2b015260301f150af2c65d`  
-Code snapshot covered by this packet: `2c3db3c19a30bf8b2efa9ccabfe3d9acf6095770`  
-Zero-AI CI run: `35799509383` — **137/137 PASS**
+Pre-live frozen code snapshot: `8290643334712493f06978a40ec3acb9b4d6c2b4`  
+Zero-AI CI run: `35800930744` — **153/153 PASS**
 
 This document is intentionally written for hostile review. It is not a product
 announcement and it does not claim that Premium v2.1 is correct, secure,
@@ -80,14 +80,14 @@ The first live run is schema/runtime calibration only.
 
 ## 4. Zero-AI evidence already established
 
-At code snapshot `2c3db3c1...`:
+At frozen code snapshot `82906433...`:
 
 - static plugin validator: PASS;
 - agent topology: exactly 2 agents;
 - lifecycle topology: exactly 7 configured hooks;
 - audit-mode boundary: preserved;
-- Python/controller suite: **137/137 PASS**;
-- CI run: `35799509383`.
+- Python/controller suite: **153/153 PASS**;
+- CI run: `35800930744`.
 
 The zero-AI suite now exercises, among other cases:
 
@@ -126,6 +126,23 @@ The zero-AI suite now exercises, among other cases:
 These tests prove only the coded consistency rules. They do not prove that the
 target Agent Host emits the assumed event/OTel shapes; that is the purpose of
 the first live audit.
+
+The final pre-live hardening delta also covers:
+
+- the actual hook Python launcher and Python >=3.10 compatibility in local
+  preflight, without incorrectly requiring the optional `code` shell command;
+- strict loading/shape validation for an already-existing external controller
+  state instead of silently reinitializing malformed state;
+- root-only digest exclusions so nested `.otl-v2-1` workspace content cannot
+  disappear from the digest;
+- metadata-root/controller-file symlink escape rejection;
+- stricter final-record checks for session/lifecycle/takeover/error consistency;
+- exact committed synthetic marker/test-asset pinning in the evidence collector;
+- collector ordering that snapshots the runtime digest/trace before rerunning a
+  test that could mutate caches.
+
+The code is intentionally frozen at `82906433...` until a real Agent Host
+audit produces runtime evidence that justifies a parser/adapter change.
 
 ## 5. Runtime parser evidence already established
 
