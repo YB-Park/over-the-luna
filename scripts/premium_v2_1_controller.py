@@ -306,7 +306,7 @@ def workspace_digest(
     entries: list[Path] = []
     for path in root.rglob("*"):
         relative = path.relative_to(root)
-        if any(part in excluded for part in relative.parts):
+        if relative.parts and relative.parts[0] in excluded:
             continue
         entries.append(path)
 
