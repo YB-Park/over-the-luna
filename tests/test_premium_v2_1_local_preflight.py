@@ -124,5 +124,55 @@ class PremiumV21LocalPreflightTests(unittest.TestCase):
         self.assertIn("not found", result["error"])
 
 
+    def test_missing_code_cli_is_diagnostic_not_readiness_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            workspace = Path(td) / "workspace"
+            workspace.mkdir()
+
+            def fake_which(name: str):
+                if name == "code":
+                    return None
+                if name == "python3":
+                    return "/usr/bin/python3"
+                return None
+
+            def fake_run(argv: list[str]):
+                return {
+                    "observed": True,
+                    "command": argv,
+                    "exit_code": 0,
+                    "stdout": "Python 3.12",
+                    "stderr": "",
+                }
+
+            output = io.StringIO()
+            with (
+                mock.patch.object(preflight.platform, "system", return_value="Linux"),
+                mock.patch.object(preflight.shutil, "which", side_effect=fake_which),
+                mock.patch.object(preflight, "run_command", side_effect=fake_run),
+                contextlib.redirect_stdout(output),
+            ):
+                rc = preflight.main(
+                    [
+                        "--workspace",
+                        str(workspace),
+                        "--code-command",
+                        "code",
+                    ]
+                )
+
+            self.assertEqual(rc, 0)
+            report = json.loads(output.getvalue())
+            self.assertFalse(
+                report["diagnostic_observations_not_readiness_gates"][
+                    "vscode_cli_observed"
+                ]
+            )
+            self.assertEqual(
+                report["configuration_status"],
+                "READY_FOR_PLUGIN_INSTALL_OR_LIVE_AUDIT",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
