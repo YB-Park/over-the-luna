@@ -359,13 +359,20 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     prerequisites = {
-        "vscode_cli_observed": bool(
-            code_version.get("observed") and code_version.get("exit_code") == 0
-        ),
         "experimental_plugin_static_contract_valid": bool(plugin_contract.get("valid")),
         "plugin_hooks_still_audit_mode": plugin_contract.get("hook_mode") == "audit",
         "configured_hook_python_interpreter_observed": bool(
             hook_python.get("observed") and hook_python.get("exit_code") == 0
+        ),
+    }
+    report["diagnostic_observations_not_readiness_gates"] = {
+        "vscode_cli_observed": bool(
+            code_version.get("observed") and code_version.get("exit_code") == 0
+        ),
+        "note": (
+            "The VS Code shell command is optional for this experiment. Agent Host "
+            "availability must be confirmed in the UI/live trace, not inferred from "
+            "whether the code command is on PATH."
         ),
     }
     report["configuration_prerequisites"] = prerequisites
