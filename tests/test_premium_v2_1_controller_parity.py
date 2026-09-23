@@ -15,6 +15,7 @@ PLUGIN_CONTROLLER = (
     / "scripts"
     / "controller.py"
 )
+TRACE_REPORT = ROOT / "scripts" / "premium_v2_1_trace_report.py"
 
 
 def load_module(name: str, path: Path):
@@ -28,6 +29,7 @@ def load_module(name: str, path: Path):
 
 reference = load_module("premium_v2_1_reference_controller", ROOT_CONTROLLER)
 plugin = load_module("premium_v2_1_plugin_controller_parity", PLUGIN_CONTROLLER)
+trace = load_module("premium_v2_1_trace_report_parity", TRACE_REPORT)
 
 
 def base_state() -> dict:
@@ -146,6 +148,44 @@ class PremiumV21ControllerParityTests(unittest.TestCase):
 
     def test_non_mapping_state_parity(self) -> None:
         self.assert_parity([])
+
+
+    def test_workspace_digest_three_way_parity_and_root_only_exclusion(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "src").mkdir()
+            (root / ".otl-v2-1").mkdir()
+            (root / "src" / ".otl-v2-1").mkdir()
+
+            (root / "a.txt").write_text("a", encoding="utf-8")
+            (root / ".otl-v2-1" / "controller.json").write_text(
+                "meta-1",
+                encoding="utf-8",
+            )
+            nested = root / "src" / ".otl-v2-1" / "product.txt"
+            nested.write_text("product-1", encoding="utf-8")
+
+            d1 = reference.workspace_digest(root)
+            self.assertEqual(d1, plugin.workspace_digest(root))
+            self.assertEqual(d1, trace.workspace_digest(root))
+
+            # Root controller metadata is intentionally excluded.
+            (root / ".otl-v2-1" / "controller.json").write_text(
+                "meta-2",
+                encoding="utf-8",
+            )
+            d2 = reference.workspace_digest(root)
+            self.assertEqual(d1, d2)
+
+            # A nested directory with the same name is ordinary workspace
+            # content and must remain inside the digest.
+            nested.write_text("product-2", encoding="utf-8")
+            d3 = reference.workspace_digest(root)
+            self.assertNotEqual(d2, d3)
+            self.assertEqual(d3, plugin.workspace_digest(root))
+            self.assertEqual(d3, trace.workspace_digest(root))
 
 
 if __name__ == "__main__":
