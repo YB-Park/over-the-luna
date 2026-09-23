@@ -36,12 +36,8 @@ class PremiumV21SmokeEvidenceCollectorTests(unittest.TestCase):
         self.otel = self.root / "smoke-otel.jsonl"
 
         (self.workspace / ".premium-v2-1-smoke.json").write_text(
-            json.dumps(
-                {
-                    "schema": collector.SMOKE_SCHEMA,
-                    "purpose": "runtime calibration only; never product scoring",
-                }
-            ),
+            json.dumps(collector.smoke_fixture.INTENT, indent=2, sort_keys=True)
+            + "\n",
             encoding="utf-8",
         )
         vscode = self.workspace / ".vscode"
@@ -63,11 +59,12 @@ class PremiumV21SmokeEvidenceCollectorTests(unittest.TestCase):
         ):
             (meta / name).write_text("{}\n", encoding="utf-8")
 
-        (self.workspace / "test_smoke.py").write_text(
-            "import unittest\n\n"
-            "class Smoke(unittest.TestCase):\n"
-            "    def test_ok(self):\n"
-            "        self.assertTrue(True)\n",
+        (self.workspace / "counter.py").write_text(
+            collector.smoke_fixture.COUNTER.replace("return value - 1", "return value + 1"),
+            encoding="utf-8",
+        )
+        (self.workspace / "test_counter.py").write_text(
+            collector.smoke_fixture.TEST,
             encoding="utf-8",
         )
         self.otel.write_text("{}\n", encoding="utf-8")
@@ -168,6 +165,21 @@ class PremiumV21SmokeEvidenceCollectorTests(unittest.TestCase):
                 self.workspace,
                 state_dir=self.state_dir,
                 output=inside,
+            )
+
+
+    def test_refuses_changed_focused_test_asset(self) -> None:
+        self.write_session("abc")
+        (self.workspace / "test_counter.py").write_text(
+            "import unittest\n",
+            encoding="utf-8",
+        )
+
+        with self.assertRaises(ValueError):
+            collector.collect(
+                self.workspace,
+                state_dir=self.state_dir,
+                output=self.output,
             )
 
 
