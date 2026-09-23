@@ -37,7 +37,7 @@ def workspace_digest(root: Path, exclude_names: Iterable[str] = (".git", ".otl-v
     entries: list[Path] = []
     for path in root.rglob("*"):
         rel = path.relative_to(root)
-        if any(part in excluded for part in rel.parts):
+        if rel.parts and rel.parts[0] in excluded:
             continue
         entries.append(path)
     for path in sorted(entries, key=lambda p: p.relative_to(root).as_posix()):
