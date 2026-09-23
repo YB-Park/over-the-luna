@@ -187,8 +187,26 @@ def metadata_paths(cwd: Path) -> tuple[Path, Path, Path]:
 
 def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
     state_path, events_path, key, weak = session_paths(event)
-    state = load_json(state_path, {})
-    if not isinstance(state, dict) or not state:
+    if state_path.exists():
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                f"existing controller state is unreadable or malformed: {state_path}: {exc}"
+            ) from exc
+        if not isinstance(state, dict) or not state:
+            raise ValueError(
+                f"existing controller state is not a non-empty object: {state_path}"
+            )
+        if state.get("schema") != "premium-v2.1-session-v1":
+            raise ValueError(
+                f"existing controller state schema is invalid: {state.get('schema')!r}"
+            )
+        if state.get("session_key") != key:
+            raise ValueError(
+                "existing controller state session key does not match the hook event"
+            )
+    else:
         state = {
             "schema": "premium-v2.1-session-v1",
             "session_key": key,
