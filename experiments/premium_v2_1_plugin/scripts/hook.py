@@ -462,7 +462,10 @@ def is_metadata_only(event: dict[str, Any]) -> bool:
     if not paths:
         return False
 
-    metadata_root = (cwd_path(event) / META_DIR).resolve()
+    cwd = cwd_path(event)
+    if metadata_integrity_errors(cwd):
+        return False
+    metadata_root = (cwd / META_DIR).resolve()
     for raw in paths:
         candidate = Path(raw).expanduser()
         if not candidate.is_absolute():
@@ -506,6 +509,24 @@ def takeover_blocking_ids(event: dict[str, Any], state: dict[str, Any]) -> list[
     return sorted(ids)
 
 
+def metadata_integrity_errors(cwd: Path) -> list[str]:
+    errors: list[str] = []
+    metadata_root = cwd / META_DIR
+    if not metadata_root.exists():
+        return errors
+    if metadata_root.is_symlink():
+        return ["controller metadata root must not be a symlink"]
+    if not metadata_root.is_dir():
+        return ["controller metadata root must be a directory"]
+
+    for path in metadata_paths(cwd):
+        if path.exists() and path.is_symlink():
+            errors.append(
+                f"controller metadata file must not be a symlink: {path.name}"
+            )
+    return errors
+
+
 def validate_event_context(event: dict[str, Any], state: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     phase = state.get("phase")
@@ -526,6 +547,8 @@ def validate_event_context(event: dict[str, Any], state: dict[str, Any]) -> list
                 errors.append(
                     f"hook cwd drifted from bound workspace: expected={expected} observed={observed}"
                 )
+            else:
+                errors.extend(metadata_integrity_errors(observed))
     append_control_errors(state, errors, event=event)
     return errors
 
