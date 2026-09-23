@@ -61,14 +61,27 @@ def run_command(argv: list[str]) -> dict[str, Any]:
 
 def hook_interpreter_probe() -> dict[str, Any]:
     system = platform.system()
+    probe_code = (
+        "import sys; "
+        "assert sys.version_info >= (3, 10), sys.version; "
+        "print(sys.version.split()[0])"
+    )
     if system == "Windows":
         launcher = shutil.which("py")
-        argv = [launcher, "-3", "--version"] if launcher else ["py", "-3", "--version"]
-        expected = "hooks.json windows command: py -3"
+        argv = (
+            [launcher, "-3", "-c", probe_code]
+            if launcher
+            else ["py", "-3", "-c", probe_code]
+        )
+        expected = "hooks.json windows command: py -3 (Python >= 3.10)"
     else:
         launcher = shutil.which("python3")
-        argv = [launcher, "--version"] if launcher else ["python3", "--version"]
-        expected = "hooks.json linux/osx command: python3"
+        argv = (
+            [launcher, "-c", probe_code]
+            if launcher
+            else ["python3", "-c", probe_code]
+        )
+        expected = "hooks.json linux/osx command: python3 (Python >= 3.10)"
 
     if launcher is None:
         return {
