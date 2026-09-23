@@ -87,5 +87,42 @@ class PremiumV21LocalPreflightTests(unittest.TestCase):
             )
 
 
+    def test_windows_hook_interpreter_matches_hooks_json_command(self) -> None:
+        with (
+            mock.patch.object(preflight.platform, "system", return_value="Windows"),
+            mock.patch.object(preflight.shutil, "which", return_value="C:/Python/py.exe"),
+            mock.patch.object(
+                preflight,
+                "run_command",
+                return_value={
+                    "observed": True,
+                    "command": ["C:/Python/py.exe", "-3", "--version"],
+                    "exit_code": 0,
+                    "stdout": "Python 3.12",
+                    "stderr": "",
+                },
+            ),
+        ):
+            result = preflight.hook_interpreter_probe()
+
+        self.assertEqual(
+            result["command"],
+            ["C:/Python/py.exe", "-3", "--version"],
+        )
+        self.assertIn("py -3", result["expected_hook_command"])
+        self.assertEqual(result["exit_code"], 0)
+
+    def test_unix_hook_interpreter_missing_is_not_observed(self) -> None:
+        with (
+            mock.patch.object(preflight.platform, "system", return_value="Linux"),
+            mock.patch.object(preflight.shutil, "which", return_value=None),
+        ):
+            result = preflight.hook_interpreter_probe()
+
+        self.assertFalse(result["observed"])
+        self.assertIn("python3", result["expected_hook_command"])
+        self.assertIn("not found", result["error"])
+
+
 if __name__ == "__main__":
     unittest.main()
