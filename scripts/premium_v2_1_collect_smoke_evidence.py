@@ -18,6 +18,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import premium_v2_1_trace_report as trace_report  # noqa: E402
+import premium_v2_1_make_smoke_workspace as smoke_fixture  # noqa: E402
 
 SMOKE_SCHEMA = "premium-v2.1-runtime-smoke-fixture-v1"
 
@@ -117,10 +118,20 @@ def collect(
 
     marker_path = workspace / ".premium-v2-1-smoke.json"
     marker = read_json(marker_path)
-    if marker.get("schema") != SMOKE_SCHEMA:
+    if marker != smoke_fixture.INTENT:
         raise ValueError(
-            "refusing evidence collection outside the synthetic v2.1 smoke workspace"
+            "refusing evidence collection because the synthetic smoke marker "
+            "does not match the committed fixture contract"
         )
+    test_path = workspace / "test_counter.py"
+    if not test_path.exists() or test_path.read_text(encoding="utf-8") != smoke_fixture.TEST:
+        raise ValueError(
+            "refusing evidence collection because the focused smoke test asset "
+            "was changed from the committed fixture"
+        )
+    counter_path = workspace / "counter.py"
+    if not counter_path.exists():
+        raise ValueError("synthetic smoke counter.py is missing")
 
     ensure_empty_output(output, workspace)
 
@@ -156,6 +167,8 @@ def collect(
         "final_record": workspace / ".otl-v2-1" / "final-record.json",
         "otel": otel,
         "smoke_marker": marker_path,
+        "final_counter": counter_path,
+        "focused_test_asset": test_path,
         "vscode_settings": workspace / ".vscode" / "settings.json",
     }
     for name, source in sources.items():
