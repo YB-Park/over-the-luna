@@ -1249,5 +1249,24 @@ class PluginControllerTests(unittest.TestCase):
             hook.ensure_state(event)
 
 
+    def test_malformed_existing_control_errors_is_rejected(self) -> None:
+        event = self.event("SessionStart")
+        state, state_path, _ = hook.ensure_state(event)
+        state["control_errors"] = "erased"
+        hook.save_state(state_path, state)
+
+        with self.assertRaises(ValueError):
+            hook.ensure_state(event)
+
+    def test_stored_session_id_mismatch_is_rejected(self) -> None:
+        event = self.event("SessionStart")
+        state, state_path, _ = hook.ensure_state(event)
+        state["session_id_observed"] = "forged-session"
+        hook.save_state(state_path, state)
+
+        with self.assertRaises(ValueError):
+            hook.ensure_state(event)
+
+
 if __name__ == "__main__":
     unittest.main()
