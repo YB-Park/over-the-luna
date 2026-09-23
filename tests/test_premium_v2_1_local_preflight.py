@@ -94,22 +94,20 @@ class PremiumV21LocalPreflightTests(unittest.TestCase):
             mock.patch.object(
                 preflight,
                 "run_command",
-                return_value={
+                side_effect=lambda argv: {
                     "observed": True,
-                    "command": ["C:/Python/py.exe", "-3", "--version"],
+                    "command": argv,
                     "exit_code": 0,
-                    "stdout": "Python 3.12",
+                    "stdout": "3.12.0",
                     "stderr": "",
                 },
             ),
         ):
             result = preflight.hook_interpreter_probe()
 
-        self.assertEqual(
-            result["command"],
-            ["C:/Python/py.exe", "-3", "--version"],
-        )
-        self.assertIn("py -3", result["expected_hook_command"])
+        self.assertEqual(result["command"][:3], ["C:/Python/py.exe", "-3", "-c"])
+        self.assertIn("sys.version_info", result["command"][3])
+        self.assertIn("Python >= 3.10", result["expected_hook_command"])
         self.assertEqual(result["exit_code"], 0)
 
     def test_unix_hook_interpreter_missing_is_not_observed(self) -> None:
