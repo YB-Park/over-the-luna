@@ -1203,5 +1203,51 @@ class PluginControllerTests(unittest.TestCase):
         self.assertTrue(any("captured takeover basis" in e for e in result.errors))
 
 
+    def test_malformed_existing_external_state_is_not_reinitialized(self) -> None:
+        event = self.event("SessionStart")
+        state_path, _, _, _ = hook.session_paths(event)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text("{broken", encoding="utf-8")
+
+        with self.assertRaises(ValueError):
+            hook.ensure_state(event)
+
+    def test_wrong_schema_existing_external_state_is_rejected(self) -> None:
+        event = self.event("SessionStart")
+        state_path, _, key, _ = hook.session_paths(event)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(
+            json.dumps(
+                {
+                    "schema": "other",
+                    "session_key": key,
+                    "cwd": str(self.workspace),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaises(ValueError):
+            hook.ensure_state(event)
+
+    def test_wrong_session_key_inside_existing_state_is_rejected(self) -> None:
+        event = self.event("SessionStart")
+        state_path, _, _, _ = hook.session_paths(event)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(
+            json.dumps(
+                {
+                    "schema": "premium-v2.1-session-v1",
+                    "session_key": "forged",
+                    "cwd": str(self.workspace),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaises(ValueError):
+            hook.ensure_state(event)
+
+
 if __name__ == "__main__":
     unittest.main()
