@@ -1268,5 +1268,47 @@ class PluginControllerTests(unittest.TestCase):
             hook.ensure_state(event)
 
 
+    def test_metadata_root_symlink_is_not_metadata_only(self) -> None:
+        target = Path(self.temp.name) / "outside-meta"
+        target.mkdir()
+        metadata_root = self.workspace / ".otl-v2-1"
+        try:
+            metadata_root.symlink_to(target, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            return
+
+        event = self.event(
+            "PreToolUse",
+            tool_name="edit_file",
+            tool_input={"path": ".otl-v2-1/controller-proposal.json"},
+        )
+        self.assertTrue(hook.metadata_integrity_errors(self.workspace))
+        self.assertFalse(hook.is_metadata_only(event))
+
+        state = {
+            "phase": "ROOT_RECONCILE",
+            "cwd": str(self.workspace),
+            "control_errors": [],
+        }
+        errors = hook.validate_event_context(event, state)
+        self.assertTrue(any("must not be a symlink" in e for e in errors))
+
+    def test_metadata_file_symlink_is_rejected(self) -> None:
+        metadata_root = self.workspace / ".otl-v2-1"
+        metadata_root.mkdir()
+        outside = Path(self.temp.name) / "outside.json"
+        outside.write_text("{}\n", encoding="utf-8")
+        proposal = metadata_root / "controller-proposal.json"
+        try:
+            proposal.symlink_to(outside)
+        except (OSError, NotImplementedError):
+            return
+
+        errors = hook.metadata_integrity_errors(self.workspace)
+        self.assertTrue(
+            any("controller-proposal.json" in error for error in errors)
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
