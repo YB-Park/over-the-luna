@@ -185,6 +185,99 @@ def metadata_paths(cwd: Path) -> tuple[Path, Path, Path]:
     return root / "controller-proposal.json", root / "receipt-index.json", root / "final-record.json"
 
 
+def validate_existing_state_shape(
+    state: dict[str, Any],
+    *,
+    expected_key: str,
+    event: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    if state.get("schema") != "premium-v2.1-session-v1":
+        errors.append(f"invalid state schema: {state.get('schema')!r}")
+    if state.get("session_key") != expected_key:
+        errors.append("state session_key does not match the hook event")
+
+    observed_sid = event_session_id(event)
+    stored_sid = state.get("session_id_observed")
+    if stored_sid is not None and (not isinstance(stored_sid, str) or not stored_sid):
+        errors.append("session_id_observed must be null or a non-empty string")
+    if isinstance(observed_sid, str) and observed_sid:
+        if stored_sid != observed_sid:
+            errors.append("stored session_id_observed does not match the hook event")
+
+    weak = state.get("weak_session_key")
+    if not isinstance(weak, bool):
+        errors.append("weak_session_key must be boolean")
+    elif weak is False and not isinstance(stored_sid, str):
+        errors.append("non-weak session state requires an observed session ID")
+
+    if not isinstance(state.get("cwd"), str) or not state.get("cwd"):
+        errors.append("controller workspace binding must be a non-empty string")
+    if state.get("phase") not in VALID_PHASES:
+        errors.append(f"invalid controller phase: {state.get('phase')!r}")
+
+    for field in (
+        "session_start_count",
+        "builder_count",
+        "builder_dispatch_count",
+        "user_prompt_count",
+        "correction_count",
+    ):
+        if nonnegative_int(state.get(field)) is None:
+            errors.append(f"{field} must be a non-negative integer")
+
+    for field in (
+        "builder_invocation_seen",
+        "builder_agent_tool_completion_seen",
+        "takeover",
+    ):
+        if not isinstance(state.get(field), bool):
+            errors.append(f"{field} must be boolean")
+
+    builder_tool_use_id = state.get("builder_tool_use_id")
+    if builder_tool_use_id is not None and (
+        not isinstance(builder_tool_use_id, str) or not builder_tool_use_id
+    ):
+        errors.append("builder_tool_use_id must be null or a non-empty string")
+
+    basis = state.get("takeover_basis_ids")
+    if not isinstance(basis, list) or not all(
+        isinstance(cid, str) and cid for cid in basis
+    ):
+        errors.append("takeover_basis_ids must be a list of non-empty strings")
+
+    for field in ("obligations", "receipts"):
+        if not isinstance(state.get(field), dict):
+            errors.append(f"{field} must be an object")
+    if not isinstance(state.get("user_events"), list):
+        errors.append("user_events must be a list")
+
+    control_errors = state.get("control_errors")
+    if not isinstance(control_errors, list):
+        errors.append("control_errors must be a list")
+    else:
+        for item in control_errors:
+            if (
+                not isinstance(item, dict)
+                or not isinstance(item.get("error"), str)
+                or not item.get("error")
+            ):
+                errors.append("control_errors contains a malformed record")
+                break
+
+    if "last_workspace_revision" in state:
+        revision = state.get("last_workspace_revision")
+        if revision is not None and (
+            not isinstance(revision, str) or not revision
+        ):
+            errors.append(
+                "last_workspace_revision must be null or a non-empty string"
+            )
+    if "final_record" in state and not isinstance(state.get("final_record"), dict):
+        errors.append("final_record must be an object when present")
+    return errors
+
+
 def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
     state_path, events_path, key, weak = session_paths(event)
     if state_path.exists():
@@ -198,13 +291,15 @@ def ensure_state(event: dict[str, Any]) -> tuple[dict[str, Any], Path, Path]:
             raise ValueError(
                 f"existing controller state is not a non-empty object: {state_path}"
             )
-        if state.get("schema") != "premium-v2.1-session-v1":
+        shape_errors = validate_existing_state_shape(
+            state,
+            expected_key=key,
+            event=event,
+        )
+        if shape_errors:
             raise ValueError(
-                f"existing controller state schema is invalid: {state.get('schema')!r}"
-            )
-        if state.get("session_key") != key:
-            raise ValueError(
-                "existing controller state session key does not match the hook event"
+                "existing controller state failed structural validation: "
+                + "; ".join(shape_errors)
             )
     else:
         state = {
