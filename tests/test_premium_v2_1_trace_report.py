@@ -83,14 +83,20 @@ class PremiumV21TraceReportTests(unittest.TestCase):
             "final_record": {
                 "schema": "premium-v2.1-final-v1",
                 "run_id": "session-1",
+                "session_id": "session-1",
                 "workspace_revision": revision,
                 "phase": "ROOT_RECONCILE",
+                "session_start_count": 1,
+                "user_prompt_count": 1,
                 "builder_dispatch_count": 1,
                 "builder_count": 1,
                 "builder_agent_tool_completion_seen": True,
                 "takeover": False,
+                "takeover_basis_ids": [],
                 "outcome": "COMPLETE",
                 "trusted_complete": True,
+                "errors": [],
+                "blocking": [],
             },
         }
         (self.state_dir / "session.json").write_text(
@@ -662,6 +668,75 @@ class PremiumV21TraceReportTests(unittest.TestCase):
         state_path = self.state_dir / "session.json"
         state = json.loads(state_path.read_text(encoding="utf-8"))
         state["final_record"]["builder_dispatch_count"] = 2
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(state["final_record"]),
+            encoding="utf-8",
+        )
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "INVALID")
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+
+    def test_final_record_session_id_mismatch_is_invalid(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        state_path = self.state_dir / "session.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["final_record"]["session_id"] = "other-session"
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(state["final_record"]),
+            encoding="utf-8",
+        )
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "INVALID")
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_complete_final_record_with_errors_is_invalid(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        state_path = self.state_dir / "session.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["final_record"]["errors"] = ["should not coexist with COMPLETE"]
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
+            json.dumps(state["final_record"]),
+            encoding="utf-8",
+        )
+        cli = self.write_cli_identity()
+        otel = self.write_otel_identity()
+
+        report = reporter.summarize(self.state_dir, self.workspace, cli, otel)
+
+        self.assertEqual(report["controller"]["final_record_status"], "INVALID")
+        self.assertFalse(report["calibration"]["ready_for_enforce_mode_candidate"])
+
+    def test_inconsistent_takeover_final_record_is_invalid(self) -> None:
+        self.write_jsonl(
+            self.state_dir / "session.events.jsonl",
+            self.complete_hook_events(),
+        )
+        self.write_controller_state()
+        state_path = self.state_dir / "session.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["final_record"]["phase"] = "TERRA_TAKEOVER"
+        state["final_record"]["takeover"] = False
+        state["final_record"]["takeover_basis_ids"] = []
         state_path.write_text(json.dumps(state), encoding="utf-8")
         (self.workspace / ".otl-v2-1" / "final-record.json").write_text(
             json.dumps(state["final_record"]),
