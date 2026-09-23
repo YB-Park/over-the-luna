@@ -59,6 +59,31 @@ def run_command(argv: list[str]) -> dict[str, Any]:
     }
 
 
+def hook_interpreter_probe() -> dict[str, Any]:
+    system = platform.system()
+    if system == "Windows":
+        launcher = shutil.which("py")
+        argv = [launcher, "-3", "--version"] if launcher else ["py", "-3", "--version"]
+        expected = "hooks.json windows command: py -3"
+    else:
+        launcher = shutil.which("python3")
+        argv = [launcher, "--version"] if launcher else ["python3", "--version"]
+        expected = "hooks.json linux/osx command: python3"
+
+    if launcher is None:
+        return {
+            "observed": False,
+            "platform": system,
+            "expected_hook_command": expected,
+            "command": argv,
+            "error": "configured hook Python launcher not found on PATH",
+        }
+    result = run_command(argv)
+    result["platform"] = system
+    result["expected_hook_command"] = expected
+    return result
+
+
 def candidate_settings_paths(workspace: Path | None) -> list[Path]:
     paths: list[Path] = []
     if workspace is not None:
@@ -265,6 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     plugin_enabled = summarize_setting(deduped, PLUGIN_ENABLE_SETTING)
     local_hooks = summarize_setting(deduped, LOCAL_HOOK_SETTING)
     plugin_contract = inspect_experimental_plugin()
+    hook_python = hook_interpreter_probe()
 
     agent_scoped["required_for_plugin_level_hooks"] = False
     agent_scoped["note"] = (
@@ -309,6 +335,13 @@ def main(argv: list[str] | None = None) -> int:
             "local_harness_hooks": local_hooks,
         },
         "experimental_plugin": plugin_contract,
+        "hook_runtime": {
+            "python_interpreter": hook_python,
+            "ready": bool(
+                hook_python.get("observed")
+                and hook_python.get("exit_code") == 0
+            ),
+        },
         "controller_state_location": structural_state_location(
             workspace,
             args.state_dir,
@@ -331,6 +364,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "experimental_plugin_static_contract_valid": bool(plugin_contract.get("valid")),
         "plugin_hooks_still_audit_mode": plugin_contract.get("hook_mode") == "audit",
+        "configured_hook_python_interpreter_observed": bool(
+            hook_python.get("observed") and hook_python.get("exit_code") == 0
+        ),
     }
     report["configuration_prerequisites"] = prerequisites
     report["manual_runtime_prerequisites_not_proven_by_this_script"] = [
