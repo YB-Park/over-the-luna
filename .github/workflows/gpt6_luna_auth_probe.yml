@@ -1,4 +1,5 @@
 name: GPT-6 Luna Copilot auth probe
+# Retry after COPILOT_GITHUB_TOKEN rotation.
 
 on:
   push:
