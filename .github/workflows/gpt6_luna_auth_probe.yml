@@ -1,0 +1,46 @@
+name: GPT-6 Luna Copilot auth probe
+
+on:
+  push:
+    branches:
+      - research/gpt6-luna-model-qualification
+    paths:
+      - '.github/workflows/gpt6_luna_auth_probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event.head_commit.message == 'Probe personal Copilot token authentication'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Probe authenticated GPT-6 Luna request
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          copilot \
+            --model=gpt-6-luna \
+            --no-ask-user \
+            --max-ai-credits=30 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt='Reply with exactly AUTH_OK. Do not use tools.' \
+            | tee "$RUNNER_TEMP/auth-probe.jsonl"
+
+      - name: Verify response
+        run: |
+          grep -q 'AUTH_OK' "$RUNNER_TEMP/auth-probe.jsonl"
