@@ -72,6 +72,7 @@ def prepare(case: str, root: Path, task_file: Path) -> None:
     if root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True)
+    write(root, ".gitignore", "__pycache__/\\n*.pyc\\n")
     write(root, "pyproject.toml", """
 [project]
 name = "luna-qualification-fixture"
