@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  copilot-requests: write
 
 jobs:
   screen:
@@ -88,7 +87,7 @@ jobs:
 
       - name: Run Over the Luna candidate
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
           COPILOT_OTEL_CAPTURE_CONTENT: 'false'
         run: |
@@ -180,7 +179,7 @@ jobs:
           if-no-files-found: warn
 
   aggregate:
-    if: always()
+    if: always() && needs.screen.result != 'skipped'
     needs: screen
     permissions:
       contents: read
