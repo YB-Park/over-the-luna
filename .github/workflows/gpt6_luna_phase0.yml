@@ -1,0 +1,218 @@
+name: GPT-6 Luna Phase 0 runtime screen
+
+# Paid experiment. The push trigger is intentionally armed only for the exact
+# creation commit message below, so later edits do not accidentally spend credits.
+on:
+  push:
+    branches:
+      - research/gpt6-luna-model-qualification
+    paths:
+      - '.github/workflows/gpt6_luna_phase0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  screen:
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Run GPT-6 Luna Phase 0 runtime screen'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - variant: gpt56
+            model_name: GPT-5.6 Luna
+            case: broad_contract
+            run_label: gpt56-broad
+          - variant: gpt60
+            model_name: GPT-6 Luna
+            case: broad_contract
+            run_label: gpt60-broad
+          - variant: gpt56
+            model_name: GPT-5.6 Luna
+            case: risk_idempotency
+            run_label: gpt56-risk
+          - variant: gpt60
+            model_name: GPT-6 Luna
+            case: risk_idempotency
+            run_label: gpt60-risk
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out qualification branch
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        run: |
+          npm install -g @github/copilot
+          copilot --version
+
+      - name: Build model-only plugin variant
+        env:
+          MODEL_NAME: ${{ matrix.model_name }}
+        run: |
+          python experiments/gpt6_luna/build_variant.py \
+            --source "$GITHUB_WORKSPACE" \
+            --output "$RUNNER_TEMP/plugin" \
+            --model "$MODEL_NAME"
+
+      - name: Prepare fresh fixture repository
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          python experiments/gpt6_luna/fixture.py prepare \
+            --case "$CASE" \
+            --root "$RUNNER_TEMP/work" \
+            --task-file "$RUNNER_TEMP/task.txt"
+          python experiments/gpt6_luna/fixture.py contract \
+            --case "$CASE" \
+            --json-out "$RUNNER_TEMP/contract.json"
+          cd "$RUNNER_TEMP/work"
+          git init -q
+          git config user.email 'gpt6-qualification@example.invalid'
+          git config user.name 'GPT-6 Luna Qualification'
+          git add -- .
+          git commit -qm 'fixture baseline'
+
+      - name: Run Over the Luna candidate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_OTEL_FILE_EXPORTER_PATH: ${{ runner.temp }}/otel.jsonl
+          COPILOT_OTEL_CAPTURE_CONTENT: 'false'
+        run: |
+          set +e
+          set -o pipefail
+          cd "$RUNNER_TEMP/work"
+          date +%s%3N > "$RUNNER_TEMP/candidate.start_ms"
+          copilot \
+            --plugin-dir="$RUNNER_TEMP/plugin" \
+            --agent='over-the-luna:over-the-luna' \
+            --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
+            --allow-all-tools \
+            --no-ask-user \
+            --max-ai-credits=15 \
+            --no-remote-export \
+            --output-format=json \
+            --prompt="$(cat "$RUNNER_TEMP/task.txt")" \
+            | awk -v first="$RUNNER_TEMP/candidate.first_output_ms" 'NR==1 { cmd="date +%s%3N > \"" first "\""; system(cmd) } { print; fflush() }' \
+            | tee "$RUNNER_TEMP/events.jsonl"
+          code=${PIPESTATUS[0]}
+          date +%s%3N > "$RUNNER_TEMP/candidate.end_ms"
+          echo "$code" > "$RUNNER_TEMP/candidate.exit"
+          exit 0
+
+      - name: Run hidden correctness gate
+        if: always()
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set +e
+          python "$GITHUB_WORKSPACE/experiments/gpt6_luna/fixture.py" hidden \
+            --case "$CASE" \
+            --root "$RUNNER_TEMP/work" \
+            --json-out "$RUNNER_TEMP/hidden.json"
+          echo "$?" > "$RUNNER_TEMP/hidden.exit"
+          exit 0
+
+      - name: Capture resulting patch
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/work"
+          git diff --no-ext-diff > "$RUNNER_TEMP/result.diff" || true
+          git status --short > "$RUNNER_TEMP/status.txt" || true
+
+      - name: Extract qualification metrics
+        if: always()
+        env:
+          MODEL_NAME: ${{ matrix.model_name }}
+          CASE: ${{ matrix.case }}
+          RUN_LABEL: ${{ matrix.run_label }}
+        run: |
+          set +e
+          python experiments/gpt6_luna/metrics.py \
+            --model "$MODEL_NAME" \
+            --case "$CASE" \
+            --run-label "$RUN_LABEL" \
+            --events "$RUNNER_TEMP/events.jsonl" \
+            --otel "$RUNNER_TEMP/otel.jsonl" \
+            --hidden "$RUNNER_TEMP/hidden.json" \
+            --contract "$RUNNER_TEMP/contract.json" \
+            --candidate-exit "$RUNNER_TEMP/candidate.exit" \
+            --start-ms "$RUNNER_TEMP/candidate.start_ms" \
+            --first-output-ms "$RUNNER_TEMP/candidate.first_output_ms" \
+            --end-ms "$RUNNER_TEMP/candidate.end_ms" \
+            --diff "$RUNNER_TEMP/result.diff" \
+            --status "$RUNNER_TEMP/status.txt" \
+            --json-out "$RUNNER_TEMP/metrics.json"
+          exit 0
+
+      - name: Upload run artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-${{ matrix.run_label }}
+          path: |
+            ${{ runner.temp }}/task.txt
+            ${{ runner.temp }}/contract.json
+            ${{ runner.temp }}/events.jsonl
+            ${{ runner.temp }}/otel.jsonl
+            ${{ runner.temp }}/candidate.exit
+            ${{ runner.temp }}/candidate.start_ms
+            ${{ runner.temp }}/candidate.first_output_ms
+            ${{ runner.temp }}/candidate.end_ms
+            ${{ runner.temp }}/hidden.json
+            ${{ runner.temp }}/hidden.exit
+            ${{ runner.temp }}/metrics.json
+            ${{ runner.temp }}/result.diff
+            ${{ runner.temp }}/status.txt
+          if-no-files-found: warn
+
+  aggregate:
+    if: always()
+    needs: screen
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out qualification branch
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Download Phase 0 artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: phase0-*
+          path: ${{ runner.temp }}/phase0-results
+
+      - name: Build descriptive aggregate
+        run: |
+          python experiments/gpt6_luna/aggregate.py \
+            --root "$RUNNER_TEMP/phase0-results" \
+            --json-out "$RUNNER_TEMP/phase0.json" \
+            --md-out "$RUNNER_TEMP/phase0.md"
+          cat "$RUNNER_TEMP/phase0.md"
+
+      - name: Upload aggregate
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-aggregate
+          path: |
+            ${{ runner.temp }}/phase0.json
+            ${{ runner.temp }}/phase0.md
