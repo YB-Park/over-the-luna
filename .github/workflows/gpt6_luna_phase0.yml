@@ -102,7 +102,7 @@ jobs:
             --available-tools='view,glob,rg,apply_patch,bash,task,list_agents,read_agent' \
             --allow-all-tools \
             --no-ask-user \
-            --max-ai-credits=15 \
+            --max-ai-credits=30 \
             --no-remote-export \
             --output-format=json \
             --prompt="$(cat "$RUNNER_TEMP/task.txt")" \
