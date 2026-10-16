@@ -79,8 +79,10 @@ Note: the first smoke attempt failed before inference because the current CLI re
 | P0b CLI authentication + short response | [Success #38836438484](https://github.com/YB-Park/over-the-luna/actions/runs/38836438484) | **PASS auth/response**, model identity NOT independently observed | Check model catalogue; Host still pending |
 | P0b four-model SDK catalogue | [Success #38836601586](https://github.com/YB-Park/over-the-luna/actions/runs/38836601586) | **17 models listed**; Luna 6 / Haiku 5.5 / Sonnet 5.5 present; Sol 6.1 absent | Investigate Sol access/visibility, do not infer model weakness |
 | P0d Copilot SDK BYOK Sol | [Success #38851012090](https://github.com/YB-Park/over-the-luna/actions/runs/38851012090) | **PASS SDK isolated provider session**, not Host mixing | Agent Host live runtime still required |
-| P1 native vs harness | Real work/hidden task checks | NOT RUN | Require Agent Host runtime gate |
-| P2 additional models | Specific scoped ablation | NOT RUN | Require P1 weakness to justify |
+| P1a paired review | [Actions #38851868295](https://github.com/YB-Park/over-the-luna/actions/runs/38851868295) | 5/5 all 3 strategies; no benefit from always-on Sol review | Keep optional, move on |
+| P1b corrected real edits | [Actions #38852797334](https://github.com/YB-Park/over-the-luna/actions/runs/38852797334) | 2/2 all 4 models; model/tool-policy confound fixed | STOP tiny benchmarks; product dogfood |
+| Plugin vs native agent in actual VS Code work | Real work and user acceptance | NOT RUN | Evaluate only during usable product candidate dogfood |
+| P2 additional models | Targeted work under actual developer requirements | NOT RUN | Only if quality or risk evidence justifies an escalation |
 
 ## Read-only candidate model catalogue
 

@@ -46,7 +46,11 @@ No retries. Stop on provider errors. If runtime tools cannot edit in the
 isolated workspace, classify as **INFRASTRUCTURE INCONCLUSIVE**, not a bad
 model.
 
-## Observed run — 2026-10-16
+## Initial run — INVALID as a model-quality comparison (tool confound)
+
+The first run's two Luna/Sol no-edit failures were traced to missing canonical editor tool names in the shared SDK allowlist. **Do not cite the initial 0/2 as model performance.** This section remains only as an error-analysis record.
+
+### Raw observations — 2026-10-16
 
 [GitHub Actions #38852208338](https://github.com/YB-Park/over-the-luna/actions/runs/38852208338) completed all 8 strategy/task sessions with model-specific usage and temporary result artifact (14-day retention).
 
@@ -79,3 +83,22 @@ and runtime inability to mutate. No repeat of the full 8-arm test until this
 cause is understood.
 
 Status: **EXECUTED; model-quality ranking INCONCLUSIVE due to tool execution confound**.
+
+## Corrected matched run — 2026-10-16 (decision evidence)
+
+[GitHub Actions #38852797334](https://github.com/YB-Park/over-the-luna/actions/runs/38852797334). Same two fixture tasks, same low reasoning effort and tool restrictions for all four models, but now with explicit canonical SDK `edit_file` / `apply_patch` alongside read/search tools. All four models actually edited both source/test files, changed **no unauthorized paths**, and passed independent hidden acceptance tests.
+
+| Model / provider | broad_contract | risk_idempotency | Correct/2 | Elapsed total | Input tokens | Output tokens |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| GPT-6 Luna / Copilot | PASS | PASS | **2/2** | **16.267 s** | **32,207** | 1,102 |
+| Haiku 5.5 / Copilot | PASS | PASS | **2/2** | **14.953 s** | 57,707 | 2,560 |
+| GPT-6.1 Sol / OpenAI API | PASS | PASS | **2/2** | 39.402 s | 40,879 | 1,511 |
+| Sonnet 5.5 / Copilot | PASS | PASS | **2/2** | 19.511 s | 63,709 | 2,235 |
+
+On these two cases Haiku consumed **1.79× Luna input tokens**; because of cache/long-context tiers and separate providers, do NOT interpret this as a billed-cost ratio or as a reliable general distribution. Actual Copilot AI Credits and OpenAI API spend remain **UNKNOWN** in this report.
+
+**Decision: STOP synthetic fixture expansion.** All four solve both selected problems once given valid tools. These simple tasks do not justify always-on strong Main or review, nor do they prove Luna always wins. Retain Luna-first as the parsimonious default and make stronger-model use conditional on a concrete weakness or high-impact verification need seen in actual work. Do not assign a separate fixed agent per model.
+
+**Validity boundary:** this is Copilot SDK execution against isolated fixtures, **not a full end-to-end evaluation of the shipped VS Code plugin**. The user has confirmed the four candidate models are visible/available in their VS Code Copilot Agent Host; no model-availability retests are needed. Product behavior and actual total spend should be learned through deliberate real-world dogfooding, not more redundant access probes.
+
+Status: **CORRECTED COMPARISON COMPLETE — QUALITY CEILING.**
