@@ -111,3 +111,16 @@ The no-credit [audit oracle](audit_oracle.py) has explicit false-positive
 counterexamples. The original model patches were not stored and cannot
 be retroactively rescored. Prefer product dogfooding over enlarging
 this fixture corpus. See [response](../../docs/NEXT_AUDIT_RESPONSE.md).
+
+## First usable product candidate
+
+The `candidate-plugin/` directory is a separate local plugin with
+exactly one Main. [Local side-by-side installation](candidate-plugin/README.md)
+uses documented `chat.pluginLocations`, NOT the GitHub root's
+"Install Plugin From Source" command. [Real task native comparison](DOGFOOD.md)
+retains the existing v1.1.1 root unchanged, puts both arms on the same
+Host/model/tools/permissions, captures actual acceptance and costs, and
+stops when the candidate's added value is clear or absent.
+
+Static CI checks its layout only; host functionality still requires
+actual VS Code use, not another model availability lookup.

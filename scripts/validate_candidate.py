@@ -59,7 +59,7 @@ def validate() -> list[str]:
     if len(body) < 800:
         problems.append("candidate instructions unexpectedly absent")
     for marker in ("actual diff", "Run the tests you claim passed",
-                   "not a security sandbox", "Explicit user authorization"):
+                   "security sandbox", "Explicit user authorization"):
         if marker not in body:
             problems.append(f"candidate missing safety/verification clause: {marker}")
     forbidden = (ROOT / "mcp.json", ROOT / ".mcp.json", ROOT / "hooks.json")

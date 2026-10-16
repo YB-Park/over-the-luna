@@ -11,6 +11,7 @@ on:
       - 'agents/**'
       - 'plugin.json'
       - 'scripts/validate_plugin.py'
+      - 'scripts/validate_candidate.py'
   workflow_dispatch:
 
 permissions:
@@ -34,6 +35,8 @@ jobs:
           node --check experiments/next/implement_model_comparison.mjs
       - name: Preserve stable v1.1.1 contract
         run: python scripts/validate_plugin.py
+      - name: Validate minimal candidate plugin static shape (not Host runtime)
+        run: python scripts/validate_candidate.py
       - name: Verify GPT-6 candidate is model-only
         run: |
           python experiments/next/build_variant.py \

@@ -103,3 +103,22 @@ Do not treat a small sample's P95 as a stable estimate; capture surprising high-
 - **Next work is PRODUCT dogfood**, not another benchmark grid: implement a minimal plugin candidate in a separate research-only worktree, then judge a handful of actual developer requests (coding, review, research, repetitive maintenance) on quality, attention, and *real* combined cost. Introduce Sol/Sonnet/Haiku where a real task demonstrates a reason.
 - **Open questions**: SDK additive provider registry is experimental; how to express it in existing Agent Plugin and retain tool ownership without product complexity; whether Premium Review can be removed from visible UX without losing rare valuable independent review. No premature main merge.
 - **Stop condition**: If a candidate adds complexity without a clear real-world gain, simplify rather than add more experiments. Account for Copilot AI Credits and OpenAI API USD separately.
+
+## P2 — Minimal product candidate available (2026-10-16)
+
+A standalone, local, side-by-side research plugin was added at
+[`experiments/next/candidate-plugin/`](../experiments/next/candidate-plugin/).
+It contains exactly **one Main**, no agent council, no tool-less leaf,
+no Premium handoff, no bundled MCP or secrets, and no model provider bridge.
+The `model` and `tools` frontmatter are intentionally omitted, so the
+user's selected Copilot Agent Host model, tools and approvals are respected.
+For the FIRST native-vs-candidate comparison both arms use **GPT-6 Luna**;
+Luna-first is a baseline hypothesis rather than a pinned universal model.
+
+This is a **structural candidate only** until installed and used in the
+actual user's VS Code Host. Static validation cannot prove real tool
+permissions or plugin value. Historical v1.1.1 on `main` is unchanged.
+
+Product evaluation is [DOGFOOD](../experiments/next/DOGFOOD.md), not more
+synthetic model rounds. Any added review/explore role needs a concrete real
+user-work advantage and an enforceable effective permission boundary.
