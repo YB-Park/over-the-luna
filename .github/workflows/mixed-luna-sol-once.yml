@@ -1,0 +1,32 @@
+name: P0e - experimental Luna Main to OpenAI Sol subagent
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_MIXED.md
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  mixed-luna-sol:
+    if: contains(github.event.head_commit.message, '[run-mixed-luna-sol-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Copilot CLI and SDK
+        run: |
+          npm install -g @github/copilot
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk
+      - name: One read-only cross-provider subagent call
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+        run: node experiments/next/mixed_luna_sol_one_shot.mjs
