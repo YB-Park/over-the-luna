@@ -46,4 +46,36 @@ No retries. Stop on provider errors. If runtime tools cannot edit in the
 isolated workspace, classify as **INFRASTRUCTURE INCONCLUSIVE**, not a bad
 model.
 
-Status: Prepared; outcome pending.
+## Observed run — 2026-10-16
+
+[GitHub Actions #38852208338](https://github.com/YB-Park/over-the-luna/actions/runs/38852208338) completed all 8 strategy/task sessions with model-specific usage and temporary result artifact (14-day retention).
+
+| Model | broad_contract hidden test | risk_idempotency hidden test | Changed paths in both tasks |
+| --- | --- | --- | --- |
+| Luna 6 | FAIL | FAIL | **none** |
+| Haiku 5.5 | PASS | PASS | source + focused tests |
+| Sol 6.1 | FAIL | FAIL | **none** |
+| Sonnet 5.5 | PASS | PASS | source + focused tests |
+
+Observed total elapsed for the two tasks: Luna **31.4s**, Haiku **15.0s**,
+Sol **25.3s**, Sonnet **19.5s**.
+Input token totals: Luna **86,787**, Haiku **58,490**, Sol **20,350**,
+Sonnet **63,936**. **These are not comparable dollar charges**; each provider has
+different pricing, cache, and SDK overhead. Haiku output token count can be
+higher due to reasoning; investigate cost stability separately.
+
+**Crucial validity warning:** both Luna and Sol produced **no changed files**,
+rather than a faulty patch. The SDK setup exposes only `view/edit/grep/glob`
+and rejects shell, and no per-tool/permission audit was recorded in P1b.
+Thus this result is **confounded by agent/tool execution behavior** and is
+NOT evidence that Luna/Sol cannot solve the coding tasks or that Haiku/Sonnet
+are generally superior. The correct label for these model-quality comparisons
+is **TOOL-GATE DIAGNOSTIC REQUIRED**, not a published ranking.
+
+**Next justified gate:** inspect one case each for Luna and Sol, capturing
+tool calls and permission decisions in a no-secret trace; distinguish
+model choice, tool-name mismatch, permission rejection, file-path restriction
+and runtime inability to mutate. No repeat of the full 8-arm test until this
+cause is understood.
+
+Status: **EXECUTED; model-quality ranking INCONCLUSIVE due to tool execution confound**.
