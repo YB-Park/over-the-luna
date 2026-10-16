@@ -60,3 +60,16 @@ until these constraints are observed.
   and from OpenRouter. Avoid enabling auto-recharge without deliberate choice.
 
 Status: **BLOCKED by prepaid balance, model metadata PASS; inference NOT RUN SUCCESSFULLY**.
+
+
+## Funded single retry: 2026-10-16 — PASS
+
+- [GitHub Actions #38850785950](https://github.com/YB-Park/over-the-luna/actions/runs/38850785950): completed successfully, one Responses API inference request, no retries.
+- Exact observed model: `gpt-6.1-sol` (not only the requested model).
+- Model metadata: `gpt-6.1-sol`, PASS.
+- Prompt acceptance: exact `SOL_API_OK`, PASS.
+- `reasoning.effort=low`, `max_output_tokens=256`, `tools=[]`, `store=false`.
+- Usage: **20 input tokens**, **7 output tokens**.
+- Standard non-cached token-rate estimate: **$0.000110**. Actual billed amount should be checked in the OpenAI API dashboard.
+- **Decision**: Direct OpenAI Sol credential and inference path **PASS**. This verifies the Actions-secret / OpenAI Responses API path, NOT the Copilot SDK provider bridge, VS Code Agent Host, or mixed Luna/Sol delegation.
+- **Next gate**: one isolated, separately authorized Copilot SDK `provider: {type: "openai", wireApi: "responses"}` session; keep its provider credentials isolated from the ordinary GitHub-hosted Luna path.
