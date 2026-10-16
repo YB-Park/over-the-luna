@@ -61,7 +61,7 @@ Note: the first smoke attempt failed before inference because the current CLI re
 2. Confirm exact configured model/effort of Main and one named read-only subagent from runtime traces. A configured model name is not proof of execution.
 3. Confirm a harmless previously enabled MCP/extension tool and check strict leaf boundaries.
 4. Record any auth/policy failures as ENVIRONMENT/BLOCKED, never as model quality failure.
-5. Only after authorization, run a very small manually triggered, credit-capped paid test. Never add a push-triggered paid workflow.
+5. Only after authorization, run a very small manually triggered, credit-capped paid test. Never add an **unguarded recurring** paid workflow; only deliberate one-shot marker-triggered calls.
 
 ## Success and stop criteria
 
@@ -76,8 +76,24 @@ Note: the first smoke attempt failed before inference because the current CLI re
 | Gate | Evidence | Outcome | Next decision |
 | --- | --- | --- | --- |
 | P0 model-only static pair | [Actions run #38833915882](https://github.com/YB-Park/over-the-luna/actions/runs/38833915882) | **PASS — static only** | Proceed to separate, manually authorized runtime gate |
-| P0b Copilot authentication/policy | Authenticated runtime trace | NOT RUN | User account + permissions needed |
+| P0b CLI authentication + short response | [Success #38836438484](https://github.com/YB-Park/over-the-luna/actions/runs/38836438484) | **PASS auth/response**, model identity NOT independently observed | Check model catalogue; Host still pending |
 | P1 native vs harness | Real work/hidden task checks | NOT RUN | Require P0b |
 | P2 additional models | Specific scoped ablation | NOT RUN | Require P1 weakness to justify |
+
+## Read-only candidate model catalogue
+
+The `catalog` job in the same gated workflow starts the Copilot SDK
+and calls `client.listModels()` without creating a model session or sending
+a prompt. It is only triggered by `ONE_SHOT_MODEL_CATALOG.md` plus
+`[list-copilot-candidates-once]` in the commit message. Presence in the
+catalogue is **not** proof that a requested model will execute in a VS Code
+Agent Host session. Next, compare the actual Host model and tool traces.
+
+The [first short CLI auth smoke](https://github.com/YB-Park/over-the-luna/actions/runs/38836438484)
+succeeded with `--model=gpt-6-luna`, but its exported JSONL lacked an
+independent model identifier. Thus authentication is PASS and model identity
+remains INCONCLUSIVE. The earlier 2-credit attempt failed before inference
+because the Copilot CLI requires a minimum of 30 AI Credits for
+`--max-ai-credits`; no account/model conclusion was drawn from that error.
 
 No secrets, raw user tasks, or privileged data belong in this repository's experiment logs.

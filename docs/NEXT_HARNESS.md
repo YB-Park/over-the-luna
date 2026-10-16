@@ -66,6 +66,7 @@ Do not treat a small sample's P95 as a stable estimate; capture surprising high-
 
 - **2026-10-16 — Start**: `main` v1.1.1 보존. 연구 브랜치에서 Phase 0 model-only 정적 비교를 준비한다. Premium Review 제거, multi-model routing, Agent Host-only 전환은 **아직 제품 결정이 아니다**.
 - **2026-10-16 — Phase 0 PASS**: [no-credit model-only preflight](https://github.com/YB-Park/over-the-luna/actions/runs/38833915882) 와 [기존 plugin validator](https://github.com/YB-Park/over-the-luna/actions/runs/38833915766) 모두 통과. GPT-6가 실제 실행됐다는 의미는 아니다.
+- **2026-10-16 — Copilot CLI P0b partial PASS**: [one-shot GPT-6 Luna request](https://github.com/YB-Park/over-the-luna/actions/runs/38836438484) used `GITHUB_TOKEN` with `copilot-requests: write`, returned the exact expected response. Auth/response PASS; observed model ID was unavailable in CLI JSONL, so that gate is INCONCLUSIVE. The first attempt with 2 credit cap failed at flag validation (CLI minimum 30); no inference occurred there. Copilot Agent Host and plugin runtime remain untested.
 - **2026-10-16 — Known blocker**: 이전 `research/gpt6-luna-model-qualification`의 Copilot 인증 실험은 authentication/policy 오류로 실패했다. 모델 성능 실패가 아니다. 실제 유료 호출 전에 별도로 확인한다.
 
 ## Reference assets

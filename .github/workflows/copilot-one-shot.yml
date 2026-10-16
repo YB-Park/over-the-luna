@@ -1,4 +1,4 @@
-name: P0b - single Copilot Luna auth smoke
+name: P0b - gated Copilot runtime probes
 
 # NOT a routine push test. This can spend AI Credits. A one-shot trigger
 # file plus the exact opt-in commit marker are both required.
@@ -8,6 +8,7 @@ on:
       - research/next-harness-foundation
     paths:
       - experiments/next/ONE_SHOT_RUN.md
+      - experiments/next/ONE_SHOT_MODEL_CATALOG.md
 
 permissions:
   contents: read
@@ -57,3 +58,22 @@ jobs:
             exit "$code"
           fi
           python experiments/next/verify_one_shot.py "$RUNNER_TEMP/one-shot.jsonl"
+
+  catalog:
+    if: contains(github.event.head_commit.message, '[list-copilot-candidates-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install CLI and SDK (no model call)
+        run: |
+          npm install -g @github/copilot
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk
+      - name: List accessible candidate model IDs (no inference session)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+        run: node experiments/next/model_catalog.mjs
