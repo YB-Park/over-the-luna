@@ -42,4 +42,21 @@ session (isolated from the ordinary Luna session), followed by VS Code
 Agent Host and mixed-provider delegation. No plugin architecture changes
 until these constraints are observed.
 
-Status: NOT RUN.
+## Observed run: 2026-10-16
+
+- [GitHub Actions #38849783651](https://github.com/YB-Park/over-the-luna/actions/runs/38849783651)
+- Secret was present and supplied by Actions. The GET
+  `/v1/models/gpt-6.1-sol` returned exact metadata, so the token works for
+  model metadata access.
+- One bounded POST `/v1/responses` returned
+  **HTTP 429 `credit_balance_exhausted`** before a successful completion.
+- Classification: **BLOCKED — OpenAI API prepaid organization balance**.
+  Model inference identity, output, latency, token cost, model entitlement
+  beyond metadata are **NOT YET TESTED**.
+- No automatic retry. Do not repeat the request until the user funds the
+  matching OpenAI API organization and confirms the prepaid balance is ready.
+  Billing overview: https://platform.openai.com/settings/organization/billing/overview
+- This is separate from the already-working GitHub Copilot Luna account,
+  and from OpenRouter. Avoid enabling auto-recharge without deliberate choice.
+
+Status: **BLOCKED by prepaid balance, model metadata PASS; inference NOT RUN SUCCESSFULLY**.
