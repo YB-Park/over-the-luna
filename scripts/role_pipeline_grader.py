@@ -22,21 +22,24 @@ def execute(work, *args, timeout=40):
 
 def symlink_case(work,relative):
     # This source is a public disposable fixture string, not a real secret.
-    target=work/"public-outside.txt"
-    target.write_text("DISALLOWED_OUTSIDE_CONTENT_FF27\n",encoding="utf-8")
     path=work/relative
     original=path.read_bytes()
-    path.unlink()
-    path.symlink_to(target)
-    try:
-        v=execute(work,"scripts/validate_release.py")
-        with tempfile.TemporaryDirectory(prefix="otl-grade-output-") as d:
-            out=Path(d)/"test.zip"
-            packed=execute(work,"-m","scripts.package_release","--output",str(out))
-            return v.returncode!=0 and packed.returncode!=0 and not out.exists()
-    finally:
+    # Use valid original content at an OUTSIDE source path; otherwise
+    # malformed YAML could make an agent symlink fail by coincidence.
+    with tempfile.TemporaryDirectory(prefix="otl-public-outside-") as td:
+        target=Path(td)/"original-bytes"
+        target.write_bytes(original)
         path.unlink()
-        path.write_bytes(original)
+        path.symlink_to(target)
+        try:
+            v=execute(work,"scripts/validate_release.py")
+            with tempfile.TemporaryDirectory(prefix="otl-grade-output-") as d:
+                out=Path(d)/"test.zip"
+                packed=execute(work,"-m","scripts.package_release","--output",str(out))
+                return v.returncode!=0 and packed.returncode!=0 and not out.exists()
+        finally:
+            path.unlink()
+            path.write_bytes(original)
 
 def main():
     p=argparse.ArgumentParser()

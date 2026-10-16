@@ -40,9 +40,9 @@ test gate. The RC2 arm receives only one extra workflow instruction
 (the behavior under test), which means this is **not a blinded pure
 prompt-only comparison**. The scope of the claim is deliberately narrow.
 
-**Strict host sandbox**: the SDK does not give either agent shell,
+**Scoped public-fixture tools**: the SDK does not give either agent shell,
 network or external writes; host permission handler allows read
-tool calls, and writes only to `scripts/validate_release.py`,
+tool calls (the SDK can omit filenames in read approvals, so this is **not** a proven filesystem read sandbox), and writes only to `scripts/validate_release.py`,
 `scripts/package_release.py`, `tests/test_release.py`. The external
 grader runs after each agent completes with a minimal environment,
 no `GITHUB_TOKEN` and no Copilot/OpenAI key. The model cannot use the

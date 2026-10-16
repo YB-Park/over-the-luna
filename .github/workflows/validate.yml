@@ -17,6 +17,15 @@ jobs:
           python-version: '3.12'
       - name: Install pinned static YAML parser
         run: python -m pip install 'PyYAML==6.0.2'
+      - name: Syntax-check future role-pipeline scripts (zero model inference)
+        run: |
+          node --check scripts/role_pipeline_pair.mjs
+          python -m py_compile scripts/role_pipeline_grader.py
+      - name: Confirm existing release boundary is vulnerable (expected negative)
+        run: |
+          if python scripts/role_pipeline_grader.py --work .; then
+            echo 'Unexpected: baseline already satisfies P5; do not spend on a solved task'; exit 1
+          fi
       - name: Validate all role configs and negative cases without AI calls
         run: |
           python -m compileall -q scripts tests
