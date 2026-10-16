@@ -29,4 +29,23 @@ picker and a local read-only check had no reported anomalies.
 `ONE_SHOT_PLUGIN_GATE.md`. No automatic retries. Version-pinned
 Copilot CLI and SDK. Do not report PASS from plugin registry alone.
 
-Current status: NOT RUN.
+## Observed result — 2026-10-16
+
+[GitHub Actions #38860678994](https://github.com/YB-Park/over-the-luna/actions/runs/38860678994) **PASS** with CLI 1.0.88 and SDK 1.0.19.
+
+- Exact plugin `over-the-luna-next` reported loaded/enabled.
+- SDK agent list included `over-the-luna-next:over-the-luna-next`,
+  display name `Over the Luna Next (Research)`.
+- RPC agent.select and agent.getCurrent independently confirmed this
+  exact selected agent name.
+- Then ONE short `gpt-6-luna` request read a public fixture with
+  a genuine read permission event and returned the correct marker.
+- No writes, shell, external API credentials or corporate data.
+
+**Conclusion:** Actual checked-in plugin package and Main agent can be
+loaded, explicitly selected and executed in **pinned Copilot SDK**.
+This is stronger than copying the instruction body as a system-message
+append. It still does **not** verify the installed VS Code Agent Host
+tool/MCP contract or task quality.
+
+Current status: **PASS SDK ACTUAL PLUGIN LOAD + SELECT + PUBLIC READ**.

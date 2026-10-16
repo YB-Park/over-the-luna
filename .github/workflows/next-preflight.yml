@@ -34,6 +34,9 @@ jobs:
           node --check experiments/next/paired_review.mjs
           node --check experiments/next/implement_model_comparison.mjs
           node --check experiments/next/actions_dogfood_pair.mjs
+          node --check experiments/next/actual_plugin_gate.mjs
+          node --check experiments/next/actual_plugin_paired.mjs
+          python -m py_compile experiments/next/actual_plugin_code_grader.py
       - name: Preserve stable v1.1.1 contract
         run: python scripts/validate_plugin.py
       - name: Validate minimal candidate and its negative-mutation tests (no model calls)
