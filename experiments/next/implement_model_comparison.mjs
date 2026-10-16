@@ -9,13 +9,15 @@ import path from "node:path";
 
 const root=process.cwd();
 const fixture=path.join(root,"qualification","experiments","gpt6_luna","fixture.py");
-const cases=["broad_contract","risk_idempotency"];
-const strategies=[
+const diagnostic=process.env.DIAGNOSTIC_ONLY==="1";
+const cases=diagnostic?["risk_idempotency"]:["broad_contract","risk_idempotency"];
+let strategies=[
   {name:"luna",id:"gpt-6-luna",provider:"copilot"},
   {name:"haiku",id:"claude-haiku-5.5",provider:"copilot"},
   {name:"sol",id:"gpt-6.1-sol",provider:"openai"},
   {name:"sonnet",id:"claude-sonnet-5.5",provider:"copilot"}
 ];
+if(diagnostic)strategies=strategies.filter(x=>x.name==="luna"||x.name==="sol");
 const allowed={
   broad_contract:new Set(["src/exporter.py","tests/test_exporter.py"]),
   risk_idempotency:new Set(["src/ledger.py","tests/test_ledger.py"])
@@ -59,25 +61,27 @@ try {
    const preparation=py(["prepare","--case",testcase,"--root",work,"--task-file",taskFile]);
    if(!preparation.ok)throw new Error("Fixture preparation failed, no paid run should proceed");
    const initial=snapshot(work);
+   const permissionAudit=[];
    const config={
      model:arm.id,reasoningEffort:"low",
      workingDirectory:work,
      tools:[],
      availableTools:["view","edit","grep","glob"],
      onPermissionRequest:(req)=>{
-       if(req.managedApprovalRequired)return {kind:"no-result"};
-       if(req.kind==="read")return {kind:"approve-once"};
-       if(req.kind==="write"){
+       let decision={kind:"reject",feedback:"No shell, network, or external tools allowed."};
+       if(req.managedApprovalRequired)decision={kind:"no-result"};
+       else if(req.kind==="read")decision={kind:"approve-once"};
+       else if(req.kind==="write"){
          const file=String(req.fileName??"");
          const full=path.resolve(work,file);
          const rel=path.relative(work,full).split(path.sep).join("/");
-         return allowed[testcase].has(rel)?
+         decision=allowed[testcase].has(rel)?
            {kind:"approve-once"}:
            {kind:"reject",feedback:"Writes restricted to the two permitted fixture paths."};
-       }
-       if(req.kind==="custom-tool" && ["view","edit","grep","glob"].includes(req.toolName))
-         return {kind:"approve-once"};
-       return {kind:"reject",feedback:"No shell, network, or external tools allowed."};
+       } else if(req.kind==="custom-tool" && ["view","edit","grep","glob"].includes(req.toolName))
+         decision={kind:"approve-once"};
+       if(diagnostic)permissionAudit.push({kind:String(req.kind??"unknown"),tool:String(req.toolName??"none"),fileBase:req.fileName?path.basename(String(req.fileName)):"none",decision:decision.kind});
+       return decision;
      }
    };
    if(arm.provider==="openai")
@@ -86,16 +90,18 @@ try {
    const usageLog=[],events=[];
    session.on(ev=>{
       if(ev.type==="assistant.usage")usageLog.push(usage(ev));
-      if(ev.type==="assistant.tool_call")events.push(ev.type);
+      if(diagnostic && (ev.type==="assistant.tool_call"||ev.type.startsWith("tool.")))events.push({type:ev.type,tool:String(ev.data?.toolName??ev.data?.name??ev.data?.tool?.name??"unknown").slice(0,70)});
    });
    const task=fs.readFileSync(taskFile,"utf8").trim();
    const start=Date.now();
    let error=null;
+   let answerPreview=null;
    try{
-     await session.sendAndWait({prompt:
+     const response=await session.sendAndWait({prompt:
        "Implement the following small Python change IN THE CURRENT WORKING DIRECTORY. Read source files as needed, edit only the stated implementation and focused test paths. Do not modify other files, run shell commands, use network tools, or access git history. Finish with a brief explanation of the change, without claiming hidden test results.\n\nTASK:\n"+task+
        "\n\nALLOWED MODIFIED PATHS: "+[...allowed[testcase]].join(", ")
      },110000);
+     if(diagnostic)answerPreview=String(response?.data?.content??"").slice(0,500);
    }catch(e){error=String(e?.message??"runtime error").slice(0,180);}
    const elapsedMs=Date.now()-start;
    try{await session.disconnect();}catch{}
@@ -113,11 +119,12 @@ try {
       hiddenFailures:(grade.failures??[]).map(x=>String(x).slice(0,180)),
       changedPaths:paths,unexpectedPaths:unexpected,
       modelObserved,observedModels:[...new Set(observed)],
-      elapsedMs,usage:usageLog,error};
+      elapsedMs,usage:usageLog,error,...(diagnostic?{permissionAudit,toolEvents:events,answerPreview}:{})};
    records.push(record);
    const tokenIn=usageLog.reduce((a,x)=>a+(x.inputTokens??0),0);
    const tokenOut=usageLog.reduce((a,x)=>a+(x.outputTokens??0),0);
    console.log("IMPLEMENT_RESULT",JSON.stringify({case:testcase,model:arm.name,pass,hiddenPass:record.hiddenPass,changedPaths:paths,unexpectedPaths:unexpected,observedModels:record.observedModels,inputTokens:tokenIn,outputTokens:tokenOut,elapsedMs,error:error?"RUNTIME_ERROR":null}));
+   if(diagnostic)console.log("IMPLEMENT_DIAGNOSTIC",JSON.stringify({case:testcase,arm:arm.name,permissionAudit,toolEvents:events,answerPreview}));
    if(error || !modelObserved){interrupted=true;break;}
   }
   if(interrupted)break;
@@ -127,7 +134,7 @@ const summary=strategies.map(m=>{
  const rows=records.filter(r=>r.arm===m.name);
  return {arm:m.name,finished:rows.length,correct:rows.filter(r=>r.pass).length,totalElapsedMs:rows.reduce((n,r)=>n+r.elapsedMs,0),inputTokens:rows.flatMap(r=>r.usage).reduce((n,u)=>n+(u.inputTokens??0),0),outputTokens:rows.flatMap(r=>r.usage).reduce((n,u)=>n+(u.outputTokens??0),0)};
 });
-const result={time:"2026-10-16",method:"2 existing, external hidden implementation cases × 4 model-only strategies, tool-based edits",summary,records,interrupted};
+const result={time:"2026-10-16",method:diagnostic?"1 existing implementation case × 2 models, tool-permission diagnostic":"2 existing, external hidden implementation cases × 4 model-only strategies, tool-based edits",summary,records,interrupted};
 fs.writeFileSync(process.env.RESULT_PATH??"/tmp/implementation-result.json",JSON.stringify(result,null,2));
 console.log("IMPLEMENT_SUMMARY",JSON.stringify({summary,interrupted,total:records.length}));
 if(interrupted||records.length!==cases.length*strategies.length) {
