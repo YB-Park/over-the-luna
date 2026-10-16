@@ -33,7 +33,7 @@
 
 | ID | Decision needed | Minimal evidence | Status |
 | --- | --- | --- | --- |
-| D0 | 현재 인증·모델·도구·추론 설정이 Agent Host/Copilot CLI에서 실행되는가? | static pair, small authenticated smoke and runtime trace | STATIC IN PROGRESS / paid not run |
+| D0 | 현재 인증·모델·도구·추론 설정이 Agent Host/Copilot CLI에서 실행되는가? | static pair, small authenticated smoke and runtime trace | STATIC PASS / paid not run |
 | D1 | Native Copilot Agent 대비 GPT-6 Luna harness가 무엇을 개선하는가? | 동일 작업의 direct vs harness 비교 | PENDING |
 | D2 | 어떤 일에 다른 모델/독립 검증이 값을 하는가? | 실패/고위험 작업만 소규모 paired ablation | PENDING |
 | D3 | 고정 Luna Main보다 작업별 강한 Main이 이득인가? | 가치가 예상되는 작업의 직접 A/B | PENDING |
@@ -65,6 +65,7 @@ Do not treat a small sample's P95 as a stable estimate; capture surprising high-
 ## Decision log (append decisions, not a diary)
 
 - **2026-10-16 — Start**: `main` v1.1.1 보존. 연구 브랜치에서 Phase 0 model-only 정적 비교를 준비한다. Premium Review 제거, multi-model routing, Agent Host-only 전환은 **아직 제품 결정이 아니다**.
+- **2026-10-16 — Phase 0 PASS**: [no-credit model-only preflight](https://github.com/YB-Park/over-the-luna/actions/runs/38833915882) 와 [기존 plugin validator](https://github.com/YB-Park/over-the-luna/actions/runs/38833915766) 모두 통과. GPT-6가 실제 실행됐다는 의미는 아니다.
 - **2026-10-16 — Known blocker**: 이전 `research/gpt6-luna-model-qualification`의 Copilot 인증 실험은 authentication/policy 오류로 실패했다. 모델 성능 실패가 아니다. 실제 유료 호출 전에 별도로 확인한다.
 
 ## Reference assets

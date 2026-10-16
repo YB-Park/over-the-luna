@@ -46,7 +46,7 @@ The research branch CI runs the same checks on push without calling any LLM. Tre
 
 | Gate | Evidence | Outcome | Next decision |
 | --- | --- | --- | --- |
-| P0 model-only static pair | `.github/workflows/next-preflight.yml` | PENDING CI | Inspect action logs before claiming PASS |
+| P0 model-only static pair | [Actions run #38833915882](https://github.com/YB-Park/over-the-luna/actions/runs/38833915882) | **PASS — static only** | Proceed to separate, manually authorized runtime gate |
 | P0b Copilot authentication/policy | Authenticated runtime trace | NOT RUN | User account + permissions needed |
 | P1 native vs harness | Real work/hidden task checks | NOT RUN | Require P0b |
 | P2 additional models | Specific scoped ablation | NOT RUN | Require P1 weakness to justify |
