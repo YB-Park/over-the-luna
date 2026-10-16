@@ -21,6 +21,31 @@ class RoleTopologyCandidateTests(unittest.TestCase):
     def test_clean_topology(self):
         self.assertEqual(validate(self.root),[])
 
+    def test_valid_ordinary_plugin_still_packages(self):
+        output=self.folder/"ordinary.zip"
+        package(self.root,output)
+        self.assertTrue(output.is_file())
+
+    def test_symlinked_release_sources_are_refused(self):
+        # The outside file is public test content, never actual workspace secrets.
+        outside=self.folder/"external.txt"
+        for name in ("README.md","LICENSE","agents/"+MAIN,
+                     "docs/ROLE_TOPOLOGY.md"):
+            with self.subTest(path=name):
+                target=self.root/name
+                contents=target.read_bytes()
+                outside.write_bytes(contents)
+                target.unlink()
+                target.symlink_to(outside)
+                try:
+                    self.assertTrue(validate(self.root),
+                        "validator must reject symlinked package source")
+                    with self.assertRaises(ValueError):
+                        package(self.root,self.folder/"bad.zip")
+                finally:
+                    target.unlink()
+                    target.write_bytes(contents)
+
     def test_main_cannot_pin_model_or_tools(self):
         file=self.root/"agents"/MAIN
         source=file.read_text()

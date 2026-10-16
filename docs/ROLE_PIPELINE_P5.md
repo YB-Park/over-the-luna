@@ -75,3 +75,44 @@ routing/permission issues or preserve/remove a particular role,
 not to benchmark every variant.
 
 **Status:** STAGED; no paid inference sent yet.
+
+## P5 observed Actions result — 2026-10-16
+
+[Actual run #38869234496](https://github.com/YB-Park/over-the-luna/actions/runs/38869234496) completed both public-repo Luna sessions under matched tools and accepted them against the external symlink/security oracle.
+
+| Metric | SDK default | Actual selected RC2 |
+| --- | ---: | ---: |
+| Independently graded acceptance | **12/12 PASS** | **12/12 PASS** |
+| Authored tests executed | 11 PASS | 11 PASS |
+| Changed paths | 2 allowed | 3 allowed |
+| Elapsed | 18.725s | 31.075s |
+| Input / output tokens | 44,398 / 1,129 | 65,087 / 2,266 |
+| Copilot SDK nano-AIU meter | 220,272,500 | 345,494,500 |
+| Named Architect completed event | not requested | **NOT OBSERVED** |
+| Named Reviewer completed event | not requested | **NOT OBSERVED** |
+
+The actual RC2 Main successfully modified real code and called the SDK
+`task` tool **two times** in its tool event stream, but **NO
+`subagent.started` or `subagent.completed` events appeared** for the
+named roles. This is not enough evidence to conclude why: possible
+runtime discovery, tool activation, named-agent lookup, or
+event-attribution differences must be distinguished. We **do not claim
+that Council ran** or that Main ignored it. Capturing the sanitized task
+tool outcome, not paying for another model capability benchmark, is the
+next useful instrumentation step.
+
+The SDK default succeeded on this same task with fewer tokens and lower
+reported meter. A single comparison still **does not establish a general
+cost/quality advantage**; the RC2 pipeline itself is unverified here.
+The metering is **not an audited cash invoice**.
+
+Product security fix adopted: a **shared allowlist** between release
+validator and ZIP packager plus rejection of symlinks (including parent
+directory components) in published plugin paths. Public regression tests
+now exercise symlinked README, LICENSE, agent and docs sources, without
+using any secret or company data. No new model calls are needed to
+validate this fix through deterministic CI.
+
+**P5 verdict: QUALITY PASS / ROLE CHAIN UNVERIFIED.** Next priority:
+find the task-to-named-agent activation gap and enforce a role evidence
+contract before any declaration that the full Council works.

@@ -21,11 +21,8 @@ jobs:
         run: |
           node --check scripts/role_pipeline_pair.mjs
           python -m py_compile scripts/role_pipeline_grader.py
-      - name: Confirm existing release boundary is vulnerable (expected negative)
-        run: |
-          if python scripts/role_pipeline_grader.py --work .; then
-            echo 'Unexpected: baseline already satisfies P5; do not spend on a solved task'; exit 1
-          fi
+      - name: Independently regrade the fixed public release package boundary
+        run: python scripts/role_pipeline_grader.py --work .
       - name: Validate all role configs and negative cases without AI calls
         run: |
           python -m compileall -q scripts tests

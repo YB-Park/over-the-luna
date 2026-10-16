@@ -19,6 +19,11 @@ MODELS={
  "next-sonnet-specialist.agent.md":("Next Sonnet Specialist","Claude Sonnet 5.5",["read","search"]),
 }
 EXPECTED={MAIN,*MODELS}
+PACKAGE_FILES=tuple(sorted((
+ "plugin.json",
+ *("agents/"+p for p in (MAIN,*MODELS)),
+ "README.md","README.ko.md","LICENSE","docs/ROLE_TOPOLOGY.md"
+)))
 FORBIDDEN_KEYS={"handoffs","infer","mcp-servers","hooks"}
 BLOCK_EXTENSIONS=("mcp.json",".mcp.json","hooks.json",".copilot-plugin",".claude-plugin",
                   "skills","hooks","lsp","mcp")
@@ -46,6 +51,16 @@ def parse_agent(file:Path, errors:list[str]) -> tuple[dict,str]:
 def validate(root:Path=ROOT) -> list[str]:
     root=Path(root)
     errors=[]
+    # A single package manifest is shared with the ZIP builder, so the
+    # validator and packager cannot silently disagree about published files.
+    # Check *every path component*; Path.is_file() follows symlinks.
+    for name in PACKAGE_FILES:
+        current=root
+        for part in Path(name).parts:
+            current=current/part
+            if current.is_symlink():
+                errors.append("symlinked release source: "+name)
+                break
     try: manifest=json.loads((root/"plugin.json").read_text(encoding="utf-8"))
     except (OSError,UnicodeError,ValueError) as ex:
         return [f"invalid plugin.json: {type(ex).__name__}"]

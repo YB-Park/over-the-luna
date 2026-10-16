@@ -6,13 +6,9 @@ import hashlib
 import sys
 import zipfile
 from pathlib import Path
-from scripts.validate_release import ROOT,MAIN,MODELS,validate
+from scripts.validate_release import ROOT,PACKAGE_FILES,validate
 
-FILES=tuple(sorted((
- "plugin.json",
- *("agents/"+p for p in (MAIN,*MODELS)),
- "README.md","README.ko.md","LICENSE","docs/ROLE_TOPOLOGY.md"
-)))
+FILES=PACKAGE_FILES
 DATE=(2026,10,16,0,0,0)
 
 def package(root:Path,output:Path) -> tuple[str,int]:
