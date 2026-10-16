@@ -85,7 +85,7 @@ as unreviewed product code.
 - Corporate Host behavior remains **user-reported smoke only**:
   selectable and first read-only task showed no anomalies.
 
-**Status:** prepared; no paid request sent by this document.
+**Status:** corrected study COMPLETE. First study was infrastructure-invalid; the corrected study passed in both arms. See observed results below.
 
 ## First execution — INVALID, tool permission fixture defect
 
@@ -103,3 +103,17 @@ disposable Actions workspace**. Write permission stays restricted to
 the exact two allowed paths, and shell/network/Git mutation tools
 remain unavailable. **One corrected matched pair is warranted.**
 Do not retroactively interpret the first 0/2 as product performance.
+
+## Corrected matched Actions result — 2026-10-16: BOTH PASS
+
+- [Actions #38859526797](https://github.com/YB-Park/over-the-luna/actions/runs/38859526797), two fixed `gpt-6-luna` SDK sessions with **same tools, independent temp workspaces and external grader**.
+- `sdk_default`: **PASS** 11 independent acceptance checks, 7 authored tests, 2 authorized file edits. Total **22.134 seconds**, 52,410 input / 1,894 output tokens. Reported **231,379,500 Copilot nano-AIU**.
+- `next_instructions`: **PASS** same 11 independent checks, 6 authored tests (including subtest for both MCP file names), 2 authorized file edits. Total **18.732 seconds**, 47,053 input / 1,697 output tokens. Reported **227,733,500 Copilot nano-AIU**.
+- Both modified `scripts/validate_candidate.py` and `tests/test_validate_candidate.py` only, with **zero unexpected changed paths**, and actually used `apply_patch`.
+- Full resulting source/test files, actual model IDs, per-model usage, permission decisions, and independent grader results are retained as the run artifact for 30 days. Both generated sources were reviewed for scope and unsafe changes.
+- The observed Next input-token total was **10.2% lower**, but SDK's reported Copilot nano-AIU was only about **1.6% lower**. Neither delta is a verified extra-cash bill or a reliable population effect.
+- **Outcome:** no demonstrated *quality* advantage of either arm: both completely satisfied the fixed acceptance. The small latency/token difference is a single sample confounded by order/cache variance; **NO RECOMMENDATION to expand the instruction set or route models differently from this observation**.
+- We adopted a concise, passing `next_instructions` variant of this legitimate validator improvement into the research branch **without claiming Next defeated the baseline**. A separate no-credit CI suite now tests the migrated patch.
+- This is NOT a VS Code Agent Host native-vs-plugin result; the question tested is the incremental value of the exact Next instruction body within one common SDK runtime.
+
+**Status:** Actions-only case COMPLETE; stop additional same-case paid experiments. Local corporate exports and repetitive manual testing are not required.

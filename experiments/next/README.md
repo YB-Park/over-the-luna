@@ -124,3 +124,7 @@ stops when the candidate's added value is clear or absent.
 
 Static CI checks its layout only; host functionality still requires
 actual VS Code use, not another model availability lookup.
+
+## Completed Actions-only Next product case
+
+The user cannot easily export corporate VS Code artifacts; local dogfood is **deferred, not required**. The [corrected public-repository SDK comparison](ACTIONS_DOGFOOD.md) succeeded for both baseline and Next instructions: both passed 11 independent grader checks, without a demonstrable quality difference. The tested validator change and authored negative-mutation unittest were preserved in this research branch with no further paid inference. **Do not claim a real VS Code Host A/B result** from SDK instructions.

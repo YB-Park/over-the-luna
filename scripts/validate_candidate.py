@@ -6,6 +6,7 @@ Do not use as proof of native host compatibility or task quality.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -13,23 +14,25 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1] / "experiments" / "next" / "candidate-plugin"
-AGENTS = ROOT / "agents"
 
 
-def validate() -> list[str]:
+def validate(root: Path = ROOT) -> list[str]:
     problems = []
-    manifest_path = ROOT / "plugin.json"
+    root = Path(root)
+    manifest_path = root / "plugin.json"
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return [f"missing/invalid candidate manifest: {exc}"]
+    if not isinstance(manifest, dict):
+        return ["missing/invalid candidate manifest: expected a JSON object"]
     if manifest.get("name") != "over-the-luna-next":
         problems.append("candidate plugin identity unexpected")
     if manifest.get("agents") != "agents/":
         problems.append("candidate agents path must be agents/")
     if "$schema" in manifest:
         problems.append("candidate is legacy Copilot format; do not mix schema layouts")
-    files = sorted(AGENTS.glob("*.agent.md"))
+    files = sorted((root / "agents").glob("*.agent.md"))
     if [x.name for x in files] != ["over-the-luna-next.agent.md"]:
         problems.append("candidate must contain exactly one agent, no leaves")
         return problems
@@ -62,14 +65,18 @@ def validate() -> list[str]:
                    "security sandbox", "Explicit user authorization"):
         if marker not in body:
             problems.append(f"candidate missing safety/verification clause: {marker}")
-    forbidden = (ROOT / "mcp.json", ROOT / ".mcp.json", ROOT / "hooks.json")
+    forbidden = (root / "mcp.json", root / ".mcp.json", root / "hooks.json")
     if any(p.exists() for p in forbidden):
         problems.append("candidate must not bundle MCP servers/hooks")
     return problems
 
 
 if __name__ == "__main__":
-    failures = validate()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=ROOT,
+                        help="candidate plugin directory (defaults to the research candidate)")
+    args = parser.parse_args()
+    failures = validate(args.root)
     if failures:
         for failure in failures:
             print("CANDIDATE_INVALID:", failure)
