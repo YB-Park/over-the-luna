@@ -1,0 +1,3 @@
+# P5 one-shot RC2 Council evidence gate
+
+Product-owner request: push beyond metadata to useful collaborator allocation. A no-credit preflight has established a genuine release packaging symlink bug and confirmed the external oracle fails on the unchanged baseline. Authorize **only this one** paired public-repo GPT-6 Luna SDK job: default agent versus the actual selected RC2 plugin Main, which is asked to delegate Architect for cross-file discovery and Reviewer for actual patch acceptance. No internal corporate artifacts, no external BYOK/OpenAI API, no arbitrary shell/tool remote mutation, no Git push from models and no automatic retries. See ROLE_PIPELINE_P5.md. Record both quality and actual named subagent lifecycle/usage as separate outcomes.
