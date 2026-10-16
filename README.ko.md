@@ -1,27 +1,46 @@
-# Over the Luna Next 🌙 — v2.0.0-rc.1
+# Over the Luna Next — RC2 역할 배치 연구 🌙
 
-[English](README.md) · **한국어**
+[English](README.md)
 
-**출시 후보(RC)이지 안정 버전은 아니야.** 이번 패키지는 **Over the Luna Next Main 하나**만 제공해. 의무 Council, Premium Review UI, 모델별 에이전트, 별도 API 브리지, MCP 번들, 유료 모델 자동 호출은 없어. **모델·도구·승인 권한은 VS Code Host가 관리**해.
+**안정 버전이 아니야.** 기존 v1.1.1에서 수많은 실험으로
+도출한 Council의 가치를 다시 중심에 놓고, 역할과 모델을
+**언제 배치하는 게 실제로 이득인지** 개선하는 연구 후보야.
+[전체 설계 및 타 하네스 조사](docs/ROLE_TOPOLOGY.md).
 
-## 안정판을 그대로 둔 채 설치하기
+**Main 1개 + 조건부 보조 에이전트 7개**를 정의했어.
 
-기본 `main`은 계속 **v1.1.1 안정판**이야. 저장소 기본 URL로 설치하면 RC가 아니라 안정판일 수 있어.
+- **Architect (Luna):** 넓은 저장소 탐색과 컨텍스트 격리
+- **Reviewer (Luna):** 실제 코드 diff와 테스트를 바탕으로 독립 검토
+- **Skeptic (Luna):** 구현 전에 중요한 가정을 반박
+- **Researcher (Luna):** 공식 문서/최신 API 조사
+- **Recovery (Luna):** 실제 오류 발생 이후에만 진단
+- **Sol Specialist (GPT-6.1 Sol):** 필요할 때 강한 독립 판단
+- **Sonnet Specialist (Claude Sonnet 5.5):** 강한 판단의 대체 모델
 
-1. `release/next-v2.0.0-rc1` 브랜치의 성공한 [RC Actions](https://github.com/YB-Park/over-the-luna/actions/workflows/validate.yml?query=branch%3Arelease%2Fnext-v2.0.0-rc1)에서 `over-the-luna-next-v2.0.0-rc.1` artifact를 받아 내부 ZIP을 풀어 줘. 또는 해당 브랜치를 별도로 체크아웃하고 그 루트를 플러그인 폴더로 사용해.
-2. VS Code **사용자 설정(JSON)**에서 `chat.plugins.enabled`가 허용되었는지 확인하고, 기존 설정을 지우지 말고 `chat.pluginLocations`에 RC 디렉터리의 절대 경로를 추가해.
+**일반 작업은 Main 혼자 처리해.** 어려운 작업에서 필요한
+역할만 호출하는 구조이므로, 파일이 8개라고 매번 8번 호출하는
+것은 아니야. **Claude Haiku 5.5도 Main 모델로 직접 선택 가능**해.
+단, Haiku 자동 라우팅의 경제성을 아직 입증하지 않았기 때문에
+근거 없이 고정하지는 않았어.
 
-   ```json
-   {"chat.pluginLocations": {"/RC/압축을/푼/절대/경로": true}}
-   ```
+**Planner와 Tool Worker를 보류한 이유:** 전자의 `tools: []`
+도구 권한 변환 위험과 후자의 광범위한 MCP 도구 상속 문제는
+정식으로 해소되지 않았어. 이 역할들의 가치까지 부정한 게
+아니고, 안전하게 운영하는 방식을 먼저 결정한다는 뜻이야.
 
-3. 같은 플러그인 ID가 중복되지 않도록 기존 연구용 `over-the-luna-next` 플러그인 경로는 잠시 비활성화해. **안정판 v1.1.1은 삭제하지 마.**
-4. 필요한 경우 VS Code를 다시 열고 **Over the Luna Next**를 선택해. 모델은 선택기에서 고르면 돼. GPT-6 Luna는 기본 가설일 뿐 고정하지 않았어.
+## 설치·원복
 
-작업 중 실제 diff와 테스트를 검증하고, 중요한 위험에만 독립 검토를 고려해. **프롬프트 자체는 보안 샌드박스가 아니며**, 조직의 도구·MCP·권한 정책을 우회하지 않아. 사내 코드와 채팅 기록을 여기로 옮길 필요도 없어.
+무과금 Actions를 통과한 브랜치의 ZIP을 사용하거나,
+`research/next-role-topology`를 별도 복제하여 그 루트를
+`chat.pluginLocations`에 등록하면 돼. 중복된 Next 플러그인
+경로는 비활성화하되 안정판 v1.1.1은 그대로 둬.
 
-## 업데이트 및 롤백
+**사내 코드나 로그를 외부로 옮길 필요 없어.** 새 보조 에이전트의
+실제 모델, 권한, 서브에이전트 실행 경로는 별도의 통합 검증이
+필요하고, 현재 정적 검사만으로는 증명되지 않아.
+외부 공급자 전송은 회사 정책과 사용자 허용을 따르고,
+프롬프트 자체를 샌드박스로 여기지 마.
 
-v1.1.1의 Council·의무 Reviewer·Premium UI를 제거한 **호환성이 크게 바뀌는 버전**이야. 문제가 생기면 `chat.pluginLocations`에서 RC 경로만 비활성화하고 기존 **Over the Luna** 또는 기본 Copilot Agent를 선택하면 돼.
-
-실험 근거는 [연구 브랜치](https://github.com/YB-Park/over-the-luna/tree/research/next-harness-foundation)와 [Draft PR #18](https://github.com/YB-Park/over-the-luna/pull/18)에 있어. **Next가 native Agent보다 우월하다는 증거는 아직 없어.** [출시 체크리스트](docs/RELEASE_CHECKLIST.md)를 확인해. CI는 **정적 검증과 패키징만** 실행하며 유료 모델을 호출하지 않아.
+문제가 있으면 RC2의 `chat.pluginLocations` 항목만 끄고
+기존 안정판/RC1/native Copilot을 선택해.
+**`main`·RC1은 변경하지 않았어.**

@@ -1,0 +1,38 @@
+name: RC2 actual plugin registry — no model inference
+on:
+  push:
+    branches: [research/next-role-topology]
+    paths:
+      - docs/ROLE_REGISTRY_SENTINEL.md
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  sdk-registration:
+    if: contains(github.event.head_commit.message, '[verify-role-registry-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check no-inference metadata gate
+        run: node --check scripts/role_registry_gate.mjs
+      - name: Install pinned Copilot runtime and SDK
+        run: |
+          npm install -g @github/copilot@1.0.88
+          npm install --prefix scripts --no-save --no-package-lock @github/copilot-sdk@1.0.19
+      - name: Load real RC2 plugin and list all named roles; no requests to models
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          RESULT_PATH: ${{ runner.temp }}/rc2-role-registry.json
+        run: node scripts/role_registry_gate.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc2-role-registry
+          path: ${{ runner.temp }}/rc2-role-registry.json
+          retention-days: 14
+          if-no-files-found: ignore

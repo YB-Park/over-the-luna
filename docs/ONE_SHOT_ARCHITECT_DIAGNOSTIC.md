@@ -1,0 +1,3 @@
+# Why this one narrow diagnostic exists
+
+P5 showed that an actual selected RC2 Main attempted the task tool twice, but recorded no named Architect/Reviewer start/complete lifecycle. Metadata confirmed registered Architect and Reviewer with model and tool declarations. This experiment captures the task tool's actual result in **one** public-repo Luna prompt to the **registered** Next Architect and nothing else. No corporate data, shell, writes, BYOK models or repeats. A missing lifecycle is not a model failure until a tool error is identified. This is a product integration blocker investigation, not a new performance benchmark.

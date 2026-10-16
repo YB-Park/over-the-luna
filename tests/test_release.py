@@ -3,76 +3,127 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from scripts.validate_release import ROOT, validate
-from scripts.package_release import FILES, package
+from scripts.validate_release import ROOT,MAIN,MODELS,validate
+from scripts.package_release import FILES,package
 
-class CandidateReleaseTests(unittest.TestCase):
+class RoleTopologyCandidateTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
-        self.root=Path(self.temp.name)/"candidate"
+        t=tempfile.TemporaryDirectory()
+        self.addCleanup(t.cleanup)
+        self.folder=Path(t.name)
+        self.root=self.folder/"plugin"
         for name in FILES:
+            source=ROOT/name
             dest=self.root/name
             dest.parent.mkdir(parents=True,exist_ok=True)
-            shutil.copy2(ROOT/name,dest)
+            shutil.copy2(source,dest)
 
-    def test_pristine(self):
+    def test_clean_topology(self):
         self.assertEqual(validate(self.root),[])
 
-    def test_forbidden_main_settings(self):
-        agent=self.root/"agents/over-the-luna-next.agent.md"
-        source=agent.read_text()
-        for field in ("tools: []","model: gpt-6-luna","agents: []",
-                      "mcp-servers: {}","hooks: {}"):
+    def test_valid_ordinary_plugin_still_packages(self):
+        output=self.folder/"ordinary.zip"
+        package(self.root,output)
+        self.assertTrue(output.is_file())
+
+    def test_symlinked_release_sources_are_refused(self):
+        # The outside file is public test content, never actual workspace secrets.
+        outside=self.folder/"external.txt"
+        for name in ("README.md","LICENSE","agents/"+MAIN,
+                     "docs/ROLE_TOPOLOGY.md"):
+            with self.subTest(path=name):
+                target=self.root/name
+                contents=target.read_bytes()
+                outside.write_bytes(contents)
+                target.unlink()
+                target.symlink_to(outside)
+                try:
+                    self.assertTrue(validate(self.root),
+                        "validator must reject symlinked package source")
+                    with self.assertRaises(ValueError):
+                        package(self.root,self.folder/"bad.zip")
+                finally:
+                    target.unlink()
+                    target.write_bytes(contents)
+
+    def test_main_cannot_pin_model_or_tools(self):
+        file=self.root/"agents"/MAIN
+        source=file.read_text()
+        for field in ("tools: []","tools: [read]","model: GPT-6 Luna",
+                      "agents: []","hooks: {}"):
             with self.subTest(field=field):
-                agent.write_text(source.replace("target: vscode\n",
-                                               "target: vscode\n"+field+"\n"))
+                file.write_text(source.replace("target: vscode\n","target: vscode\n"+field+"\n"))
                 self.assertTrue(validate(self.root))
-        agent.write_text(source)
+        file.write_text(source)
 
-    def test_extra_agent_markdown(self):
-        for name in ("other.md","other.agent.md","README.md"):
-            p=self.root/"agents"/name
+    def test_leaves_must_be_hidden_and_callable(self):
+        file=self.root/"agents/next-architect.agent.md"
+        source=file.read_text()
+        for old,new in (("user-invocable: false","user-invocable: true"),
+                        ("agents: []","agents: [Next Reviewer]"),
+                        ("tools: ['read', 'search']","tools: []")):
+            with self.subTest(new=new):
+                file.write_text(source.replace(old,new))
+                self.assertTrue(validate(self.root))
+        file.write_text(source)
+
+    def test_pinned_strong_models_and_research(self):
+        cases=[("next-sol-specialist.agent.md","GPT-6.1 Sol","GPT-6 Luna"),
+               ("next-sonnet-specialist.agent.md","Claude Sonnet 5.5","GPT-6 Luna"),
+               ("next-researcher.agent.md","'web'","'edit'")]
+        for name,old,new in cases:
             with self.subTest(name=name):
-                p.write_text("unknown")
+                file=self.root/"agents"/name
+                original=file.read_text()
+                file.write_text(original.replace(old,new))
                 self.assertTrue(validate(self.root))
-                p.unlink()
+                file.write_text(original)
 
-    def test_mcp_hooks_skills(self):
-        for name in ("skills/a/SKILL.md","mcp.json",".mcp.json",
-                     "hooks.json","hooks/tool.json"):
-            p=self.root/name
-            with self.subTest(name=name):
-                p.parent.mkdir(parents=True,exist_ok=True)
-                p.write_text("unknown")
-                self.assertTrue(validate(self.root))
-                p.unlink()
+    def test_missing_and_extra_roles(self):
+        target=self.root/"agents/next-reviewer.agent.md"
+        source=target.read_text()
+        target.unlink()
+        self.assertTrue(validate(self.root))
+        target.write_text(source)
+        added=self.root/"agents/secret.md"
+        added.write_text("unapproved")
+        self.assertTrue(validate(self.root))
 
-    def test_manifest_corruption(self):
+    def test_bad_manifest(self):
         p=self.root/"plugin.json"
-        good=p.read_text()
-        for bad in ("{bad","[]"):
+        source=p.read_text()
+        for bad in ("{invalid","[]"):
             p.write_text(bad)
             self.assertTrue(validate(self.root))
         p.unlink()
         self.assertTrue(validate(self.root))
-        p.write_text(good)
+        p.write_text(source)
 
-    def test_deterministic_allowlisted_package(self):
-        a,b=Path(self.temp.name)/"a.zip",Path(self.temp.name)/"b.zip"
-        digest,_=package(self.root,a)
-        digest2,_=package(self.root,b)
-        self.assertEqual(digest,digest2)
-        with zipfile.ZipFile(a) as zf:
-            self.assertEqual(set(zf.namelist()),set(FILES))
-            restored=Path(self.temp.name)/"unpacked"
-            zf.extractall(restored)
-        self.assertEqual(validate(restored),[])
+    def test_no_mcp_hooks_skills(self):
+        for name in ("skills/a/SKILL.md","mcp.json",".mcp.json",
+                     "hooks.json","hooks/tool.json"):
+            with self.subTest(name=name):
+                p=self.root/name
+                p.parent.mkdir(parents=True,exist_ok=True)
+                p.write_text("unsafe")
+                self.assertTrue(validate(self.root))
+                p.unlink()
+
+    def test_reproducible_package(self):
+        a,b=self.folder/"a.zip",self.folder/"b.zip"
+        sha,size=package(self.root,a)
+        sha2,size2=package(self.root,b)
+        self.assertEqual((sha,size),(sha2,size2))
+        with zipfile.ZipFile(a) as f:
+            self.assertEqual(set(f.namelist()),set(FILES))
+            out=self.folder/"unpacked"
+            f.extractall(out)
+        self.assertEqual(validate(out),[])
 
     def test_fail_closed_packaging(self):
-        (self.root/"agents/another.md").write_text("unexpected")
+        (self.root/"agents/unexpected.agent.md").write_text("new")
         with self.assertRaises(ValueError):
-            package(self.root,Path(self.temp.name)/"unsafe.zip")
+            package(self.root,self.folder/"unsafe.zip")
 
 if __name__=="__main__":
     unittest.main()
