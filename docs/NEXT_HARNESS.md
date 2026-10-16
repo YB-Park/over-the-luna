@@ -1,5 +1,11 @@
 # Over the Luna — Next Harness Research Charter
 
+> **Audit correction (2026-10-16):** Previous P1b 2/2 counts mean only
+> original *behavioral* hidden-gate PASS, not full requirement compliance.
+> A verified grader blind spot and a VS Code tools:[] → null semantic issue
+> invalidate stronger claims. Read [independent audit response](NEXT_AUDIT_RESPONSE.md)
+> before using historical results in product decisions.
+
 > **Product first, experiments only to make a product decision.**  
 > Status: research / not a release | Started: 2026-10-16 | Stable baseline: `main` v1.1.1
 

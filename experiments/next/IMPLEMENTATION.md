@@ -84,7 +84,7 @@ cause is understood.
 
 Status: **EXECUTED; model-quality ranking INCONCLUSIVE due to tool execution confound**.
 
-## Corrected matched run — 2026-10-16 (decision evidence)
+## Corrected matched run — 2026-10-16 (limited behavioral evidence; independent audit qualification)
 
 [GitHub Actions #38852797334](https://github.com/YB-Park/over-the-luna/actions/runs/38852797334). Same two fixture tasks, same low reasoning effort and tool restrictions for all four models, but now with explicit canonical SDK `edit_file` / `apply_patch` alongside read/search tools. All four models actually edited both source/test files, changed **no unauthorized paths**, and passed independent hidden acceptance tests.
 
@@ -102,3 +102,18 @@ On these two cases Haiku consumed **1.79× Luna input tokens**; because of cache
 **Validity boundary:** this is Copilot SDK execution against isolated fixtures, **not a full end-to-end evaluation of the shipped VS Code plugin**. The user has confirmed the four candidate models are visible/available in their VS Code Copilot Agent Host; no model-availability retests are needed. Product behavior and actual total spend should be learned through deliberate real-world dogfooding, not more redundant access probes.
 
 Status: **CORRECTED COMPARISON COMPLETE — QUALITY CEILING.**
+
+## Independent audit qualification — 2026-10-16
+
+**Do not cite the corrected 2/2 as full user-requirement success.** The
+original grader permits a hand-copied account normalization implementation
+that never calls the shared `canonical_account_id` helper, and accepts
+syntactically broken model-authored regression tests. A successful recorded
+hidden grade is therefore **BEHAVIOR CHECK PASS / REQUIREMENT COMPLETENESS
+UNKNOWN**. No model-produced diffs were retained, so these historical
+runs cannot be retrospectively rescored for helper reuse or valid tests.
+
+[No-credit counterexample audit](audit_oracle.py) reproduces this problem
+and strengthens future checking without inventing additional paid model
+runs. Product dogfooding must use actual tests, tool boundaries, and
+saved sanitized diffs. See [Audit response](../../docs/NEXT_AUDIT_RESPONSE.md).

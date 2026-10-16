@@ -42,4 +42,14 @@ jobs:
             --candidate-output "$RUNNER_TEMP/otl-luna6"
       - name: Verify review scenarios against executable oracle
         run: python experiments/next/review_oracle.py
+      # Pin the exact artifact source used in the original P1b runs; don't use a moving branch.
+      - uses: actions/checkout@v6
+        with:
+          ref: f7c1c7b0a19f81432553862b006c860c923719ec
+          path: qualification
+          persist-credentials: false
+      - name: Audit implementation grader false-positive counterexamples
+        run: |
+          python experiments/next/audit_oracle.py selftest \
+            --fixture qualification/experiments/gpt6_luna/fixture.py
       # Deliberately no Copilot CLI, API token, or billable model invocation.
