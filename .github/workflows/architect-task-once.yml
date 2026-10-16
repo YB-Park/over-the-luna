@@ -1,0 +1,39 @@
+name: P5 - bounded named Architect task diagnostic
+on:
+  push:
+    branches: [research/next-role-topology]
+    paths: [docs/ONE_SHOT_ARCHITECT_DIAGNOSTIC.md]
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  diagnostic:
+    if: contains(github.event.head_commit.message, '[diagnose-architect-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static script syntax
+        run: node --check scripts/architect_task_diagnostic.mjs
+      - name: Install pinned SDK and CLI
+        run: |
+          npm install -g @github/copilot@1.0.88
+          npm install --prefix scripts --no-save --no-package-lock @github/copilot-sdk@1.0.19
+      - name: One public named Architect delegation request
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RESULT_PATH: ${{ runner.temp }}/architect-task.json
+          COPILOT_AUTO_UPDATE: 'false'
+        run: node scripts/architect_task_diagnostic.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p5-architect-tool-diagnostic
+          path: ${{ runner.temp }}/architect-task.json
+          if-no-files-found: ignore
+          retention-days: 14
