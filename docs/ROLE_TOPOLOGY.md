@@ -145,3 +145,13 @@ intact, and no merge or release tag is automatic.
 3. **[Xia et al. — Agentless (2024)](https://arxiv.org/abs/2407.01489).** A comparatively straightforward localization → patch → validation workflow performed competitively in the authors' SWE-bench Lite evaluation. This is a warning against the assumption that many named roles are necessary for every code edit. Prediction: direct Main remains best on known local problems; extra leaves require a distinct hypothesis and real acceptance evidence.
 
 **Falsification questions:** Does Architect return a usable caller/helper/test packet that Main does NOT redundantly rediscover? Does Reviewer find meaningful defects that deterministic tests or Main alone miss? Does Skeptic catch a design-level assumption *before* any code is mutated? Does an advanced Sol/Sonnet opinion change an important decision enough to justify its provider, time and credit cost? **These are separate hypotheses**, not one synthetic score or an excuse to create a large new benchmark matrix.
+
+## Host runtime vs standalone SDK: verified boundary (2026-10-16)
+
+The previous role registry PASS listed the eight plugin agents, but P5 needed more. A targeted real `task` invocation for `Next Architect` reached a **standalone SDK server limitation**:
+
+`Standalone server does not support session effect 'custom_agent_prompt'`.
+
+[P5 causal evidence](ROLE_PIPELINE_P5.md). The task tool resolved the correct agent name and model, so repeating model benchmarks would not fix a missing host interaction. The **installed VS Code Agent Host is the intended target** and cannot be faithfully replaced by the standalone runner on this path. We preserve the original v1.1 Host-tested Council rationale rather than deleting the roles based on false-negative SDK evidence.
+
+**Do not treat a named `task` call, registered agent, or model field as completed delegation.** Report named agent returned evidence separately. Leave stable and RC1 untouched. No company code transfer is required for future release decisions; any optional Host spot-check should minimize work and remain inside the organization.

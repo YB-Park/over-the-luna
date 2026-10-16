@@ -12,7 +12,8 @@
 
 ## Product behavior (NOT established by static tests)
 - [x] Earlier single-Main research plugin package loaded and ran in SDK.
-- [ ] All RC2 roles recognized as separate identities by real Copilot SDK.
+- [x] All RC2 roles recognized as separate identities by real Copilot SDK.
+- [ ] One actual Host-native Architect → Main → Reviewer trajectory observed (standalone SDK cannot supply plugin custom_agent_prompt).
 - [ ] Host leaf read-only/no-recursion contract confirmed before treating
       leaf permissions as a security boundary.
 - [ ] Sol vs Sonnet backing model used as requested; no silent fallback.
@@ -26,3 +27,7 @@ Retain roles by marginal evidence, not by a 'smallest agents' ideology.
 No further model catalogue checks; the user confirmed all models available.
 No automatic API bridge, mandatory premium opinion, main merge or stable tag.
 Research and release remain separated; **RC1 and v1.1.1 stay intact**.
+
+### Important standalone SDK boundary
+
+[One-shot causal diagnostic](https://github.com/YB-Park/over-the-luna/actions/runs/38870191856) returned `Standalone server does not support session effect 'custom_agent_prompt'` for the correctly qualified Next Architect. This is **not a failed model routing policy** and cannot be cured by more prompt or cost benchmarks. RC2 is not Host-integrated until its actual Host-native named role handback is observed. No corporate artifacts should be exported to demonstrate it.

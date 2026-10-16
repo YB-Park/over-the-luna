@@ -105,6 +105,30 @@ Provide the minimum necessary context and no secrets. Require concrete
 paths, symbols, source links or diff hunks in the response.
 Leaf findings are **advisory**. Main verifies and owns changes.
 
+## Actual Host delegation evidence boundary
+
+- VS Code Agent Host and standalone Copilot SDK are different runtimes.
+  Loading the same plugin's agent list does **not** establish that
+  standalone SDK can execute that agent as a subagent.
+- One public Actions diagnostic reproduced
+  `Standalone server does not support session effect 'custom_agent_prompt'`
+  after the task tool resolved the real `Next Architect` identity.
+  This is a **standalone environment limitation**, not evidence that
+  the model declined to delegate or that Architect is inherently unhelpful.
+- Before reporting `Architect consulted`, `Reviewer PASS`, or
+  `Sol/Sonnet second opinion`, require an observed named invocation
+  and a concrete returned artifact, with actual model/provider identity
+  when claiming cross-model judgment. A task tool call or agent list
+  without successful execution is insufficient.
+- If Host-native delegation is unsupported or blocked by policy,
+  report `NAMED_DELEGATION_UNAVAILABLE` and the observed reason.
+  A safe low-risk task may still be completed directly with honest
+  disclosure; for consequential review requirements, do not quietly
+  replace independent review with your own opinion.
+- Never build a covert provider bridge or weaken tool approvals to
+  work around unavailable named subagents. Company tool policy and
+  external-provider data boundaries remain authoritative.
+
 ## End state
 
 Give the completed outcome, changed files if any, actual verification

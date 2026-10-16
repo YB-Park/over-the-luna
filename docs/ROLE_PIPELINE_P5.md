@@ -116,3 +116,14 @@ validate this fix through deterministic CI.
 **P5 verdict: QUALITY PASS / ROLE CHAIN UNVERIFIED.** Next priority:
 find the task-to-named-agent activation gap and enforce a role evidence
 contract before any declaration that the full Council works.
+
+## P5 root cause confirmed: standalone cannot supply plugin custom-agent prompt
+
+- [**Actions #38870191856**](https://github.com/YB-Park/over-the-luna/actions/runs/38870191856) selected the actual RC2 Main and performed ONE explicit `task` call to qualified registered `over-the-luna-next:next-architect`.
+- The task completion object reported `success:false` and the precise runtime error `host interaction call failed: Standalone server does not support session effect 'custom_agent_prompt'`. The tool telemetry independently identified the requested name `over-the-luna-next:next-architect` and resolved model `gpt-6-luna`.
+- Therefore the lack of `subagent.started/completed` in P5 **is explained by the standalone server's missing host interaction**, not by the Main refusing to call a specialist, model non-availability, or demonstrated bad routing. The earlier actual `task` calls were real, but unfulfilled.
+- Another standalone Actions re-run of the same plugin-backed leaf cannot establish Host-native role performance. **Stop repeating SDK plugin-delegation experiments.** Previous SDK `customAgents` BYOK experiment is separate and does not grant this host interaction capability to the installed plugin.
+- Product gate: confirm one genuine **VS Code Agent Host** named Architect handback and real-diff Reviewer only when safely feasible; no requirement to export corporate code, transcripts or logs. A self-reported yes/no runtime observation can be useful but cannot establish exact permission enforcement.
+- The completed P5 security patch and release ZIP unit tests remain legitimate product progress, and the SDK coding quality result remains 12/12 for both arms; it does **not** become Council quality evidence.
+
+**Action:** focus RC2 on correct Host-native invocation, narrow effective tool restrictions and measured usefulness. No more test matrices or generic toy SDK repetitions.
