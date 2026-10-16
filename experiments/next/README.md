@@ -128,3 +128,17 @@ actual VS Code use, not another model availability lookup.
 ## Completed Actions-only Next product case
 
 The user cannot easily export corporate VS Code artifacts; local dogfood is **deferred, not required**. The [corrected public-repository SDK comparison](ACTIONS_DOGFOOD.md) succeeded for both baseline and Next instructions: both passed 11 independent grader checks, without a demonstrable quality difference. The tested validator change and authored negative-mutation unittest were preserved in this research branch with no further paid inference. **Do not claim a real VS Code Host A/B result** from SDK instructions.
+
+## P3/P4 checked-in plugin evidence
+
+- [Actual plugin registry, selection and execution](ACTUAL_PLUGIN_GATE.md)
+  succeeded under pinned Copilot SDK, without copying its prompt.
+- [Actual plugin vs SDK default coding comparison](ACTUAL_PLUGIN_CODE.md)
+  succeeded in BOTH arms on the new public-repo validator bug. Neither
+  demonstrated a unique quality benefit. Next showed **higher** tokens
+  and reported Copilot usage meter in that single run, opposite to the
+  earlier instruction-append task. Do not treat these one-off costs as
+  predictions; don't repeat easy fixtures to force a conclusion.
+- No corporate Host artifacts were requested; no VS Code-specific
+  user results were exported. Future research should depend on a
+  different user-valued decision, not another model availability probe.

@@ -32,7 +32,7 @@ def validate(root: Path = ROOT) -> list[str]:
         problems.append("candidate agents path must be agents/")
     if "$schema" in manifest:
         problems.append("candidate is legacy Copilot format; do not mix schema layouts")
-    files = sorted((root / "agents").glob("*.agent.md"))
+    files = sorted((root / "agents").glob("*.md"))
     if [x.name for x in files] != ["over-the-luna-next.agent.md"]:
         problems.append("candidate must contain exactly one agent, no leaves")
         return problems
@@ -68,6 +68,10 @@ def validate(root: Path = ROOT) -> list[str]:
     forbidden = (root / "mcp.json", root / ".mcp.json", root / "hooks.json")
     if any(p.exists() for p in forbidden):
         problems.append("candidate must not bundle MCP servers/hooks")
+    # The runtime can load SKILL.md from nested bundles; this research
+    # candidate deliberately supplies a Main only.
+    if any(root.rglob("SKILL.md")):
+        problems.append("candidate must not bundle skills")
     return problems
 
 

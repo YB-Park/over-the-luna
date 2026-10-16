@@ -161,3 +161,10 @@ we did not ask the user to export any internal artifacts.
 corporate local data collection. Expand only for a decision-critical
 real task where the additional instruction layer could add meaningful
 accuracy, time or user attention value.
+
+## P3/P4 actual plugin SDK outcome (2026-10-16)
+
+- [P3 actual plugin gate #38860678994](https://github.com/YB-Park/over-the-luna/actions/runs/38860678994): registered, discovered and selected the **actual** plugin agent `over-the-luna-next:over-the-luna-next`. One GPT-6 Luna read-only call grounded in a public file PASS. This is *not* a Host UI/permission proof.
+- [P4 actual selected plugin vs SDK default #38860917956](https://github.com/YB-Park/over-the-luna/actions/runs/38860917956): actual plugin agent and uncustomized SDK each solved a **real validator packaging defect** and achieved **12/12 external acceptance + 8/8 model-authored unit tests**. Next 15.72s / 44,734 input / 186.801m reported Copilot nano-AIU; default 10.28s / 23,828 input / 128.648m nano-AIU. Token/meter variation is **not billed-USD** and one trial cannot rank quality. Both modified only the permitted two paths.
+- **Product decision:** The package truly executes in SDK, but there is **still no independent evidence of a quality edge** over the baseline. Do not add more agent layers, mandatory review, or Sol by default. Preserve single-Main candidate as reversible product experiment and stop additional small synthetic fixture rounds.
+- **Technical improvement adopted**: static candidate validator now rejects any additional `agents/*.md` (not only `*.agent.md`) and bundled `**/SKILL.md`, backed by 8 focused unittest cases and no-credit CI. Main stable untouched.
