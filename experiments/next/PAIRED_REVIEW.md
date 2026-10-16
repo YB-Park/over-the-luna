@@ -54,4 +54,20 @@ spending more on cross-model review.
 - If all arms pass, **quality benefit is inconclusive**, not evidence of
   agent-layer value; end the test without adding complexity.
 
-Status: one gated batch authorized; outcome pending.
+Status: first bounded batch **COMPLETE**; see observed results below.
+
+## Observed results — 2026-10-16
+
+[GitHub Actions #38851868295](https://github.com/YB-Park/over-the-luna/actions/runs/38851868295) — all 15 model runs completed. [Temporary run artifact](https://github.com/YB-Park/over-the-luna/actions/runs/38851868295) records per-model usage details; artifact expires after 14 days.
+
+| Strategy | Correct / 5 | Total elapsed | Input tokens | Output tokens | Actual models |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Luna direct | **5/5** | 11,246 ms | 17,591 | 246 | `gpt-6-luna` |
+| Luna + Sol leaf | **5/5** | 37,768 ms | 60,519 | 1,513 | `gpt-6-luna`, `gpt-6.1-sol` |
+| Sol direct | **5/5** | 14,816 ms | 17,632 | 180 | `gpt-6.1-sol` |
+
+Every incorrect candidate was detected; both correct candidates passed without false positives. The Luna + Sol leaf route was actually exercised, not inferred from text; the model usage stream recorded both provider models.
+
+**Decision:** this set is at the **quality ceiling** for all three strategies; it gives **zero observed marginal defect-detection gain** from always adding Sol. The mixed route took **3.36× Luna-only wall time** and **3.44× input tokens**, and is not justified as *default review* on this evidence. **Those are not USD cost ratios.** SDK `copilotUsage.totalNanoAiu` is not a combined Copilot + OpenAI USD bill; consult each provider's billing records. Tiny sample cannot determine general model superiority.
+
+**Next experiment, only if useful:** one or two actual implementation tasks with independent hidden tests, or an observed Luna weakness in real user work. Do not add reviewers or rerun these easy cases to seek a significant p-value. Keep Sol optional, not automatic.
