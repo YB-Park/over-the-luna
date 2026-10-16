@@ -39,15 +39,15 @@ class ValidateCandidateTests(unittest.TestCase):
 
     def test_rejects_additional_agent_markdown(self):
         (self.root / "agents" / "reviewer.md").write_text(
-            "---\\nname: Reviewer\\n---\\n", encoding="utf-8"
+            "---\nname: Reviewer\n---\n", encoding="utf-8"
         )
-        self.assertIn("exactly one agent", "\\n".join(validate(self.root)))
+        self.assertIn("exactly one agent", "\n".join(validate(self.root)))
 
     def test_rejects_bundled_skill(self):
         skill = self.root / "skills" / "audit" / "SKILL.md"
         skill.parent.mkdir(parents=True)
-        skill.write_text("---\\nname: audit\\n---\\n", encoding="utf-8")
-        self.assertIn("must not bundle skills", "\\n".join(validate(self.root)))
+        skill.write_text("---\nname: audit\n---\n", encoding="utf-8")
+        self.assertIn("must not bundle skills", "\n".join(validate(self.root)))
 
     def test_rejects_missing_or_invalid_manifest(self):
         manifest = self.root / "plugin.json"
