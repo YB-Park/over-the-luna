@@ -1,0 +1,53 @@
+name: P2 - gated SDK native-like vs Next instructions
+
+# Only a specially marked sentinel change may start paid inferences.
+on:
+  push:
+    branches: [research/next-harness-foundation]
+    paths:
+      - experiments/next/ONE_SHOT_ACTIONS_DOGFOOD.md
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  paired-sdk:
+    if: contains(github.event.head_commit.message, '[run-actions-dogfood-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Python validator dependency
+        run: python -m pip install 'PyYAML==6.0.2'
+      - name: Confirm fixed SDK script and external grader compile without model calls
+        run: |
+          node --check experiments/next/actions_dogfood_pair.mjs
+          python -m py_compile experiments/next/action_pair_grader.py
+      - name: Install pinned Copilot CLI and SDK
+        run: |
+          npm install -g @github/copilot@1.0.88
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk@1.0.19
+          npm list -g @github/copilot --depth=0
+          npm list --prefix experiments/next @github/copilot-sdk --depth=0
+      - name: Run at most two fixed-model sandboxed public-repo tasks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_PLUGIN_DIR_ONLY: 'true'
+          RESULT_DIR: ${{ runner.temp }}/dogfood-sdk
+        run: node experiments/next/actions_dogfood_pair.mjs
+      - name: Upload independent grading and exact modified public files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-native-like-vs-next-dogfood
+          path: ${{ runner.temp }}/dogfood-sdk
+          retention-days: 30
+          if-no-files-found: ignore

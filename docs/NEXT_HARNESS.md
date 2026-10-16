@@ -1,0 +1,170 @@
+# Over the Luna — Next Harness Research Charter
+
+> **Audit correction (2026-10-16):** Previous P1b 2/2 counts mean only
+> original *behavioral* hidden-gate PASS, not full requirement compliance.
+> A verified grader blind spot and a VS Code tools:[] → null semantic issue
+> invalidate stronger claims. Read [independent audit response](NEXT_AUDIT_RESPONSE.md)
+> before using historical results in product decisions.
+
+> **Product first, experiments only to make a product decision.**  
+> Status: research / not a release | Started: 2026-10-16 | Stable baseline: `main` v1.1.1
+
+## Mission
+
+이미 뛰어난 LLM의 능력을 더 잘 활용하는 **실용적인 VS Code / GitHub Copilot 하네스**를 만든다. Luna의 경제성을 기본으로 활용하되, Sol·Haiku·Sonnet 등 다른 모델의 가치가 확인되면 그 근거가 있는 작업에 선택적으로 사용한다. 목표는 최대 에이전트 수나 최소 토큰이 아니라 **완료된 작업의 유효한 품질, 예측 가능한 비용, 적은 사용자 마찰**이다.
+
+> Luna-first, not Luna-only. Evidence-led, not experiment-led.
+
+## Non-goals
+
+- 프롬프트만으로 모델의 근본적인 지능이 크게 향상된다고 주장하지 않는다.
+- 모델별 에이전트를 미리 늘리지 않는다. 새 역할에는 독립적인 효과에 대한 증명 책임이 있다.
+- 실험 플랫폼 자체를 제품으로 만들지 않는다. 대형 벤치마크·자동 라우터는 필요해지기 전까지 만들지 않는다.
+- 현재의 `main` 안정 계약을 연구 과정에서 바꾸지 않는다.
+- 비용 상한 비율이나 최적 조합을 데이터 없이 미리 고정하지 않는다.
+- 기존 VS Code/Copilot 권한·조직 정책·MCP 제한을 우회하지 않는다.
+
+## Durable product constraints
+
+1. **Parallelize thinking; serialize mutation.** 외부 상태 변경은 명시적 승인 및 단일 실행 책임 경계 안에서만 한다. read-only 리서치에는 불필요한 돌연변이 규칙을 강제하지 않는다.
+2. **Main owns the work, not all the thinking.** Main의 모델이 항상 Luna여야 한다는 전제는 검증 가능한 가설로 둔다.
+3. **Small tasks remain small.** 명확한 작업에 보조 에이전트를 자동으로 덧붙이지 않는다.
+4. **Independent evidence, not self-confidence.** 성공 여부는 실질 수용 기준/테스트/출처로 판정한다. Reviewer의 PASS는 절대적 정답이 아니다.
+5. **Cost = full trajectory.** 기본 토큰 단가가 아니라 완료까지의 재시도·도구·캐시·보조 호출·지연을 포함한다. Haiku의 비용 꼬리 위험을 별도 관찰한다.
+6. **Human attention is a budget.** 지능을 더 쓰는 것과 상태 설명을 더 많이 표시하는 것은 다르다.
+7. **Runtime observed > prompt declared.** 모델/effort/위임/도구 상속/승인은 Copilot Agent Host 실사용에서 확인한다.
+8. **No automatic paid experiments.** AI Credits를 쓰는 작업은 사용자 승인 후 의도적인 일회성 트리거 또는 수동 실행만 허용하고 예산을 둔다. CLI의 AI Credits 한도는 소프트 한도라 청구 절대 상한을 보장하지 않는다. Secrets는 채팅·코드에 기록하지 않는다.
+
+## Decision questions, in order
+
+| ID | Decision needed | Minimal evidence | Status |
+| --- | --- | --- | --- |
+| D0 | 현재 인증·모델·도구·추론 설정이 Agent Host/Copilot CLI에서 실행되는가? | static pair, small authenticated smoke and runtime trace | STATIC PASS / paid not run |
+| D1 | Native Copilot Agent 대비 GPT-6 Luna harness가 무엇을 개선하는가? | 동일 작업의 direct vs harness 비교 | PENDING |
+| D2 | 어떤 일에 다른 모델/독립 검증이 값을 하는가? | 실패/고위험 작업만 소규모 paired ablation | PENDING |
+| D3 | 고정 Luna Main보다 작업별 강한 Main이 이득인가? | 가치가 예상되는 작업의 직접 A/B | PENDING |
+| D4 | Agent Host 중심 배포가 현재 Local 호환성보다 나은가? | plugin + MCP + subagent + reasoning-effort live gates | PENDING |
+
+## Operating sequence (not a rigid calendar)
+
+- **Phase 0 — no-credit preflight**: 기존 5.6 계약을 보존한 control과 GPT-6 Luna model-only candidate를 생성·diff 확인한다. 기존 validator도 통과시킨다. 이는 **실제 LLM 품질 시험이 아님**.
+- **Phase 0b — manual runtime authorization**: GitHub Copilot 계정·모델 정책/토큰 문제를 해결한 후 소액·수동 smoke. 네 가지 모델 가용성, actual agent model/effort, subagent, MCP, permissions를 관찰한다. 실패하면 Phase 1을 시작하지 않는다.
+- **Phase 1 — useful baseline**: native Copilot Agent vs Luna-6-only harness. 구현·리뷰·리서치·반복 작업의 소수 대표 사례. 적절한 validator/ground truth를 작업별로 적용한다.
+- **Phase 2 — targeted ablation**: 발견된 약점에 대해서만 Haiku, Sol, Sonnet, reasoning effort, reviewer/architect 분리의 **한 변수씩** 추가한다. strong-first vs escalation도 필요할 때 비교한다.
+- **Phase 3 — actual dogfood**: 코드 외 작업 포함. 사용성·권한·지연·작업당 총비용을 본 뒤 필요한 것만 제품에 남긴다.
+
+## Run-level evidence minimum
+
+Each meaningful run should record: date/runtime/version, task/acceptance, control vs candidate and *one changed variable*, actual model and reasoning effort **verified or unknown**, exact tool/agent invocations, cost or AI Credits **with source or unknown**, time, result checked externally, material failure, user intervention, and decision.
+
+Do not treat a small sample's P95 as a stable estimate; capture surprising high-cost traces qualitatively until repetitions justify distributional metrics.
+
+## Stop / simplify rules
+
+- 의사결정이 달라질 근거가 없으면 실험하지 않는다.
+- 런타임이 요청 모델을 실행하지 않았거나 policy/auth 오류가 나면 성능 점수로 채점하지 않는다.
+- 작고 불확실한 품질 차이보다 단순한 구성을 우선한다. 강한 이점 또는 위험 감소가 있으면 비용 증가도 허용한다.
+- 반복되는 통과만 확인되거나 충분히 결론을 내렸다면 중단하고 실제 사용에 투입한다.
+- 새 역할/모델 경로가 뚜렷한 이점을 보이지 못하면 제거한다.
+- 불변 조건 위반·예상 밖 원격 쓰기·비용 제어 실패는 즉시 중단한다.
+
+## Decision log (append decisions, not a diary)
+
+- **2026-10-16 — Start**: `main` v1.1.1 보존. 연구 브랜치에서 Phase 0 model-only 정적 비교를 준비한다. Premium Review 제거, multi-model routing, Agent Host-only 전환은 **아직 제품 결정이 아니다**.
+- **2026-10-16 — Phase 0 PASS**: [no-credit model-only preflight](https://github.com/YB-Park/over-the-luna/actions/runs/38833915882) 와 [기존 plugin validator](https://github.com/YB-Park/over-the-luna/actions/runs/38833915766) 모두 통과. GPT-6가 실제 실행됐다는 의미는 아니다.
+- **2026-10-16 — Copilot CLI P0b partial PASS**: [one-shot GPT-6 Luna request](https://github.com/YB-Park/over-the-luna/actions/runs/38836438484) used `GITHUB_TOKEN` with `copilot-requests: write`, returned the exact expected response. Auth/response PASS; observed model ID was unavailable in CLI JSONL, so that gate is INCONCLUSIVE. The first attempt with 2 credit cap failed at flag validation (CLI minimum 30); no inference occurred there. Copilot Agent Host and plugin runtime remain untested.
+- **2026-10-16 — SDK catalogue**: [inference-free model listing](https://github.com/YB-Park/over-the-luna/actions/runs/38836601586) succeeded. 17 returned models; `gpt-6-luna`, `claude-haiku-5.5`, `claude-sonnet-5.5` present, all reported reasoning-effort support; `gpt-6.1-sol` absent **in this Actions token/context**. This does NOT prove Sol is globally unavailable or judge model quality. Do not buy a Sol test until access/selection is clarified.
+- **2026-10-16 — OpenRouter BYOK viable path (unverified hybrid)**: Official OpenRouter, Copilot CLI/SDK, and VS Code docs support connecting an OpenAI-compatible external Sol model; Agent Host BYOK remains experimental, and Luna-Copilot Main → Sol-OpenRouter subagent has not been verified. [BYOK feasibility and gated plan](../experiments/next/OPENROUTER_BYOK.md). No API key, billing, or OpenRouter inference was used.
+- **2026-10-16 — Direct OpenAI Sol API gate prepared**: `OPENAI_API_KEY` repo Actions Secret was added by the user. This is **not** an OpenRouter secret. The explicitly opted-in model-metadata probe succeeded; the bounded Responses API call was blocked by API prepaid credit balance (HTTP 429). [Gate](../experiments/next/OPENAI_SOL_DIRECT.md). Do not claim mixed-provider Copilot Agent Host support based on a direct API response.
+- **2026-10-16 — OpenAI Sol API billing blocker**: [Actions one-shot #38849783651](https://github.com/YB-Park/over-the-luna/actions/runs/38849783651) successfully retrieved model metadata using the user-provided Actions Secret, but the single bounded Responses API call returned HTTP 429 `credit_balance_exhausted`. **BLOCKED, not a model quality outcome**. No further retries before the matching OpenAI API organization's prepaid balance is replenished. [Gate and log](../experiments/next/OPENAI_SOL_DIRECT.md).
+- **2026-10-16 — OpenAI Sol funded direct API PASS**: [Actions #38850785950](https://github.com/YB-Park/over-the-luna/actions/runs/38850785950) returned the observed `gpt-6.1-sol` model, exact response, 20 input + 7 output tokens, $0.000110 standard-rate estimate. **Direct API works.** Copilot SDK BYOK and mixed-provider Agent Host delegation remain unverified. Earlier credit-balance blocker is resolved.
+- **2026-10-16 — Copilot SDK direct OpenAI BYOK PASS**: [Actions #38851012090](https://github.com/YB-Park/over-the-luna/actions/runs/38851012090) ran an isolated, low-effort `gpt-6.1-sol` Copilot SDK session with provider `openai` and wire API `responses`, strict tool denial, and exact short response. Configured model ID confirmed in test; provider-side request identity and billing telemetry not independently captured here. **VS Code Agent Host and mixed Luna→Sol delegation remain untested.** [Gate record](../experiments/next/SDK_SOL_BYOK.md).
+- **2026-10-16 — SDK Luna→Sol mixed-provider delegation PASS**: [one-shot run #38851373848](https://github.com/YB-Park/over-the-luna/actions/runs/38851373848) recorded `gpt-6-luna` usage, `subagent.started` with `openai-sol/gpt-6.1-sol`, `gpt-6.1-sol` usage, `subagent.completed` with same child model, and final `gpt-6-luna` usage. 1 child start/completion, 0 failures, exact Main acceptance. Experiment used SDK's **experimental** additive `providers`/`models` in one session, separate Copilot vs OpenAI API credentials. **Host/plugin compatibility and economic benefit unverified.** [Evidence](../experiments/next/MIXED_LUNA_SOL.md).
+- **2026-10-16 — P1 paired-review mini-study, ceiling detected**: [Actions #38851868295](https://github.com/YB-Park/over-the-luna/actions/runs/38851868295): 5/5 correct for Luna only, Luna→Sol reviewer, and Sol only. Luna only 11.2 s / 17.6K input tokens, mixed 37.8 s / 60.5K input tokens, Sol only 14.8 s / 17.6K input tokens. **No evidence for always-on Sol review in these easy cases**; do not call mixed model default. Tiny n; no universal ranking. [Evidence](../experiments/next/PAIRED_REVIEW.md).
+- **2026-10-16 — P1b actual code editing: tool confound**: [Actions #38852208338](https://github.com/YB-Park/over-the-luna/actions/runs/38852208338) ran 2 independently hidden-graded implementation tasks × Luna, Haiku, Sol, Sonnet. Haiku and Sonnet changed source+tests and passed both, Luna and Sol changed **no files** and failed both hidden gates. This is not proof of underlying model quality ranking because per-model tool execution and permission behavior were not captured. **Investigate tool call/permission traces before adopting any model route.** [Evidence](../experiments/next/IMPLEMENTATION.md).
+- **2026-10-16 — Root cause of no-edit discrepancy CONFIRMED**: [tool audit #38852527142](https://github.com/YB-Park/over-the-luna/actions/runs/38852527142) found Luna/Sol only had `view` and explicitly reported no editing tool; original benchmark allowed `edit`, not canonical SDK `edit_file`/`apply_patch`. After adding canonical editing tools for all models, [corrected run #38852688180](https://github.com/YB-Park/over-the-luna/actions/runs/38852688180) showed actual `apply_patch`, allowed writes to the fixture only, and **Luna + Sol each passed 1/1 hidden tests**. Prior P1b 0/2 for these models is an **invalid model-quality comparison**. [Evidence](../experiments/next/TOOL_DIAGNOSTIC.md).
+- **2026-10-16 — P1b corrected four-model code-edit PASS**: [Actions #38852797334](https://github.com/YB-Park/over-the-luna/actions/runs/38852797334) tested 2 hidden-grader implementation tasks × 4 models with identical canonical editor tool access. Luna, Haiku, Sol, Sonnet **all 2/2**, proper source/test edits, no unauthorized paths. Total time 16.3s/15.0s/39.4s/19.5s respectively; costs are not directly comparable. Synthetic problem at ceiling: **STOP further task duplication; return to product dogfooding**. [Evidence](../experiments/next/IMPLEMENTATION.md).
+- **2026-10-16 — User environment contract**: user explicitly confirms all four candidate models are available in VS Code Copilot Agent Host. No further model availability checks. Plugin integration behavior may be measured during actual product work without a separate availability gate.
+- **2026-10-16 — Known blocker**: 이전 `research/gpt6-luna-model-qualification`의 Copilot 인증 실험은 authentication/policy 오류로 실패했다. 모델 성능 실패가 아니다. 실제 유료 호출 전에 별도로 확인한다.
+
+## Reference assets
+
+- Stable contract: [DESIGN](DESIGN.md), [SMOKE_TEST](SMOKE_TEST.md).
+- Existing model-only qualification: `research/gpt6-luna-model-qualification/experiments/gpt6_luna/`.
+- Next experiment instructions: [experiments/next/README.md](../experiments/next/README.md).
+
+**Release rule:** 연구 변경은 증거가 확보되고 사용자 경험에 가치가 확인되기 전에는 `main`에 병합하지 않는다.
+
+## Decision checkpoint after P1a + P1b (2026-10-16)
+
+- **Observed**: SDK-level Copilot Luna → direct OpenAI Sol leaf delegation works; real review cases 5/5 correct in all tested strategies but automatic Sol review added latency/tokens and zero observed quality benefit; corrected code edits 2/2 in all four models after tool surface was fixed.
+- **Keep**: Luna-first Main candidate, one mutation owner, optional context-isolated scrutiny and evidence-first assurance; preserve user's selected tool and MCP permissions.
+- **Do not add**: mandatory Sol review, automatic strong-model escalation chains, model-specific agent fleets, or an SDK bridge service solely to reach Sol.
+- **Next work is PRODUCT dogfood**, not another benchmark grid: implement a minimal plugin candidate in a separate research-only worktree, then judge a handful of actual developer requests (coding, review, research, repetitive maintenance) on quality, attention, and *real* combined cost. Introduce Sol/Sonnet/Haiku where a real task demonstrates a reason.
+- **Open questions**: SDK additive provider registry is experimental; how to express it in existing Agent Plugin and retain tool ownership without product complexity; whether Premium Review can be removed from visible UX without losing rare valuable independent review. No premature main merge.
+- **Stop condition**: If a candidate adds complexity without a clear real-world gain, simplify rather than add more experiments. Account for Copilot AI Credits and OpenAI API USD separately.
+
+## P2 — Minimal product candidate available (2026-10-16)
+
+A standalone, local, side-by-side research plugin was added at
+[`experiments/next/candidate-plugin/`](../experiments/next/candidate-plugin/).
+It contains exactly **one Main**, no agent council, no tool-less leaf,
+no Premium handoff, no bundled MCP or secrets, and no model provider bridge.
+The `model` and `tools` frontmatter are intentionally omitted, so the
+user's selected Copilot Agent Host model, tools and approvals are respected.
+For the FIRST native-vs-candidate comparison both arms use **GPT-6 Luna**;
+Luna-first is a baseline hypothesis rather than a pinned universal model.
+
+This is a **structural candidate only** until installed and used in the
+actual user's VS Code Host. Static validation cannot prove real tool
+permissions or plugin value. Historical v1.1.1 on `main` is unchanged.
+
+Product evaluation is [DOGFOOD](../experiments/next/DOGFOOD.md), not more
+synthetic model rounds. Any added review/explore role needs a concrete real
+user-work advantage and an enforceable effective permission boundary.
+
+## Corporate-environment practical constraint and Actions P2 (2026-10-16)
+
+The user uses a **corporate VS Code environment** and cannot readily
+export conversations, code or tool logs. **Do not repeatedly ask for
+local runs or transfer of corporate artifacts**. Prefer clean,
+public-repository GitHub Actions tests that do not include company data.
+
+**SDK-controlled Next instruction trial complete.** The corrected
+[GitHub Actions one-shot #38859526797](https://github.com/YB-Park/over-the-luna/actions/runs/38859526797)
+compared SDK default GPT-6 Luna vs the same SDK with the *actual*
+Next Main instruction body appended. Both corrected variants changed
+only the allowed validator/test files and **passed 11 external acceptance
+checks**; 7 authored tests in baseline, 6 in Next. Default 22.1s /
+52,410 input tokens / 231,379,500 reported Copilot nano-AIU;
+Next 18.7s / 47,053 input tokens / 227,733,500 reported nano-AIU.
+A single result does not justify a model/prompt quality ranking, and
+those meters are not the user's verified extra cash charges. Details:
+[ACTIONS_DOGFOOD](../experiments/next/ACTIONS_DOGFOOD.md).
+
+The first one-shot [run #38859259549](https://github.com/YB-Park/over-the-luna/actions/runs/38859259549)
+was **INVALID for model comparisons**, because the SDK read permission
+callback rejected all filename-less read requests; the cause was corrected
+before the matched rerun.
+
+**Decision:** both are adequate on this one actual research-code task.
+The Next instruction layer is not yet proven superior to a default
+agent. Keep the single-Main candidate as a lightweight, reversible
+trial; do not add mandatory council, Premium, or cross-provider routing
+based on these observations. We adopted the resulting fully graded
+candidate static validator improvement and added 6 offline regression
+tests to no-credit CI. The actual VS Code Agent Host is a distinct runtime;
+earlier user-reported local read-only smoke remained anomaly-free, but
+we did not ask the user to export any internal artifacts.
+
+**Stop:** no more repetitions of this same paired test and no routine
+corporate local data collection. Expand only for a decision-critical
+real task where the additional instruction layer could add meaningful
+accuracy, time or user attention value.
+
+## P3/P4 actual plugin SDK outcome (2026-10-16)
+
+- [P3 actual plugin gate #38860678994](https://github.com/YB-Park/over-the-luna/actions/runs/38860678994): registered, discovered and selected the **actual** plugin agent `over-the-luna-next:over-the-luna-next`. One GPT-6 Luna read-only call grounded in a public file PASS. This is *not* a Host UI/permission proof.
+- [P4 actual selected plugin vs SDK default #38860917956](https://github.com/YB-Park/over-the-luna/actions/runs/38860917956): actual plugin agent and uncustomized SDK each solved a **real validator packaging defect** and achieved **12/12 external acceptance + 8/8 model-authored unit tests**. Next 15.72s / 44,734 input / 186.801m reported Copilot nano-AIU; default 10.28s / 23,828 input / 128.648m nano-AIU. Token/meter variation is **not billed-USD** and one trial cannot rank quality. Both modified only the permitted two paths.
+- **Product decision:** The package truly executes in SDK, but there is **still no independent evidence of a quality edge** over the baseline. Do not add more agent layers, mandatory review, or Sol by default. Preserve single-Main candidate as reversible product experiment and stop additional small synthetic fixture rounds.
+- **Technical improvement adopted**: static candidate validator now rejects any additional `agents/*.md` (not only `*.agent.md`) and bundled `**/SKILL.md`, backed by 8 focused unittest cases and no-credit CI. Main stable untouched.

@@ -1,0 +1,43 @@
+name: P3 - actual Next plugin registry and selected-agent gate
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_PLUGIN_GATE.md
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  actual-plugin:
+    if: contains(github.event.head_commit.message, '[run-actual-plugin-gate-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ensure script parses
+        run: node --check experiments/next/actual_plugin_gate.mjs
+      - name: Install pinned runtime and SDK
+        run: |
+          npm install -g @github/copilot@1.0.88
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk@1.0.19
+      - name: Inspect actual plugin, select agent, then do at most one public read
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_PLUGIN_DIR_ONLY: 'true'
+          RESULT_PATH: ${{ runner.temp }}/actual-plugin.json
+        run: node experiments/next/actual_plugin_gate.mjs
+      - name: Save sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-plugin-gate
+          path: ${{ runner.temp }}/actual-plugin.json
+          retention-days: 14
+          if-no-files-found: ignore

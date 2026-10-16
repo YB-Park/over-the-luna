@@ -1,0 +1,65 @@
+name: Next harness — no-credit preflight
+
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - 'experiments/next/**'
+      - 'docs/NEXT_HARNESS.md'
+      - '.github/workflows/next-preflight.yml'
+      - 'agents/**'
+      - 'plugin.json'
+      - 'scripts/validate_plugin.py'
+      - 'scripts/validate_candidate.py'
+      - 'tests/test_validate_candidate.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install static-validator dependency
+        run: python -m pip install 'PyYAML==6.0.2'
+      - name: Syntax checks
+        run: python -m compileall -q scripts experiments/next
+      - name: Parse experimental JS scripts without invoking models
+        run: |
+          node --check experiments/next/paired_review.mjs
+          node --check experiments/next/implement_model_comparison.mjs
+          node --check experiments/next/actions_dogfood_pair.mjs
+          node --check experiments/next/actual_plugin_gate.mjs
+          node --check experiments/next/actual_plugin_paired.mjs
+          python -m py_compile experiments/next/actual_plugin_code_grader.py
+      - name: Preserve stable v1.1.1 contract
+        run: python scripts/validate_plugin.py
+      - name: Validate minimal candidate and its negative-mutation tests (no model calls)
+        run: |
+          python scripts/validate_candidate.py
+          python -m unittest discover -s tests -p 'test_validate_candidate.py' -v
+      - name: Verify GPT-6 candidate is model-only
+        run: |
+          python experiments/next/build_variant.py \
+            --source . --verify-pair \
+            --control-output "$RUNNER_TEMP/otl-control" \
+            --candidate-output "$RUNNER_TEMP/otl-luna6"
+      - name: Verify review scenarios against executable oracle
+        run: python experiments/next/review_oracle.py
+      # Pin the exact artifact source used in the original P1b runs; don't use a moving branch.
+      - uses: actions/checkout@v6
+        with:
+          ref: f7c1c7b0a19f81432553862b006c860c923719ec
+          path: qualification
+          persist-credentials: false
+      - name: Audit implementation grader false-positive counterexamples
+        run: |
+          python experiments/next/audit_oracle.py selftest \
+            --fixture qualification/experiments/gpt6_luna/fixture.py
+      # Deliberately no Copilot CLI, API token, or billable model invocation.

@@ -1,0 +1,50 @@
+name: P4 - actual plugin selected vs default SDK real code change
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_ACTUAL_PLUGIN_CODE.md
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  plugin-code:
+    if: contains(github.event.head_commit.message, '[run-actual-plugin-code-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Python dependency
+        run: python -m pip install 'PyYAML==6.0.2'
+      - name: Syntax checks (zero model calls)
+        run: |
+          node --check experiments/next/actual_plugin_paired.mjs
+          python -m py_compile experiments/next/actual_plugin_code_grader.py
+      - name: Install pinned SDK and CLI
+        run: |
+          npm install -g @github/copilot@1.0.88
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk@1.0.19
+      - name: Compare actual selected Next plugin vs SDK default, same Luna model
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_PLUGIN_DIR_ONLY: 'true'
+          RESULT_DIR: ${{ runner.temp }}/actual-plugin-code
+        run: node experiments/next/actual_plugin_paired.mjs
+      - name: Save diff and independent grading
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-plugin-code-pair
+          path: ${{ runner.temp }}/actual-plugin-code
+          retention-days: 30
+          if-no-files-found: ignore

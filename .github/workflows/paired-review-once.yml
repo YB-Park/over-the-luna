@@ -1,0 +1,45 @@
+name: P1 - gated small paired review strategies
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_REVIEW_PAIR.md
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  paired-review:
+    if: contains(github.event.head_commit.message, '[run-review-pairs-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate executable oracle (no models)
+        run: python experiments/next/review_oracle.py
+      - name: Install Copilot SDK and CLI runtime
+        run: |
+          npm install -g @github/copilot
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk
+      - name: Run one tiny paired batch and record source-level model usage
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          RESULT_PATH: ${{ runner.temp }}/review-result.json
+        run: node experiments/next/paired_review.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: paired-review-results
+          path: ${{ runner.temp }}/review-result.json
+          retention-days: 14
+          if-no-files-found: ignore

@@ -1,0 +1,49 @@
+name: P1b - gated real implementation model comparison
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_IMPLEMENT.md
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  implementation:
+    if: contains(github.event.head_commit.message, '[run-implementation-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          ref: research/gpt6-luna-model-qualification
+          path: qualification
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify inherited fixture oracle (no model calls)
+        run: |
+          python qualification/experiments/gpt6_luna/fixture.py selftest --case broad_contract
+          python qualification/experiments/gpt6_luna/fixture.py selftest --case risk_idempotency
+      - name: Install Copilot CLI runtime and SDK
+        run: |
+          npm install -g @github/copilot
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk
+      - name: One isolated model-only comparison on executable tasks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COPILOT_AUTO_UPDATE: 'false'
+          RESULT_PATH: ${{ runner.temp }}/implementation-result.json
+        run: node experiments/next/implement_model_comparison.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: implementation-model-results
+          path: ${{ runner.temp }}/implementation-result.json
+          retention-days: 14
+          if-no-files-found: ignore

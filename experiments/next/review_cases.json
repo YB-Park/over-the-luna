@@ -1,0 +1,37 @@
+[
+  {
+    "name": "ledger_duplicate_amount_bug",
+    "family": "integrity",
+    "requirements": "Ledger.apply_charge must apply each event_id at most once, even when a replay uses a DIFFERENT amount; first-write wins, distinct event IDs remain independent.",
+    "candidate": "class Ledger:\n    def __init__(self):\n        self.entries = []\n\n    def apply_charge(self, event_id, amount):\n        if (event_id, amount) in self.entries:\n            return\n        self.entries.append((event_id, amount))\n\n    @property\n    def total(self):\n        return sum(amount for _, amount in self.entries)",
+    "oracle": "l=Ledger()\nl.apply_charge(\"evt1\",7)\nl.apply_charge(\"evt1\",99)\nl.apply_charge(\"evt2\",5)\nl.apply_charge(\"evt2\",5)\nassert l.entries==[(\"evt1\",7),(\"evt2\",5)]\nassert l.total==12"
+  },
+  {
+    "name": "ledger_correct",
+    "family": "integrity",
+    "requirements": "Ledger.apply_charge must apply each event_id at most once, even when a replay uses a DIFFERENT amount; first-write wins, distinct event IDs remain independent.",
+    "candidate": "class Ledger:\n    def __init__(self):\n        self.entries = []\n        self._seen = set()\n\n    def apply_charge(self, event_id, amount):\n        if event_id in self._seen:\n            return\n        self._seen.add(event_id)\n        self.entries.append((event_id, amount))\n\n    @property\n    def total(self):\n        return sum(amount for _, amount in self.entries)",
+    "oracle": "l=Ledger()\nl.apply_charge(\"evt1\",7)\nl.apply_charge(\"evt1\",99)\nl.apply_charge(\"evt2\",5)\nl.apply_charge(\"evt2\",5)\nassert l.entries==[(\"evt1\",7),(\"evt2\",5)]\nassert l.total==12"
+  },
+  {
+    "name": "canonical_id_bug",
+    "family": "cross_file_contract",
+    "requirements": "Exported public account IDs MUST follow the established canonical_account_id contract: trim, lowercase, and prefix acct_ if missing. Reuse the helper; don't substitute partial normalization.",
+    "candidate": "def canonical_account_id(raw: str) -> str:\n    value = raw.strip().lower()\n    if not value.startswith(\"acct_\"):\n        value = \"acct_\" + value\n    return value\n\ndef export_account(account_id: str, display_name: str) -> dict:\n    return {\"id\": account_id.strip().lower(), \"name\": display_name}",
+    "oracle": "assert export_account(\" ABC \",\"A\")=={\"id\":\"acct_abc\",\"name\":\"A\"}\nassert export_account(\"ACCT_XY\",\"B\")=={\"id\":\"acct_xy\",\"name\":\"B\"}"
+  },
+  {
+    "name": "boundary_equal_bug",
+    "family": "boundary",
+    "requirements": "Reject a window starting AT OR BEYOND limit with ValueError('window starts outside limit'); preserve negative-boundary and reversed-window precedence, and end clamping.",
+    "candidate": "def clamp_window(start: int, end: int, limit: int):\n    if start < 0 or end < 0:\n        raise ValueError(\"negative boundary\")\n    if start > end:\n        raise ValueError(\"reversed window\")\n    if start > limit:\n        raise ValueError(\"window starts outside limit\")\n    return min(start, limit), min(end, limit)",
+    "oracle": "for x in (10,11):\n    try: clamp_window(x,12,10)\n    except ValueError as e: assert str(e)==\"window starts outside limit\"\n    else: raise AssertionError(\"must reject start >= limit\")\nassert clamp_window(2,12,10)==(2,10)\ntry: clamp_window(-1,4,10)\nexcept ValueError as e: assert str(e)==\"negative boundary\"\nelse: raise AssertionError(\"negative accepted\")"
+  },
+  {
+    "name": "boundary_correct",
+    "family": "boundary",
+    "requirements": "Reject a window starting AT OR BEYOND limit with ValueError('window starts outside limit'); preserve negative-boundary and reversed-window precedence, and end clamping.",
+    "candidate": "def clamp_window(start: int, end: int, limit: int):\n    if start < 0 or end < 0:\n        raise ValueError(\"negative boundary\")\n    if start > end:\n        raise ValueError(\"reversed window\")\n    if start >= limit:\n        raise ValueError(\"window starts outside limit\")\n    return min(start, limit), min(end, limit)",
+    "oracle": "for x in (10,11):\n    try: clamp_window(x,12,10)\n    except ValueError as e: assert str(e)==\"window starts outside limit\"\n    else: raise AssertionError(\"must reject start >= limit\")\nassert clamp_window(2,12,10)==(2,10)\ntry: clamp_window(-1,4,10)\nexcept ValueError as e: assert str(e)==\"negative boundary\"\nelse: raise AssertionError(\"negative accepted\")"
+  }
+]
