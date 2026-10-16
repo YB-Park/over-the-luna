@@ -110,11 +110,34 @@ def selftest(fixture) -> None:
             root = Path(tmp) / "work"
             fixture.prepare(case, root, Path(tmp) / "task.txt")
             fixture.apply_golden(case, root)
+            test_path = root / "tests" / ("test_exporter.py" if case == "broad_contract" else "test_ledger.py")
+
+            if case == "broad_contract":
+                # A newly discovered defect: the original fixture's golden
+                # implementation passes hidden() but leaves the OLD assertion
+                # in test_exporter.py, which fails. Preserve this proof.
+                old_ok, _ = fixture.hidden(case, root)
+                new_ok, stale_problems = strict_grade(case, root, fixture)
+                assert old_ok and not new_ok and any(
+                    "regression test_export_account failed" in p for p in stale_problems
+                ), "stale golden regression test must be rejected"
+                print("ORACLE_COUNTEREXAMPLE_PASS: original golden has stale failing test")
+                # Repair only this temporary golden workspace, NOT historical
+                # fixture source, in order to verify a truly passing baseline.
+                test_path.write_text(
+                    "from src.exporter import export_account\\n"
+                    "from src.models import Account\\n\\n"
+                    "def test_export_account():\\n"
+                    "    assert export_account(Account('  ABC  ', 'A')) == "
+                    "{'id': 'acct_abc', 'name': 'A'}\\n"
+                    "    assert export_account(Account('ACCT_XY', 'B')) == "
+                    "{'id': 'acct_xy', 'name': 'B'}\\n",
+                    encoding="utf-8",
+                )
             old_ok, _ = fixture.hidden(case, root)
             new_ok, new_problems = strict_grade(case, root, fixture)
-            assert old_ok and new_ok, f"{case} golden unexpectedly fails: {new_problems}"
+            assert old_ok and new_ok, f"{case} repaired golden unexpectedly fails: {new_problems}"
 
-            test_path = root / "tests" / ("test_exporter.py" if case == "broad_contract" else "test_ledger.py")
             test_backup = test_path.read_text(encoding="utf-8")
             test_path.write_text("def invalid_syntax(:\n", encoding="utf-8")
             old_ok, _ = fixture.hidden(case, root)
