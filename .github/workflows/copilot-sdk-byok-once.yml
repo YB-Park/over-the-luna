@@ -1,0 +1,33 @@
+name: P0d - gated Copilot SDK OpenAI Sol BYOK smoke
+
+# A separately marked sentinel commit is the ONLY automatic trigger.
+# This workflow makes one external, billable OpenAI API request.
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_SDK_BYOK.md
+
+permissions:
+  contents: read
+
+jobs:
+  sdk-sol:
+    if: contains(github.event.head_commit.message, '[run-sdk-sol-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Copilot CLI runtime and SDK
+        run: |
+          npm install -g @github/copilot
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk
+      - name: One tool-denied Copilot SDK BYOK session
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COPILOT_AUTO_UPDATE: 'false'
+        run: node experiments/next/openai_sol_sdk_byok.mjs
