@@ -14,7 +14,7 @@ for(const file of ["plugin.json","scripts/validate_release.py","scripts/package_
 const client=new CopilotClient({gitHubToken:process.env.GITHUB_TOKEN,
  useLoggedInUser:false,enableConfigDiscovery:false});
 const result={mainSelected:false,taskCalls:0,architectStarted:false,
- architectCompleted:false,taskResults:[],permissionDecisions:[],
+ architectCompleted:false,taskResults:[],toolCompletions:[],permissionDecisions:[],
  lifecycle:[],models:[],error:null};
 let session;
 try{
@@ -45,10 +45,16 @@ try{
  session.on(ev=>{
   if(ev.type==="tool.execution_start"&&ev.data?.toolName==="task")
    result.taskCalls++;
-  if(ev.type==="tool.execution_complete"&&result.taskCalls>result.taskResults.length){
-   const payload=ev.data?.result??ev.data?.output??ev.data??{};
-   const str=String(JSON.stringify(payload)).slice(0,1400);
-   result.taskResults.push(str);
+  if(ev.type==="tool.execution_complete" && result.toolCompletions.length<15){
+   const d=ev.data??{};
+   const preview=String(JSON.stringify(d.result??d.output??d)).slice(0,900);
+   const record={tool:String(d.toolName??d.name??"unknown"),
+     callId:String(d.toolCallId??d.id??"unknown").slice(0,72),
+     keys:Object.keys(d).slice(0,20),preview};
+   result.toolCompletions.push(record);
+   if(record.tool==="task" ||
+      /subagent|agent not found|unknown agent|task failed|invalid model|model not found/i.test(preview))
+      result.taskResults.push(preview);
   }
   if(ev.type.startsWith("subagent.")){
    const name=String(ev.data?.agentName??ev.data?.agentDisplayName??"");
