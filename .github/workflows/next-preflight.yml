@@ -36,4 +36,6 @@ jobs:
             --source . --verify-pair \
             --control-output "$RUNNER_TEMP/otl-control" \
             --candidate-output "$RUNNER_TEMP/otl-luna6"
+      - name: Verify review scenarios against executable oracle
+        run: python experiments/next/review_oracle.py
       # Deliberately no Copilot CLI, API token, or billable model invocation.
