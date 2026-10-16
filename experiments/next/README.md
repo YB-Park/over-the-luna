@@ -39,8 +39,8 @@ containing `[run-p0b-luna-once]`. Ordinary pushes, docs changes and CI do
 not run this billable workflow.
 
 Each authorized run attempts **one non-interactive GPT-6 Luna user prompt**,
-with `--available-tools=view` (no shell/write), `--max-ai-credits=2`
-(**soft response limit**, not an absolute billing guarantee), an 8-minute
+with `--available-tools=view` (no shell/write), `--max-ai-credits=30`
+(**CLI minimum accepted: 30 credits = $0.30 soft response limit**, not an absolute billing guarantee), an 8-minute
 job timeout and read-only repository permission. The verifier prints only
 small categorical evidence, never the raw session transcript.
 
@@ -52,6 +52,8 @@ Official docs:
 - https://docs.github.com/en/copilot/concepts/agents/copilot-cli/copilot-cli-in-github-actions
 - https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli-in-actions
 - https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference
+
+Note: the first smoke attempt failed before inference because the current CLI rejects `--max-ai-credits=2` (minimum 30). This is a **configuration failure, not a Copilot auth/model failure**. The following explicitly triggered run tests the corrected flag.
 
 ## Pending runtime gates (not yet run)
 
