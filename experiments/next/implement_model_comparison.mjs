@@ -66,7 +66,7 @@ try {
      model:arm.id,reasoningEffort:"low",
      workingDirectory:work,
      tools:[],
-     availableTools:["view","edit","grep","glob"],
+     availableTools:["view","read_file","edit","edit_file","apply_patch","grep","glob"],
      onPermissionRequest:(req)=>{
        let decision={kind:"reject",feedback:"No shell, network, or external tools allowed."};
        if(req.managedApprovalRequired)decision={kind:"no-result"};
@@ -78,7 +78,7 @@ try {
          decision=allowed[testcase].has(rel)?
            {kind:"approve-once"}:
            {kind:"reject",feedback:"Writes restricted to the two permitted fixture paths."};
-       } else if(req.kind==="custom-tool" && ["view","edit","grep","glob"].includes(req.toolName))
+       } else if(req.kind==="custom-tool" && ["view","read_file","edit","edit_file","apply_patch","grep","glob"].includes(req.toolName))
          decision={kind:"approve-once"};
        if(diagnostic)permissionAudit.push({kind:String(req.kind??"unknown"),tool:String(req.toolName??"none"),fileBase:req.fileName?path.basename(String(req.fileName)):"none",decision:decision.kind});
        return decision;
