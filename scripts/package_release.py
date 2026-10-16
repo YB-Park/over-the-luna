@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-"""Reproducible allowlisted local-plugin zip, without experimental scripts/secrets."""
+"""Deterministic RC2 local-plugin ZIP built from explicit allowlist only."""
 from __future__ import annotations
 import argparse
 import hashlib
 import sys
 import zipfile
 from pathlib import Path
-from scripts.validate_release import ROOT, validate
+from scripts.validate_release import ROOT,MAIN,MODELS,validate
 
-FILES=("plugin.json","agents/over-the-luna-next.agent.md",
-       "README.md","README.ko.md","LICENSE")
+FILES=tuple(sorted((
+ "plugin.json",
+ *("agents/"+p for p in (MAIN,*MODELS)),
+ "README.md","README.ko.md","LICENSE","docs/ROLE_TOPOLOGY.md"
+)))
 DATE=(2026,10,16,0,0,0)
 
-def package(root:Path, output:Path) -> tuple[str,int]:
-    errors=validate(root)
-    if errors: raise ValueError("invalid candidate: "+"; ".join(errors))
+def package(root:Path,output:Path) -> tuple[str,int]:
+    failures=validate(root)
+    if failures:raise ValueError("; ".join(failures))
     for name in FILES:
-        if not (root/name).is_file(): raise ValueError("missing "+name)
+        if not (root/name).is_file():raise ValueError("missing package member: "+name)
     output.parent.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=9) as zf:
         for name in FILES:
@@ -31,9 +34,8 @@ if __name__=="__main__":
     p.add_argument("--root",type=Path,default=ROOT)
     p.add_argument("--output",type=Path,required=True)
     a=p.parse_args()
-    try:
-        digest,size=package(a.root,a.output)
-    except ValueError as exc:
-        print("PACKAGE_FAILED:",exc)
+    try: sha,size=package(a.root,a.output)
+    except ValueError as ex:
+        print("RC2_PACKAGE_INVALID:",ex)
         sys.exit(1)
-    print(f"PACKAGE_OK sha256={digest} bytes={size}")
+    print(f"RC2_PACKAGE_OK sha256={sha} bytes={size}")

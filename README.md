@@ -1,35 +1,60 @@
-# Over the Luna Next 🌙 — v2.0.0-rc.1
+# Over the Luna Next — RC2 role-topology research 🌙
 
-**English** · [한국어](README.ko.md)
+[한국어](README.ko.md)
 
-> One Main. Real verification. Additional judgment only when it earns its place.
+**NOT A STABLE RELEASE.** This is a research branch for designing
+efficient collaborator placement, **not an indiscriminate return to a
+large Council**. The [stable v1.1.1](https://github.com/YB-Park/over-the-luna/tree/main)
+and [one-Main RC1](https://github.com/YB-Park/over-the-luna/pull/19)
+remain separate and intact.
 
-**Release candidate, not stable.** One visible **Over the Luna Next** Agent. No mandatory Council, Premium Review, forced router, API bridge, provider keys, MCP/hook/skill bundles or paid-model automation. The **VS Code Host** chooses the model, tools, approvals and workspace permissions.
+The user was correct: the original v1.1 Council resulted from extensive
+experiments. We restore **its functional breakthroughs**, not just its
+agent count. Read [role allocation and other harness research](docs/ROLE_TOPOLOGY.md).
 
-## Install beside stable v1.1.1
+## Actual role set
 
-The default repository branch `main` is still the **stable v1.1.1**. Do not install the default GitHub URL and assume it points to Next.
+One visible **Over the Luna Next** Main, plus seven hidden, **conditional** roles:
+**Architect** (repository evidence), **Reviewer** (real patch),
+**Skeptic** (pre-change contradiction), **Researcher** (public changing docs),
+**Recovery** (actual failing attempts), and **Sol/Sonnet Specialists** as
+two interchangeable high-end, selected-model independent opinions.
 
-1. From the passing [release-candidate CI](https://github.com/YB-Park/over-the-luna/actions/workflows/validate.yml?query=branch%3Arelease%2Fnext-v2.0.0-rc1), download the `over-the-luna-next-v2.0.0-rc.1` artifact and extract the inner ZIP into a local directory. Or check out branch `release/next-v2.0.0-rc1` separately and use its root as the plugin directory.
-2. In VS Code **User** settings, keep existing settings and add your extracted folder's absolute path to `chat.pluginLocations`. Ensure `chat.plugins.enabled` is allowed by company policy:
+Architect/Reviewer/Skeptic/Researcher/Recovery initially use GPT-6 Luna;
+Sol and Sonnet are pinned to their respective Host model names. **Claude
+Haiku 5.5 is not excluded**: choose it as Main in the model picker;
+automatic Haiku routing is deliberately not asserted as economical.
+No compulsory Sol/Sonnet calls, no automated BYOK integration, no custom
+MCP credentials. No more than one strong specialist for the same
+question by default.
 
-   ```json
-   {"chat.pluginLocations": {"/ABSOLUTE/PATH/over-the-luna-next-rc": true}}
-   ```
+The files are **role capabilities at rest**, not eight models called
+on every task. For local work Main runs alone; complex work selects
+only the roles relevant to its uncertainty. Main retains repository
+mutation, tests, decisions and final response.
 
-3. Disable the earlier *research* `over-the-luna-next` plugin location during this RC trial, so duplicate plugin IDs don't collide. **Do not remove stable v1.1.1.**
-4. Reload VS Code if necessary, choose **Over the Luna Next**, and select the model directly in the Host. GPT-6 Luna is a sensible starting hypothesis, **not pinned**.
+## Standalone trial (no company data export)
 
-## Safe use and rollback
+After no-credit CI passes, obtain the **branch-specific allowlisted ZIP**
+from GitHub Actions or clone this branch separately. Extract and register
+its absolute path in VS Code **User** `chat.pluginLocations`,
+with `chat.plugins.enabled` as organizationally approved. Disable the
+earlier `over-the-luna-next` RC1 or research *duplicate plugin identity*
+while trialing, but **never remove stable v1.1.1**. Select
+`Over the Luna Next` in Copilot Agent Host, model selected by user.
 
-Clear changes proceed directly; verify meaningful changes using real diffs and tests, not only LLM claims. Important auth, concurrency, data-integrity and public-contract risks may justify host-native independent scrutiny. **Prompts are not security sandboxes**. Effective read/write rights and MCP policies remain host-owned. This RC never automatically calls Sol, other external providers or extra subagents.
+**This is a candidate, not proven real Host behavior.** The company
+environment's role permissions, leaf model routing and external provider
+policies have not been demonstrated for this topology. Frontmatter
+`tools: ['read','search']` is a request, not proof of enforced
+read-only execution. `agents: []` is similarly a declaration.
+**Do not delegate secrets or sensitive code to an alternative provider
+without company and user authorization.**
 
-Breaking change: the previous v1.1.1 Council, forced Reviewer, Premium UI and routing contracts **are intentionally removed**. Existing users dependent on those workflows should remain on stable.
+Rollback: disable this local plugin path, switch to stable v1.1.1 or RC1
+or native Copilot. Do not change enterprise permissions merely to make
+the agent work. No user internal worktree diff/chat logs need uploading.
 
-**Rollback:** disable the RC entry in `chat.pluginLocations`, then select the unchanged stable **Over the Luna** or native Copilot Agent. No corporate artifacts/logs need to leave the company environment.
-
-## Evidence and readiness
-
-The [research branch](https://github.com/YB-Park/over-the-luna/tree/research/next-harness-foundation) and [research Draft PR #18](https://github.com/YB-Park/over-the-luna/pull/18) contain bounded SDK studies and an independent audit. The SDK successfully loaded the actual research Next package, but **no general improvement over native VS Code Copilot in accuracy or cost is proven**, and this separately packaged RC hasn't yet been installed in the user's company Host. [Release checklist](docs/RELEASE_CHECKLIST.md).
-
-**CI is static and packaging only: zero paid model requests.**
+**Research stop rule:** one static role/packaging gate, then only a
+decision-relevant SDK integration check if needed. Do not add endless
+fixture families or run every model by habit. `main` is untouched.
