@@ -28,4 +28,18 @@ answer only; a configured model ID is *not independent provider-side
 proof*. It does not prove VS Code Copilot Agent Host BYOK compatibility
 or Luna-Copilot Main → OpenAI Sol subagent execution.
 
-Status: prepared, not yet run.
+## Observed outcome — 2026-10-16
+
+- [GitHub Actions #38851012090](https://github.com/YB-Park/over-the-luna/actions/runs/38851012090): **PASS**.
+- Copilot SDK started a single OpenAI BYOK `gpt-6.1-sol` Responses session,
+  reasoning effort low, denied every tool permission, and returned the exact
+  `SDK_SOL_OK` acceptance string.
+- Configured model ID was `gpt-6.1-sol` but **independent per-request provider-side model ID
+  was not captured in this SDK gate**; avoid overstating evidence.
+- The SDK test did not capture usage/cost. Review the OpenAI API usage dashboard
+  for billing. It is independent of GitHub Copilot AI Credits.
+- Next separate gate: **VS Code Copilot Agent Host**, including whether a
+  GitHub-billed Luna main session can call this OpenAI-billed Sol leaf without
+  introducing an out-of-band bridge. Until observed: **UNKNOWN**.
+
+Status: **PASS single-provider Copilot SDK BYOK transport; mixed Agent Host delegation NOT TESTED**.
