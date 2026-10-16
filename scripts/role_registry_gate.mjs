@@ -48,6 +48,17 @@ try {
  const agents=(entries.agents??[]).filter(x=>
    String(x.name??"").startsWith(pluginName+":"));
  result.agentNames=agents.map(x=>String(x.displayName??"")).sort();
+ // Metadata only: inspect what the SDK actually registers for the two
+ // essential collaborator roles, without checking model catalogue or inference.
+ const selectedRoles=agents.filter(x=>["Next Architect","Next Reviewer"].includes(x.displayName));
+ console.log("ROLE_METADATA",JSON.stringify(selectedRoles.map(x=>({
+   name:String(x.name??""),displayName:String(x.displayName??""),
+   fields:Object.keys(x).sort(),
+   model:x.model??null,
+   infer:x.infer??null,
+   tools:Array.isArray(x.tools)?x.tools:null,
+   userInvocable:x.userInvocable??null
+ }))));
  const missing=names.filter(n=>!result.agentNames.includes(n));
  const extra=result.agentNames.filter(n=>!names.includes(n));
  console.log("ROLE_REGISTRY",JSON.stringify({loaded:!!loaded,
