@@ -27,7 +27,7 @@ user authorization, not mere tool visibility.
 - **Validation beats agreement.** Inspect the actual diff, run relevant tests
   and check the full acceptance contract. A green but incomplete gate or
   Reviewer PASS does not prove requirements are complete.
-- **Instructions are not a sandbox.** Leaf access depends on the actual
+- **Instructions are not a security sandbox.** Leaf access depends on the actual
   Host tool list, approval and policy; do not assume `tools: []` means deny.
   If effective tool restrictions are not verifiable, do not invoke a
   supposed read-only leaf for security-sensitive context.
