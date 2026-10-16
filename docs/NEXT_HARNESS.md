@@ -27,7 +27,7 @@
 5. **Cost = full trajectory.** 기본 토큰 단가가 아니라 완료까지의 재시도·도구·캐시·보조 호출·지연을 포함한다. Haiku의 비용 꼬리 위험을 별도 관찰한다.
 6. **Human attention is a budget.** 지능을 더 쓰는 것과 상태 설명을 더 많이 표시하는 것은 다르다.
 7. **Runtime observed > prompt declared.** 모델/effort/위임/도구 상속/승인은 Copilot Agent Host 실사용에서 확인한다.
-8. **No automatic paid experiments.** AI Credits를 쓰는 작업은 명시적으로 수동 실행하고 최대 예산을 둔다. Secrets는 채팅·코드에 기록하지 않는다.
+8. **No automatic paid experiments.** AI Credits를 쓰는 작업은 사용자 승인 후 의도적인 일회성 트리거 또는 수동 실행만 허용하고 예산을 둔다. CLI의 AI Credits 한도는 소프트 한도라 청구 절대 상한을 보장하지 않는다. Secrets는 채팅·코드에 기록하지 않는다.
 
 ## Decision questions, in order
 

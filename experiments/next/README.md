@@ -26,6 +26,33 @@ python experiments/next/build_variant.py \
 
 The research branch CI runs the same checks on push without calling any LLM. Treat PASS only as a **static gate**.
 
+## Small one-shot P0b CLI auth gate
+
+GitHub now documents that **personally owned repositories** may use the
+short-lived Actions `GITHUB_TOKEN` with `copilot-requests: write` to call
+Copilot CLI; usage bills the owner's Copilot seat. No separate stored PAT is
+normally required for this route.
+
+`.github/workflows/copilot-one-shot.yml` has two explicit gates:
+a change to `experiments/next/ONE_SHOT_RUN.md` **and** a commit message
+containing `[run-p0b-luna-once]`. Ordinary pushes, docs changes and CI do
+not run this billable workflow.
+
+Each authorized run attempts **one non-interactive GPT-6 Luna user prompt**,
+with `--available-tools=view` (no shell/write), `--max-ai-credits=2`
+(**soft response limit**, not an absolute billing guarantee), an 8-minute
+job timeout and read-only repository permission. The verifier prints only
+small categorical evidence, never the raw session transcript.
+
+If auth fails, classify as BLOCKED and check account Copilot seat,
+model opt-in and GitHub policy rather than adding more calls. This is a
+CLI authentication probe, **not** an Agent Host or plugin-compatibility test.
+
+Official docs:
+- https://docs.github.com/en/copilot/concepts/agents/copilot-cli/copilot-cli-in-github-actions
+- https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli-in-actions
+- https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference
+
 ## Pending runtime gates (not yet run)
 
 1. Confirm Copilot account eligibility and access to GPT-6 Luna, Haiku 5.5, GPT-6.1 Sol, Sonnet 5.5 in the user's actual Copilot Agent Host.

@@ -1,0 +1,59 @@
+name: P0b - single Copilot Luna auth smoke
+
+# NOT a routine push test. This can spend AI Credits. A one-shot trigger
+# file plus the exact opt-in commit marker are both required.
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_RUN.md
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+concurrency:
+  group: copilot-one-shot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: contains(github.event.head_commit.message, '[run-p0b-luna-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+      - name: One model request only, without write or shell tools
+        id: request
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+        shell: bash
+        run: |
+          set +e
+          copilot \
+            --model=gpt-6-luna \
+            --max-ai-credits=2 \
+            --available-tools=view \
+            --no-ask-user \
+            --no-custom-instructions \
+            --no-auto-update \
+            --output-format=json \
+            -p 'Reply with exactly P0B_AUTH_OK and no other text. Do not use tools.' \
+            > "$RUNNER_TEMP/one-shot.jsonl" \
+            2> "$RUNNER_TEMP/one-shot.err"
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            echo "BLOCKED: Copilot CLI exited $code. Check authentication, model opt-in and policy."
+            # GitHub Actions automatically redacts GITHUB_TOKEN; do not print request payloads.
+            tail -n 12 "$RUNNER_TEMP/one-shot.err" || true
+            exit "$code"
+          fi
+          python experiments/next/verify_one_shot.py "$RUNNER_TEMP/one-shot.jsonl"
