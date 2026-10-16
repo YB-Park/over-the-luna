@@ -122,3 +122,42 @@ permissions or plugin value. Historical v1.1.1 on `main` is unchanged.
 Product evaluation is [DOGFOOD](../experiments/next/DOGFOOD.md), not more
 synthetic model rounds. Any added review/explore role needs a concrete real
 user-work advantage and an enforceable effective permission boundary.
+
+## Corporate-environment practical constraint and Actions P2 (2026-10-16)
+
+The user uses a **corporate VS Code environment** and cannot readily
+export conversations, code or tool logs. **Do not repeatedly ask for
+local runs or transfer of corporate artifacts**. Prefer clean,
+public-repository GitHub Actions tests that do not include company data.
+
+**SDK-controlled Next instruction trial complete.** The corrected
+[GitHub Actions one-shot #38859526797](https://github.com/YB-Park/over-the-luna/actions/runs/38859526797)
+compared SDK default GPT-6 Luna vs the same SDK with the *actual*
+Next Main instruction body appended. Both corrected variants changed
+only the allowed validator/test files and **passed 11 external acceptance
+checks**; 7 authored tests in baseline, 6 in Next. Default 22.1s /
+52,410 input tokens / 231,379,500 reported Copilot nano-AIU;
+Next 18.7s / 47,053 input tokens / 227,733,500 reported nano-AIU.
+A single result does not justify a model/prompt quality ranking, and
+those meters are not the user's verified extra cash charges. Details:
+[ACTIONS_DOGFOOD](../experiments/next/ACTIONS_DOGFOOD.md).
+
+The first one-shot [run #38859259549](https://github.com/YB-Park/over-the-luna/actions/runs/38859259549)
+was **INVALID for model comparisons**, because the SDK read permission
+callback rejected all filename-less read requests; the cause was corrected
+before the matched rerun.
+
+**Decision:** both are adequate on this one actual research-code task.
+The Next instruction layer is not yet proven superior to a default
+agent. Keep the single-Main candidate as a lightweight, reversible
+trial; do not add mandatory council, Premium, or cross-provider routing
+based on these observations. We adopted the resulting fully graded
+candidate static validator improvement and added 6 offline regression
+tests to no-credit CI. The actual VS Code Agent Host is a distinct runtime;
+earlier user-reported local read-only smoke remained anomaly-free, but
+we did not ask the user to export any internal artifacts.
+
+**Stop:** no more repetitions of this same paired test and no routine
+corporate local data collection. Expand only for a decision-critical
+real task where the additional instruction layer could add meaningful
+accuracy, time or user attention value.
