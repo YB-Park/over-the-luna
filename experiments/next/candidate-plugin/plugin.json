@@ -1,0 +1,22 @@
+{
+  "name": "over-the-luna-next",
+  "description": "Research candidate: a minimal, single-agent Over the Luna VS Code Copilot harness for real-work dogfooding.",
+  "version": "0.2.0-research.1",
+  "author": {
+    "name": "YB-Park",
+    "url": "https://github.com/YB-Park"
+  },
+  "homepage": "https://github.com/YB-Park/over-the-luna",
+  "repository": "https://github.com/YB-Park/over-the-luna",
+  "license": "MIT",
+  "keywords": [
+    "vscode",
+    "github-copilot",
+    "agent",
+    "coding",
+    "research",
+    "cost-aware",
+    "research-candidate"
+  ],
+  "agents": "agents/"
+}
