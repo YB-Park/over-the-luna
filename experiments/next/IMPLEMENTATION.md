@@ -117,3 +117,10 @@ runs cannot be retrospectively rescored for helper reuse or valid tests.
 and strengthens future checking without inventing additional paid model
 runs. Product dogfooding must use actual tests, tool boundaries, and
 saved sanitized diffs. See [Audit response](../../docs/NEXT_AUDIT_RESPONSE.md).
+
+**Post-audit correction:** Even the historical broad_contract
+`apply_golden` implementation leaves an **obsolete failing focused test**
+in place; it passed only because the original hidden grader didn't
+execute the test. A no-credit selftest now detects this and separately
+demonstrates that a temporarily repaired golden passes.
+See [corrective CI](https://github.com/YB-Park/over-the-luna/actions/runs/38855702794).

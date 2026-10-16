@@ -10,11 +10,16 @@ is validated. Prior research evidence must be interpreted narrowly.
    `fixture.py:hidden` checks 2 output examples for `broad_contract`,
    but does not prove that `src.identity.canonical_account_id` is
    actually reused. Both implementation cases ignore the model-authored
-   regression test's executable validity. We reproduced this defect with
-   two constructed counterexamples in a no-credit CI test. The proposed
+   regression test's executable validity. We reproduced this defect with a stale golden test and two classes of constructed counterexample in a no-credit CI test. The proposed
    `audit_oracle.py` adds syntax/runtime focused test checks and observes
    a real call to the shared helper, without altering the historical
    fixture or retroactively rerunning API calls.
+   **Additional finding during corrective CI:** The original
+   `fixture.apply_golden("broad_contract")` updates the implementation
+   but leaves the old `test_exporter.py` assertion expecting the
+   unnormalized `ACCT_ABC`. Therefore even the historical **golden**
+   implementation passes `hidden()` yet fails the focused regression
+   test. We verified this directly during the new CI.
 2. **Host tool semantics (HIGH).** `agents/luna-planner.agent.md`
    declares `tools: []`. Current upstream VS Code
    `toSdkCustomAgents` maps an empty tools array to `null`,
@@ -94,3 +99,23 @@ a demonstrated real-work improvement, simplify or fall back to native.
 - [VS Code conversion test](https://github.com/microsoft/vscode/blob/main/src/vs/platform/agentHost/test/node/copilotPluginConverters.test.ts#L403-L420)
 - [Our originally evaluated SDK runner](../experiments/next/implement_model_comparison.mjs)
 - [No-credit constructed counterexample audit](../experiments/next/audit_oracle.py)
+
+## Corrective no-credit verification (successful)
+
+[GitHub Actions #38855702794](https://github.com/YB-Park/over-the-luna/actions/runs/38855702794)
+used the **pinned** historical fixture commit
+`f7c1c7b0a19f81432553862b006c860c923719ec` and did **not**
+invoke a model. It checked:
+- The original golden implementation for broad_contract passes old hidden
+  grading but fails the old focused regression test (stale assertion).
+- A temporary repaired golden with updated focused tests passes strict
+  checks; the risk_idempotency golden also passes.
+- A fabricated Python SyntaxError in each regression test is accepted by
+  the original hidden grader but rejected by strict grading.
+- A fabricated exporter duplicating the account normalizer without calling
+  the shared helper is accepted by original hidden grading but rejected
+  when helper invocation is dynamically observed.
+
+This **does not re-grade** the four models' historical changes; the
+original patches were never archived. The corrective test is deliberately
+limited to these known blind spots, not a full general-purpose benchmark.
