@@ -95,7 +95,10 @@ read-only repository exploration showed no anomalies. This is a **reported
 smoke check**, not independent Host/runtime evidence. No further model
 catalogue verification is planned.
 
-**Next actual trial:** [Dogfood 01 — safety-oriented candidate validator
-regression tests](DOGFOOD_TASK_01.md). Keep native vs Next on identical
-frozen Git commit with matching GPT-6 Luna and tool/permission conditions;
-no model-created files have yet been compared.
+**Next actual trial:** [GitHub Actions-only study](ACTIONS_DOGFOOD.md),
+which uses the actual Next instruction body in a matched SDK pair on
+**public repository fixtures**. No corporate file export or local worktree
+runs are requested. The [old local paired guide](DOGFOOD_TASK_01.md) is
+**OPTIONAL/DEFERRED**, not a blocker or required user task. Actions cannot
+completely reproduce the actual VS Code Agent Host; evaluate that
+limitation transparently.

@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install pinned Python validator dependency
+        run: python -m pip install 'PyYAML==6.0.2'
       - name: Confirm fixed SDK script and external grader compile without model calls
         run: |
           node --check experiments/next/actions_dogfood_pair.mjs

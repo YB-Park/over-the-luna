@@ -33,6 +33,7 @@ jobs:
         run: |
           node --check experiments/next/paired_review.mjs
           node --check experiments/next/implement_model_comparison.mjs
+          node --check experiments/next/actions_dogfood_pair.mjs
       - name: Preserve stable v1.1.1 contract
         run: python scripts/validate_plugin.py
       - name: Validate minimal candidate plugin static shape (not Host runtime)

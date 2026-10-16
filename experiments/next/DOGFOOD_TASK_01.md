@@ -1,6 +1,10 @@
 # Dogfood 01 — Native Copilot Agent vs Over the Luna Next
 
-**Status: READY FOR LOCAL EXECUTION, NOT YET EXECUTED**
+**Status: LOCAL TRIAL DEFERRED — corporate environment export constraint.**
+
+This is now a reference only. The selected experiment is the
+[GitHub Actions SDK pair](ACTIONS_DOGFOOD.md) which requires no
+corporate VS Code artifacts or user file transfers.
 
 2026-10-16 user report: the Next agent was visible in the picker and its
 first read-only repository exploration showed **no notable anomalies**.
