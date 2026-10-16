@@ -12,6 +12,7 @@ on:
       - 'plugin.json'
       - 'scripts/validate_plugin.py'
       - 'scripts/validate_candidate.py'
+      - 'tests/test_validate_candidate.py'
   workflow_dispatch:
 
 permissions:
