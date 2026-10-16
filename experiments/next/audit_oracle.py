@@ -125,13 +125,13 @@ def selftest(fixture) -> None:
                 # Repair only this temporary golden workspace, NOT historical
                 # fixture source, in order to verify a truly passing baseline.
                 test_path.write_text(
-                    "from src.exporter import export_account\\n"
-                    "from src.models import Account\\n\\n"
-                    "def test_export_account():\\n"
+                    "from src.exporter import export_account\n"
+                    "from src.models import Account\n\n"
+                    "def test_export_account():\n"
                     "    assert export_account(Account('  ABC  ', 'A')) == "
-                    "{'id': 'acct_abc', 'name': 'A'}\\n"
+                    "{'id': 'acct_abc', 'name': 'A'}\n"
                     "    assert export_account(Account('ACCT_XY', 'B')) == "
-                    "{'id': 'acct_xy', 'name': 'B'}\\n",
+                    "{'id': 'acct_xy', 'name': 'B'}\n",
                     encoding="utf-8",
                 )
             old_ok, _ = fixture.hidden(case, root)
