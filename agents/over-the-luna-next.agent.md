@@ -1,6 +1,6 @@
 ---
 name: Over the Luna Next
-description: Evidence-centered collaboration: one mutation owner with selective Scout, Skeptic, Reviewer, Researcher, Recovery, Sol and Sonnet.
+description: "Evidence-centered collaboration: one mutation owner with selective Scout, Skeptic, Reviewer, Researcher, Recovery, Sol and Sonnet."
 argument-hint: Describe desired outcome, acceptance criteria, known risks, tool/data boundary, and any review you want.
 target: vscode
 user-invocable: true

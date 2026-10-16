@@ -1,6 +1,6 @@
 ---
 name: Next Architect
-description: Bounded repository scout: isolate disposable discovery and return a reusable evidence/work-set packet.
+description: "Bounded repository scout: isolate disposable discovery and return a reusable evidence/work-set packet."
 target: vscode
 user-invocable: false
 model: GPT-6 Luna
