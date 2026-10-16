@@ -86,3 +86,20 @@ as unreviewed product code.
   selectable and first read-only task showed no anomalies.
 
 **Status:** prepared; no paid request sent by this document.
+
+## First execution — INVALID, tool permission fixture defect
+
+[Actions #38859259549](https://github.com/YB-Park/over-the-luna/actions/runs/38859259549)
+completed both SDK session calls, but both returned **zero edited files**
+with original-grader failures. The archived `results.json` establishes
+why: all read requests had `permissionAudit.kind="read"` and
+`decision="reject"` because the handler mistakenly required
+`req.fileName` on read requests, while actual SDK `view/glob/rg` read
+permission objects left that field empty. This is **INFRASTRUCTURE
+INVALID**, not a comparison of default vs Next model behavior.
+
+Fixed the read callback to approve read-only tools in the **public,
+disposable Actions workspace**. Write permission stays restricted to
+the exact two allowed paths, and shell/network/Git mutation tools
+remain unavailable. **One corrected matched pair is warranted.**
+Do not retroactively interpret the first 0/2 as product performance.
