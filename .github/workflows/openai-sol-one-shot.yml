@@ -1,0 +1,28 @@
+name: P0c - gated OpenAI Sol direct API smoke
+
+# Deliberately one-shot. No push-triggered inference except this separately
+# marked path plus exact opt-in commit message.
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_OPENAI_SOL.md
+
+permissions:
+  contents: read
+
+jobs:
+  openai-sol:
+    if: contains(github.event.head_commit.message, '[run-openai-sol-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify model availability and make one bounded Sol request
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python experiments/next/openai_sol_one_shot.py
