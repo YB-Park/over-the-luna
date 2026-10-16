@@ -125,3 +125,15 @@ elapsed time, rework and user approvals.
 **Stop condition:** RC2 should become one maintainable product
 topology, not another broad model-evaluation program. RC1 stays
 intact, and no merge or release tag is automatic.
+
+## Observed role-registration gate (2026-10-16)
+
+[GitHub Actions #38865165638](https://github.com/YB-Park/over-the-luna/actions/runs/38865165638) **PASS** with pinned SDK/CLI, actual plugin directory, without any model messages/inference.
+
+- Registry loaded exactly the `over-the-luna-next` plugin.
+- SDK returned exactly **8 registered role identities**: Main, Architect, Reviewer, Skeptic, Researcher, Recovery, Sol Specialist and Sonnet Specialist; zero unexpected entries.
+- Selecting Main by its actual qualified ID and independently reading `getCurrent()` confirmed `over-the-luna-next:over-the-luna-next`.
+- **This does not prove** the leaf-model assignments were used for inference, no silent provider fallback occurred, or effective read-only/non-recursive tool policy in the user's VS Code Host. Those require bounded runtime observations before product endorsement.
+- This is a **metadata integration gate**, not another model competency benchmark; no corporate data transfer or paid model run occurred.
+
+**Immediate next decision:** review whether a single real repository change involving unknown dependencies + a consequential invariant merits spending on one named leaf delegation. Do not commission a large model matrix just because eight roles were discovered.
