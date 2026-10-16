@@ -87,3 +87,15 @@ evidence. All are legitimate outcomes.
 Use [SCORECARD.md](SCORECARD.md) to record one case; product decisions
 go in [docs/NEXT_HARNESS.md](../../docs/NEXT_HARNESS.md). No automatic
 PR merge.
+
+## Local observation and first implementation trial (2026-10-16)
+
+The user confirms the research agent appears in the picker and its first
+read-only repository exploration showed no anomalies. This is a **reported
+smoke check**, not independent Host/runtime evidence. No further model
+catalogue verification is planned.
+
+**Next actual trial:** [Dogfood 01 — safety-oriented candidate validator
+regression tests](DOGFOOD_TASK_01.md). Keep native vs Next on identical
+frozen Git commit with matching GPT-6 Luna and tool/permission conditions;
+no model-created files have yet been compared.
