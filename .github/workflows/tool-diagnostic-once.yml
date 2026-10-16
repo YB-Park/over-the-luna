@@ -1,0 +1,48 @@
+name: P1b-diagnostic - missing edits and tool permissions
+on:
+  push:
+    branches:
+      - research/next-harness-foundation
+    paths:
+      - experiments/next/ONE_SHOT_TOOL_DIAGNOSTIC.md
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  diagnostic:
+    if: contains(github.event.head_commit.message, '[run-tool-diagnostic-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          ref: research/gpt6-luna-model-qualification
+          path: qualification
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate independent task oracle
+        run: python qualification/experiments/gpt6_luna/fixture.py selftest --case risk_idempotency
+      - name: Install model runtime
+        run: |
+          npm install -g @github/copilot
+          npm install --prefix experiments/next --no-save --no-package-lock @github/copilot-sdk
+      - name: Trace tool permission and model decisions for Luna and Sol only
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COPILOT_AUTO_UPDATE: 'false'
+          DIAGNOSTIC_ONLY: '1'
+          RESULT_PATH: ${{ runner.temp }}/tool-diagnostic.json
+        run: node experiments/next/implement_model_comparison.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tool-diagnostic
+          path: ${{ runner.temp }}/tool-diagnostic.json
+          retention-days: 7
+          if-no-files-found: ignore
