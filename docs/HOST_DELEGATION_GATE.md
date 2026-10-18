@@ -9,6 +9,10 @@
 - [VS Code custom-agent docs](https://code.visualstudio.com/docs/agent-customization/custom-agents) state that `user-invocable: false` hides a selectable agent while `disable-model-invocation` controls availability for other agents. [Copilot harness subagent docs](https://code.visualstudio.com/docs/agents/run/subagents) describe a harness-native delegation path, distinct from the **Local** harness's `agent/runSubagent`.
 - The [VS Code SDK conversion path](https://github.com/microsoft/vscode/blob/main/src/vs/platform/agentHost/node/copilot/copilotPluginConverters.ts) passes plugin agent prompts/models/non-empty tool lists into SDK. This does not prove effective Host approvals and does not make `agents: []` a guaranteed recursion sandbox.
 
+## Acceptance flow: Main → Architect → Main
+
+For this narrow read-only check, Main requests one Architect observation, Architect returns the packet, and Main assesses it. Reviewer is excluded until a real diff exists.
+
 ## Optional single check, only with PUBLIC repository content
 
 This is a **single optional read-only check**, not an expectation of repeated local trials. When the owner already has a public copy of `YB-Park/over-the-luna` in VS Code, select the **Copilot** Agent Host (not Local) and **Over the Luna Next** from the RC2 research plugin. Use the currently selected Luna model; don't alter company permission, MCP, provider or account settings.
