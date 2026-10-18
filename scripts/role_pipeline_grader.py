@@ -65,10 +65,10 @@ def main():
                 with zipfile.ZipFile(zipfile_path) as z:
                     note("package_allowlist_only",
                         set(z.namelist())=={"plugin.json","LICENSE","README.md","README.ko.md",
-                             "docs/ROLE_TOPOLOGY.md", *("agents/"+p.name for p in
+                             "docs/ROLE_TOPOLOGY.md","docs/HOST_DELEGATION_GATE.md", *("agents/"+p.name for p in
                               (work/"agents").iterdir())})
         for path in ("README.md","LICENSE","agents/over-the-luna-next.agent.md",
-                     "docs/ROLE_TOPOLOGY.md"):
+                     "docs/ROLE_TOPOLOGY.md","docs/HOST_DELEGATION_GATE.md"):
             note("deny_symlink_"+path.replace("/","_"),symlink_case(work,path))
         note("normal_sources_preserved", all((work/p).is_file() for p in
              ("plugin.json","README.md","LICENSE","README.ko.md")))
