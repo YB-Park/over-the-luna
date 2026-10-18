@@ -44,3 +44,7 @@
 문제가 있으면 RC2의 `chat.pluginLocations` 항목만 끄고
 기존 안정판/RC1/native Copilot을 선택해.
 **`main`·RC1은 변경하지 않았어.**
+
+## 실제 역할 위임 확인은 Host에서만
+
+독립 Copilot SDK 서버에서는 등록된 Architect를 실행하려다가 `custom_agent_prompt` Host 상호작용 미지원으로 실패했어. 이건 모델이나 Council의 실패를 뜻하지 않아. [공개 코드 기반 최소 Host 확인 절차](docs/HOST_DELEGATION_GATE.md)를 마련했지만, **반복적인 사내 테스트나 코드·로그 반출은 요구하지 않아.** 실제 Host에서 이름이 확인된 보조 에이전트의 **완료된 반환 증거**가 있어야 협업이 검증됐다고 인정할 거야.

@@ -58,3 +58,9 @@ the agent work. No user internal worktree diff/chat logs need uploading.
 **Research stop rule:** one static role/packaging gate, then only a
 decision-relevant SDK integration check if needed. Do not add endless
 fixture families or run every model by habit. `main` is untouched.
+
+## Delegation acceptance — current blocker
+
+The RC2 plugin roles are registered, but the standalone Copilot SDK task runner **cannot** prove subagent handback: it returned `Standalone server does not support session effect 'custom_agent_prompt'`. This is an unsupported standalone session interaction, not a model benchmark result. **Never infer Main → Architect → Reviewer success from registration alone.**
+
+[Host-only role acceptance and privacy-preserving trial](docs/HOST_DELEGATION_GATE.md) defines exactly one OPTIONAL, public-repo native Copilot Host check and a yes/no outcome. The owner should not export internal work files, logs or chat transcripts. No paid Actions role-repeat is planned. Stable main and RC1 are unchanged.

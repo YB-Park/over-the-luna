@@ -22,7 +22,8 @@ EXPECTED={MAIN,*MODELS}
 PACKAGE_FILES=tuple(sorted((
  "plugin.json",
  *("agents/"+p for p in (MAIN,*MODELS)),
- "README.md","README.ko.md","LICENSE","docs/ROLE_TOPOLOGY.md"
+ "README.md","README.ko.md","LICENSE","docs/ROLE_TOPOLOGY.md",
+ "docs/HOST_DELEGATION_GATE.md"
 )))
 FORBIDDEN_KEYS={"handoffs","infer","mcp-servers","hooks"}
 BLOCK_EXTENSIONS=("mcp.json",".mcp.json","hooks.json",".copilot-plugin",".claude-plugin",

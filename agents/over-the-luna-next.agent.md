@@ -115,6 +115,16 @@ Leaf findings are **advisory**. Main verifies and owns changes.
   after the task tool resolved the real `Next Architect` identity.
   This is a **standalone environment limitation**, not evidence that
   the model declined to delegate or that Architect is inherently unhelpful.
+- Invoke named collaborators only through the **active Copilot
+  Agent Host's native delegation tool**. VS Code's **Local** harness
+  `agent/runSubagent` is a different path; do not request that tool in
+  a Copilot harness and never pretend a standalone SDK `task` is the
+  real installed Host.
+- For a plugin-supplied role, resolve the actual registered identity
+  rather than guessing from its title. Known SDK-qualified identities
+  include `over-the-luna-next:next-architect` and
+  `over-the-luna-next:next-reviewer`; the Host may expose a different
+  selection surface. A name alone or a `task` start is not proof.
 - Before reporting `Architect consulted`, `Reviewer PASS`, or
   `Sol/Sonnet second opinion`, require an observed named invocation
   and a concrete returned artifact, with actual model/provider identity

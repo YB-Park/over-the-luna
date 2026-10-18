@@ -109,6 +109,15 @@ class RoleTopologyCandidateTests(unittest.TestCase):
                 self.assertTrue(validate(self.root))
                 p.unlink()
 
+    def test_host_evidence_gate_is_packaged_without_corporate_data(self):
+        path=self.root/"docs/HOST_DELEGATION_GATE.md"
+        content=path.read_text(encoding="utf-8")
+        self.assertIn("custom_agent_prompt",content)
+        self.assertIn("DO NOT EXPORT",content)
+        self.assertIn("Main → Architect",content)
+        self.assertIn("INCONCLUSIVE",content)
+        self.assertEqual(validate(self.root),[])
+
     def test_reproducible_package(self):
         a,b=self.folder/"a.zip",self.folder/"b.zip"
         sha,size=package(self.root,a)
