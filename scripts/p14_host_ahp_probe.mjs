@@ -6,6 +6,11 @@ import path from "node:path";
 import {setTimeout as delay} from "node:timers/promises";
 const ROOT="ahp-root://";
 const VERSIONS=["0.7.0","0.6.0","0.5.0","0.4.0","0.3.0"];
+function offeredVersions(entry) {
+  const claimed=entry?.protocolVersion;
+  const safe=typeof claimed==="string" && /^\d+\.\d+\.\d+$/.test(claimed);
+  return [...new Set([...(safe?[claimed]:[]),...VERSIONS])];
+}
 function safeEntries(registry) {
   if(!Array.isArray(registry)) throw Error("invalid_registry");
   return registry.filter(x=>x&&x.schemaVersion===2&&x.type==="standalone"&&
@@ -32,6 +37,8 @@ function selfTest() {
   if(!rootInfo([{resource:ROOT,state:{agents:[{provider:"copilot"}]}}]).copilotAdvertised)
     throw Error("root_projection_failed");
   if(rootInfo([]).copilotAdvertised)throw Error("spurious_provider");
+  if(offeredVersions({protocolVersion:"0.9.0"})[0]!=="0.9.0")
+    throw Error("advertised_protocol_not_preferred");
   console.log("P14_PROBE_SELFTEST_PASS");
 }
 async function findEntry(base) {
@@ -66,13 +73,16 @@ async function initialize(e) {
     socket.addEventListener("open",()=>socket.send(JSON.stringify({
       jsonrpc:"2.0",id:1,method:"initialize",
       params:{channel:ROOT,clientId:"otl-public-p14-audit",
-        protocolVersions:VERSIONS,initialSubscriptions:[ROOT]}
+        protocolVersions:offeredVersions(e),initialSubscriptions:[ROOT]}
     })));
     socket.addEventListener("message",message=>{
       let json;
       try{json=JSON.parse(String(message.data))}catch{return}
       if(json.id!==1)return;
-      if(json.error)return finish(new Error("ahp_initialize_rpc_error"));
+      if(json.error){
+        const code=Number.isInteger(json.error.code)?json.error.code:0;
+        return finish(new Error("ahp_initialize_rpc_code_"+String(code)));
+      }
       if(typeof json.result?.protocolVersion!=="string")
         return finish(new Error("invalid_ahp_initialize_result"));
       finish(null,{protocolVersion:json.result.protocolVersion,...rootInfo(json.result.snapshots)});
@@ -99,6 +109,6 @@ try{await main()}catch(e){
     "ambiguous_host","ahp_initialize_timeout","ahp_transport_error",
     "ahp_closed_before_initialize","ahp_initialize_rpc_error",
     "invalid_ahp_initialize_result"];
-  console.error("P14_HOST_GATE_INCONCLUSIVE",known.includes(c)?c:"probe_runtime_error");
+  console.error("P14_HOST_GATE_INCONCLUSIVE",known.includes(c)||/^ahp_initialize_rpc_code_-?\d+$/.test(c)?c:"probe_runtime_error");
   process.exitCode=1;
 }
