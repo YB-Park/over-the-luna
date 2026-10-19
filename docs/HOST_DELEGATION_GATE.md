@@ -9,7 +9,7 @@
 - [VS Code custom-agent docs](https://code.visualstudio.com/docs/agent-customization/custom-agents) state that `user-invocable: false` hides a selectable agent while `disable-model-invocation` controls availability for other agents. [Copilot harness subagent docs](https://code.visualstudio.com/docs/agents/run/subagents) describe a harness-native delegation path, distinct from the **Local** harness's `agent/runSubagent`.
 - The [VS Code SDK conversion path](https://github.com/microsoft/vscode/blob/main/src/vs/platform/agentHost/node/copilot/copilotPluginConverters.ts) passes plugin agent prompts/models/non-empty tool lists into SDK. This does not prove effective Host approvals and does not make `agents: []` a guaranteed recursion sandbox.
 
-## Actual VS Code Host evidence — P14/P15 (2026-10-19)
+## Historical P14/P15 observations (superseded by corrected P16/P17 gate below)
 
 This gate is now grounded in a **real VS Code Agent Host process**, not only
 the standalone Copilot SDK. The independent official CLI was launched
@@ -21,7 +21,7 @@ localhost endpoint; no chat turns or model inference occurred.
 | H0 Host startup and AHP transport | **PASS** — [P14 #39186857999](https://github.com/YB-Park/over-the-luna/actions/runs/39186857999), negotiated AHP 1.0.0 | Actual Host, not standalone SDK |
 | H1 Copilot backend advertised | **PASS** — native provider ID `copilotcli`, confirmed in VS Code source and P15 runtime | Provider is registered, not necessarily authenticated |
 | H2 Native Copilot session create + subscribe | **PASS** — [P15 #39187067070](https://github.com/YB-Park/over-the-luna/actions/runs/39187067070) | Creation request accepted, separate lifecycle remains pending |
-| H3 Copilot session ready | **UNVERIFIED** — [P15 #39187238270](https://github.com/YB-Park/over-the-luna/actions/runs/39187238270) still `creating` with job-scoped GitHub token | No successful initialized session |
+| H3 No-turn ready state | **NOT APPLICABLE** — P15 remained provisionally `creating` because first send had not occurred | This is not an auth or session failure |
 | H4 RC2 plugin loaded and named Architect returned packet | **UNVERIFIED** | No Council performance claim |
 | H5 Reviewer independently checked a real patch | **UNVERIFIED** | No completeness claim |
 
@@ -33,10 +33,8 @@ interchangeable** with an actual signed-in Copilot session. P15 did not
 capture a diagnostic proving whether authorization, SDK initialization,
 or another blocker held the session at `creating`; do not guess.
 
-**Next justified experiment is NOT another Main-vs-Luna baseline.** Only
-when a genuinely authenticated real Copilot Host is available should a
-bounded public task request a named Architect observation and returned
-evidence; later use a consequential genuine patch for Reviewer. Do not
+**Next justified experiment is NOT another Main-vs-Luna baseline.** A genuine first-turn Host observation, not no-turn session readiness,
+is required before declaring named Architect execution; later use a consequential genuine patch for Reviewer. Do not
 attempt a token relay, alternate provider, or repeated paid standalone SDK
 calls to bypass an unresolved authentication boundary. No corporate
 workspace exports or repeated local tests are required.
