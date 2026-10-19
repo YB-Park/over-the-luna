@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {setTimeout as delay} from "node:timers/promises";
 const ROOT="ahp-root://";
-const VERSIONS=["0.7.0","0.6.0","0.5.0","0.4.0","0.3.0"];
+const VERSIONS=["1.0.0","0.10.0","0.9.0","0.7.0","0.6.0","0.5.0","0.4.0","0.3.0"];
 function offeredVersions(entry) {
   const claimed=entry?.protocolVersion;
   const safe=typeof claimed==="string" && /^\d+\.\d+\.\d+$/.test(claimed);
@@ -37,6 +37,8 @@ function selfTest() {
   if(!rootInfo([{resource:ROOT,state:{agents:[{provider:"copilot"}]}}]).copilotAdvertised)
     throw Error("root_projection_failed");
   if(rootInfo([]).copilotAdvertised)throw Error("spurious_provider");
+  if(!offeredVersions({}).includes("1.0.0") || !offeredVersions({}).includes("0.9.0"))
+    throw Error("current_protocol_range_missing");
   if(offeredVersions({protocolVersion:"0.9.0"})[0]!=="0.9.0")
     throw Error("advertised_protocol_not_preferred");
   console.log("P14_PROBE_SELFTEST_PASS");
