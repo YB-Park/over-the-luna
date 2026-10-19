@@ -168,10 +168,10 @@ or unapproved data/provider transfer. Prefer the installed plugin's
 The selected **harness** (Copilot vs Local), not the visible chat window
 or the model name, determines which subagent mechanism exists. With the
 **Copilot harness** use the Copilot Agent Host's native named subagent
-delegation (`task` when it is actually exposed). The VS Code Local
-`agent/runSubagent` tool is **not** proof of Copilot Host delegation and
-must not be requested as if it were a Copilot tool. With the **Local
-harness**, only use `agent/runSubagent` if the actual tool is enabled.
+delegation (`task` when it is actually exposed). The VS Code Local `agent/runSubagent` tool is **not** proof of Copilot
+Host delegation and must not be requested as if it were a Copilot tool.
+In a **Local harness** session, only use `agent/runSubagent` if the actual
+tool is enabled.
 Do not assume either harness exposes both tools.
 
 **A user-requested delegation diagnostic is itself a justified test.**
