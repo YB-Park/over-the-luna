@@ -25,7 +25,7 @@ function rootInfo(snapshots) {
   const agents=Array.isArray(state?.agents)?state.agents:[];
   return {rootSnapshotObserved:!!item,providerCount:agents.length,
     copilotAdvertised:agents.some(a=>
-      a?.provider==="copilot"||a?.id==="copilot"||a?.name==="copilot")};
+      a?.provider==="copilotcli"||a?.provider==="copilot"||a?.id==="copilotcli"||a?.id==="copilot")};
 }
 function selfTest() {
   const e={schemaVersion:2,type:"standalone",pid:123,instanceId:"x",
@@ -34,7 +34,7 @@ function selfTest() {
   if(safeEntries([{...e,endpoint:{...e.endpoint,host:"0.0.0.0"}},
       {...e,connectionToken:""}, {...e,schemaVersion:1}]).length)
     throw Error("unsafe_endpoint_admitted");
-  if(!rootInfo([{resource:ROOT,state:{agents:[{provider:"copilot"}]}}]).copilotAdvertised)
+  if(!rootInfo([{resource:ROOT,state:{agents:[{provider:"copilotcli"}]}}]).copilotAdvertised)
     throw Error("root_projection_failed");
   if(rootInfo([]).copilotAdvertised)throw Error("spurious_provider");
   if(!offeredVersions({}).includes("1.0.0") || !offeredVersions({}).includes("0.9.0"))
