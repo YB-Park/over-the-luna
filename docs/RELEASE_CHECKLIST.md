@@ -170,6 +170,23 @@ are modified. This audit does not demand another paid model turn.
       confirmation. Missing UI chrome alone does not establish a
       missing native task. No stable `main` or RC1 modifications.
 
+## P22 — user-confirmed explicit stable Reviewer invocation
+
+- [x] User observed **real visible subagent call** after a specific
+      `Luna Reviewer` request, with hovered name, model, reasoning
+      effort and context window. Ordinary requests previously
+      showed **zero calls**, not a UI-only display problem.
+- [x] Stable v1.1.1 already contains a strict post-edit Reviewer
+      rule. Not proof that it executes automatically in the current
+      signed-in Host; do not modify protected main on a hunch.
+- [x] Next's research Main now re-checks **post-edit assurance
+      separately from DIRECT investigation**. On a real semantic
+      diff/tests it selects conditional ONE `Next Reviewer` call
+      or reports `REVIEW_UNVERIFIED` with the missing capability.
+- [ ] Signed-in Next user test: one meaningful low-risk diff without
+      mentioning any role, then observe `Next Reviewer` start,
+      completion and grounded packet. A forced stable `Luna Reviewer`
+      event is not proof of Next automatic routing.
 ## Go / no-go
 Retain roles by marginal evidence, not by a 'smallest agents' ideology.
 Do not equate user-visible VS Code model availability with the separate ephemeral Actions Host model catalog. P18 observed zero Copilot model entries in the latter; fail closed before requesting Luna there.

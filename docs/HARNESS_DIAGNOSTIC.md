@@ -83,3 +83,36 @@ References:
 - https://code.visualstudio.com/docs/agents/run/subagents
 - https://code.visualstudio.com/docs/agents/agent-troubleshooting/chat-debug-view
 - https://code.visualstudio.com/docs/agent-customization/custom-agents
+
+## P22 — confirmed visible, explicitly invoked stable Reviewer
+
+The user confirmed that in a current VS Code session, the prompt
+`Luna Reviewer 통해서 리뷰 받아봐` **actually invoked** a subagent
+and its on-screen hover displayed the agent name, model, reasoning
+effort and context window. In the earlier normal requests there
+was no subagent call; those were **not** the same calls hidden by UI.
+This is a report of an *invoked* stable `Luna Reviewer`, not
+yet verified successful completion or an independently grounded
+review packet. It does **not** prove a Next `Next Reviewer` invocation.
+
+The working problem is now **automatic role-selection reliability**.
+Stable `main` already mandated post-change Reviewer for meaningful
+patches, so a prompt rule alone may fail in a real model run. Next had
+a potentially ambiguous `DIRECT (default)` implementation paragraph
+beside later conditional assurance wording. Its research Main now
+makes **DIRECT investigation and post-edit NONE/REVIEW/RISK separate
+decisions**; consequential edits receive one named `Next Reviewer`
+attempt when the real harness tool/provider permission permits it.
+No blanket delegation on trivial mechanical changes, no auto premium.
+
+Minimal A/B trial in an approved public test repo: select the **updated
+Next** plugin in a new session, request one nontrivial low-risk
+behavioral validation change with a test **without naming Reviewer**.
+After diff/tests, inspect the UI: did `Next Reviewer` start,
+finish and return actual findings? Record the hovered agent identity,
+model and effort locally. If absent, issue **one** explicitly named
+`Next Reviewer` review for the same patch; whether that works
+separates a tool-access problem from a default routing miss.
+Use `AUTO_NOT_INVOKED`, `NAMED_STARTED`, `NAMED_COMPLETED`, or
+`REVIEW_PACKET_VERIFIED`, not assumed Council PASS. No private logs
+need to leave the machine.
