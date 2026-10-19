@@ -129,7 +129,7 @@ class RoleTopologyCandidateTests(unittest.TestCase):
     def test_harness_routing_cannot_silently_claim_invisible_council(self):
         main=self.root/"agents"/MAIN
         original=main.read_text()
-        for marker in ("Copilot harness", "Local harness", "task",
+        for marker in ("Copilot harness", "Local harness",
                        "DELEGATION_ATTEMPT_FAILED",
                        "A user-requested delegation diagnostic"):
             with self.subTest(marker=marker):

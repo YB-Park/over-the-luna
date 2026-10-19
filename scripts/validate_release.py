@@ -105,7 +105,9 @@ def validate(root:Path=ROOT) -> list[str]:
                 "Green focused tests do not automatically close",
                 "PILOT_DIRECT_OK", "NAMED_DELEGATION_UNAVAILABLE",
                 "Harness compatibility and observable delegation",
-                "Copilot harness", "Local harness", "DELEGATION_ATTEMPT_FAILED")):
+                "Copilot harness", "Local harness",
+                "A user-requested delegation diagnostic",
+                "DELEGATION_ATTEMPT_FAILED")):
                 errors.append("Main missing independent routing / premium substitution gate")
         else:
             expectedName,expectedModel,expectedTools=MODELS[filename]
