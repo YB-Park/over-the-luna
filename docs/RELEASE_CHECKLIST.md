@@ -79,9 +79,9 @@ as Council handback. There is no grounds for main/stable release.
 
 - [x] **Pilot package READY**: allowlisted ZIP containing 8 agents plus
       `docs/PILOT_GUIDE.md`, and a stdlib-only ZIP auditor; built on
-      [CI #39203115287](https://github.com/YB-Park/over-the-luna/actions/runs/39201552015),
-      SHA-256 `72a648eba87b9c802288d962e0174e6d7f7af3ae98f72280b8633dbc41fd36f6`.
-      14 static role tests, 13 accounting tests, 8 negative ZIP tests PASS.
+      [CI #39219481908](https://github.com/YB-Park/over-the-luna/actions/runs/39201552015),
+      SHA-256 `dcb49af6379b27bbf745f9bc188e578765f784a7b47a45587c8237b6c656c383`.
+      15 static role tests, 13 accounting tests, 8 negative ZIP tests PASS.
 - [x] **Evidence-calibrated runtime instructions**: safe direct work may
       produce `PILOT_DIRECT_OK` without pretending Council ran. A blocked
       named leaf must produce `NAMED_DELEGATION_UNAVAILABLE`; high-impact
@@ -121,10 +121,10 @@ pass the old structural check despite breaking the intended role policy.
 This is a **real review finding about the downloaded package**, not proof
 that VS Code enforces an agent's declared tool restrictions.
 
-**Observed fixed CI:** [#39203115287](https://github.com/YB-Park/over-the-luna/actions/runs/39203115287)
-passed 14 release tests, **8** ZIP/negative tests and 13
+**Observed fixed CI:** [#39219481908](https://github.com/YB-Park/over-the-luna/actions/runs/39203115287)
+passed 15 release tests, **8** ZIP/negative tests and 13
 role-accounting tests; published the 15-member RC2 ZIP with SHA-256
-`72a648eba87b9c802288d962e0174e6d7f7af3ae98f72280b8633dbc41fd36f6` (36,577 bytes). No live Copilot or subagent ran.
+`dcb49af6379b27bbf745f9bc188e578765f784a7b47a45587c8237b6c656c383` (37,654 bytes). No live Copilot or subagent ran.
 
 **Fix:** pilot verifier CLI now **requires** `--expected-sha256`,
 which must come from this PR's successful Actions package digest, not
@@ -141,6 +141,34 @@ not a completed native Host `Next Reviewer` invocation. This closes one
 packaging-integrity defect, **not** Council handback, subagent read-only
 enforcement, or signed-in Host readiness. No other authorized branches
 are modified. This audit does not demand another paid model turn.
+
+## P21 — current Copilot-vs-Local compatibility diagnostic (2026-10-19)
+
+- [x] Inspected protected stable v1.1.1 Main and Next RC2 against current
+      VS Code documentation: old Main explicitly instructs
+      `agent/runSubagent`, now documented under **Local harness**, while
+      modern **Copilot harness** runs in the separate Agent Host and offers
+      provider-native task delegation. Do **not** assume a model, UI or
+      extension version determines the harness.
+- [x] Next Main now distinguishes both harnesses and treats an explicit
+      named-delegation diagnostic as a measurable task: one permitted
+      subagent attempt or an honest
+      `NAMED_DELEGATION_UNAVAILABLE` /
+      `DELEGATION_ATTEMPT_FAILED` state. It never silently claims a
+      Council completion because the model answered directly.
+- [x] [Harness diagnostic recipe](HARNESS_DIAGNOSTIC.md) covers selected
+      harness, agent source version, applied system instructions,
+      actual tool definitions and observable Agent Flow Chart. No private
+      transcripts exported, no new paid Host runs.
+- [x] [No-model CI #39219481908](https://github.com/YB-Park/over-the-luna/actions/runs/39219481908)
+      **PASS**: 15 release + 8 ZIP negative + 13 accounting = **36**
+      tests, independent package grader, ZIP SHA-256 `dcb49af6379b27bbf745f9bc188e578765f784a7b47a45587c8237b6c656c383` and 15
+      allowlisted members. The static green gate is not live Host
+      named-subagent proof.
+- [ ] The user-side signed-in VS Code session still needs one
+      controlled forced Architect test and private Chat Debug
+      confirmation. Missing UI chrome alone does not establish a
+      missing native task. No stable `main` or RC1 modifications.
 
 ## Go / no-go
 Retain roles by marginal evidence, not by a 'smallest agents' ideology.
