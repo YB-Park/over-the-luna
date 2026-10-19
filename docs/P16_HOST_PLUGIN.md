@@ -31,3 +31,7 @@ Upstream implementation references:
 real first-turn Architect test with authenticated GitHub Copilot Host;
 without a completed named leaf and returned packet, product value is still
 unverified. No stable release or PR merge.
+
+## P16 actual outcome and P17 go gate
+
+First P16 run [#39189065308](https://github.com/YB-Park/over-the-luna/actions/runs/39189065308) published a plain `file:` URI, which the Host interprets as **client-owned**: without a filesystem bridge it stayed `loading`. Upstream `agentPluginManager.ts` explicitly supports `vscode-agent-host-file:` for host-local directories. Corrected [#39189246326](https://github.com/YB-Park/over-the-luna/actions/runs/39189246326) **PASS**: native AHP connected, plugin `loaded`, exactly **8/8** roles and both Main/Architect found. No inference in P16. This warrants exactly one bounded P17 real native delegation turn. It does not by itself prove delegation or effective tools security.
