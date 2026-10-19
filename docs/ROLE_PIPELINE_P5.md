@@ -127,3 +127,9 @@ contract before any declaration that the full Council works.
 - The completed P5 security patch and release ZIP unit tests remain legitimate product progress, and the SDK coding quality result remains 12/12 for both arms; it does **not** become Council quality evidence.
 
 **Action:** focus RC2 on correct Host-native invocation, narrow effective tool restrictions and measured usefulness. No more test matrices or generic toy SDK repetitions.
+
+## Token-efficiency trace audit — 2026-10-19 (offline reanalysis; no new model requests)
+
+The saved P5 `summary.json` contains per-usage-event counters, not a causal attribution of costs. SDK default made **5** recorded Luna usage events with input tokens `6,169 / 8,882 / 9,302 / 9,669 / 10,376` (**44,398** total). The RC2 arm made **6** with `7,827 / 8,015 / 10,776 / 11,797 / 12,152 / 14,520` (**65,087** total). The RC2 input difference is **20,689 (+46.6%)**; its sixth event is **14,520 tokens**, arithmetically **70.2% of that difference**. The first five events themselves differ by **6,169 tokens**. This decomposition does **not** prove the sixth event was solely caused by a failed subagent call or quantify any production savings.
+
+The trace also shows **2 attempted RC2 `task` starts, 0 completed named subagents**, and more view/tool turns than default. The later standalone diagnostic identifies the `custom_agent_prompt` support failure. Thus the actionable priority is **eliminate unsupported/redundant turns and obtain real Host handback**, not treat a small prompt-length reduction as evidence of large end-to-end token savings. Keep a paid, bounded authentic Host task permissible when it can settle a real routing/value decision; do not buy another standalone plugin-delegation repetition that cannot cross this Host boundary. Track Copilot nano-AIU, tokens and latency separately from any API USD billing.
