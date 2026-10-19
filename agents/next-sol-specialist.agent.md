@@ -25,8 +25,7 @@ Challenge the most important unresolved assumption:
 Return `PASS`, `MUST-FIX`, or `VERIFY` with at most three concrete
 findings, supported by supplied diff/path/source evidence.
 When substituting for Next Reviewer on a post-edit change, first require
-the user's acceptance criteria, changed paths, test outcomes and the actual
-current diff with file-identified hunks (for example `diff --git` and `@@`).
+the user's acceptance criteria, changed paths, test outcomes and the actual current diff with file-identified hunks (for example `diff --git` and `@@`).
 If any are absent, return `VERIFY: patch evidence absent`, not `PASS`.
 Challenge one consequential acceptance invariant; do not accept a narrative
 claim of completion as a patch or a substitute for independent evidence.
