@@ -41,6 +41,55 @@ attempt a token relay, alternate provider, or repeated paid standalone SDK
 calls to bypass an unresolved authentication boundary. No corporate
 workspace exports or repeated local tests are required.
 
+## Corrected first-turn materialization contract — P16/P17
+
+**P15 was not a valid readiness gate.** Current VS Code implements
+**provisional/lazy sessions**: a session with no first message can
+legitimately remain at \`creating\` until SDK materialization happens on
+the first \`sendMessage\`. This is explicit in
+[AgentSideEffects](https://github.com/microsoft/vscode/blob/main/src/vs/platform/agentHost/node/agentSideEffects.ts)
+and [AgentHostStateManager](https://github.com/microsoft/vscode/blob/main/src/vs/platform/agentHost/node/agentHostStateManager.ts).
+P15's repeated \`creating\` **does not establish an authentication problem**.
+We did not observe an auth failure there; previous speculation should
+not be used as the product stop condition.
+
+The relevant real Host stages are now:
+
+| Gate | Observed evidence | Meaning |
+| --- | --- | --- |
+| H0 Official Host AHP transport | P14 AHP \`1.0.0\` PASS | Real process |
+| H1 Copilot provider session accepted | P15 \`copilotcli\`, create+subscribe PASS | Provisional, not materialized |
+| H2 RC2 plugin loaded by Host | [P16 #39189246326](https://github.com/YB-Park/over-the-luna/actions/runs/39189246326) **loaded; 8/8 exact roles** | Native plugin and Architect present |
+| H3 First public turn submitted | [P17 #39189500097](https://github.com/YB-Park/over-the-luna/actions/runs/39189500097) PASS | Selected Next Main with requested Luna model, one turn |
+| H4 Turn executed normally | **NOT VERIFIED**: P17 emitted \`chat/error\` | Host error occurred, no established root cause |
+| H5 Named Architect invocation | **NOT VERIFIED**: \`task\` starts **0**, completions **0** | No claimed Council handback |
+| H6 Reviewer on actual patch | **NOT VERIFIED** | Keep draft; no release |
+
+One important protocol integration discovery: plain \`file:\` plugin
+sources are **client-owned** and require a client filesystem bridge.
+P16 first run [#39189065308](https://github.com/YB-Park/over-the-luna/actions/runs/39189065308)
+stayed \`loading\`; VS Code's
+[host-file scheme](https://github.com/microsoft/vscode/blob/main/src/vs/platform/agentHost/common/agentPluginManager.ts)
+\`vscode-agent-host-file:\` resolved that in the same public runner.
+P16 then loaded all eight agents before any inference.
+
+**P17 is a real native AHP first-turn attempt**, not a fake SDK
+subagent test. It requested GPT-6 Luna once, but \`chat/error\` came before
+any named task started. No use of premium models; actual charged
+tokens/price are **unknown** without meter data. Neither P17 nor the
+earlier P15 logs prove an auth or a model-selection root cause.
+The probe was subsequently hardened to record **coarse error class only**
+(no raw message or credential), for a future legitimately authorized
+Host opportunity; this change was **not** tested by a second paid run.
+
+**Next valuable gate:** obtain a genuinely functional authenticated Host
+turn with approved user/provider policy, then see the named task and
+returned source packet. Do not burn credits on the same unsupported SDK
+path, assume an Actions job token equals an authorized user, bypass
+enterprise settings, or ask for private workspace exports. The real
+Host plugin integration already passed; no more Main-only benchmarks.
+
+
 ## Acceptance flow: Main → Architect → Main
 
 For this narrow read-only check, Main requests one Architect observation, Architect returns the packet, and Main assesses it. Reviewer is excluded until a real diff exists.

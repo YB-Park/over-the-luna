@@ -1,5 +1,19 @@
 # P15 — authenticate Copilot provider identity and create a native AHP session
 
+## Correction: no-turn \`creating\` was a false blocker
+
+The earlier conclusion that a ready state was required before any chat
+turn was incorrect. Official VS Code sources document provisional
+sessions materialized **on the first send**; idle no-turn sessions may
+stay at \`creating\` indefinitely by design. This neither proves nor
+disproves whether the injected GitHub job token would authenticate an
+actual model turn.
+
+The correct later observations are P16's **8/8 native Host RC2 roles
+loaded** and P17's **single actual first-turn \`chat/error\` before
+named Architect task**, with unknown root cause. See
+[updated Host evidence gate](HOST_DELEGATION_GATE.md).
+
 P14 proved actual VS Code AHP 1.0.0 initialize with 2 advertised providers
 but its first root projection incorrectly expected the id copilot.
 The source-defined ID is copilotcli:

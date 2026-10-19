@@ -33,3 +33,31 @@ the unsupported standalone SDK custom_agent_prompt attempt.
 
 One shot only: docs/P17_HOST_ARCHITECT_SENTINEL.md and a push marked
 [p17-native-architect-once]. No stable main changes or release merge.
+
+## Recorded first paid-eligible native Host turn — 2026-10-19
+
+[Real GitHub Actions #39189500097](https://github.com/YB-Park/over-the-luna/actions/runs/39189500097):
+
+- Official Host and AHP initialized; Copilot \`copilotcli\` advertised;
+  real session created and subscribed.
+- Corrected host-local RC2 plugin \`loaded\`; **8/8 role names**, including
+  Main and Next Architect, verified in the authoritative session state.
+- One real AHP \`chat/turnStarted\` submitted with selected Main's native
+  agent URI and explicit \`gpt-6-luna\` request, using public files only.
+- **\`chat/error\` received**. No \`task\` start, completed task,
+  independent returned Architect packet, or normal main turn completion.
+- This is **INCONCLUSIVE/BLOCKED**, not native delegation success and
+  not evidence of model quality. The event has not been causally
+  attributed to auth, model availability, permission or another source.
+- No premium calls or extra paid repetitions were conducted. A
+  paid-eligible Host turn was submitted but completed model usage and
+  billing are not observable in the sanitized artifact.
+
+**Product decision:** Do not add more agents, remove Skeptic/Recovery,
+revise all model assignments, or release RC2 based on this. The next
+genuine Host verification must observe a completed named leaf and
+returned source-backed packet. A coarse \`chat/error\` classifier was
+added to the repo after P17 to improve future diagnostics without
+reprinting error messages; it was not retroactively available for this
+run. Respect signed-in Copilot provider and organization policy.
+

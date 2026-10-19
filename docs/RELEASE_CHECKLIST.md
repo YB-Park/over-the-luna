@@ -14,7 +14,7 @@
 - [x] VS Code `code agent host` starts, authenticates AHP transport and
       negotiates 1.0.0; native provider `copilotcli` advertised.
 - [x] Copilot `createSession` accepted and session channel subscribed.
-- [ ] Real Copilot session reaches `ready` (P15 remained `creating`).
+- [x] P15 no-turn `creating` was a normal provisional-session state, not a valid readiness failure.
 - [ ] RC2 plugin registered with actual Host session; named task finishes
       and returns independent evidence.
 - [ ] Host-native complex-task role selection improves accepted quality or
@@ -23,6 +23,28 @@
 **Stop:** Do not repeat P5 SDK subagent probes or claim Council value from
 Host boot/registry alone. No further model spend until a real Host-ready
 authenticated session and named-role completion path can be observed.
+
+## P16/P17 actual Host integration findings (2026-10-19)
+
+- [x] Official native Host and \`copilotcli\` provider available.
+- [x] Provisional no-turn \`creating\` is expected; **NOT an auth failure**.
+- [x] Native Host parses \`vscode-agent-host-file:\` plugin and publishes exactly
+      8/8 Next roles, including Architect and Main (P16 PASS).
+- [x] One authorized Actions **first turn submitted** with GPT-6 Luna
+      explicitly requested and Next Main selected (P17).
+- [ ] Native Host completes a turn without chat error; P17 received
+      \`chat/error\` before the task tool started (root cause UNVERIFIED).
+- [ ] Next Architect completes with named role, authenticated execution,
+      returned source evidence and meaningful decision change.
+- [ ] Independent Reviewer with real diff and acceptance tests.
+- [ ] Effective tool/data policy enforced by Host in running leaf.
+
+A no-turn session \`ready\` state is **not** a valid prerequisite:
+the provider materializes lazily at first send. Only one P17 paid-eligible
+public request was submitted; exact token billing was not observed.
+Never count a plugin registry, chat-start action or \`task\` **attempt**
+as Council handback. There is no grounds for main/stable release.
+
 
 ## Product behavior (NOT established by static tests)
 - [x] Earlier single-Main research plugin package loaded and ran in SDK.
