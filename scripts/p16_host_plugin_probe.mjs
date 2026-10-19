@@ -33,6 +33,20 @@ function coarseChatErrorCategory(errorType) {
     return "PERMISSION_POLICY";
   return "OTHER_UNCLASSIFIED";
 }
+function catalogEvidence(root) {
+  const copilot=Array.isArray(root?.agents)?
+    root.agents.find(x=>x?.provider==="copilotcli"):undefined;
+  const models=Array.isArray(copilot?.models)?copilot.models:[];
+  const usable=models.filter(x=>x?.policyState!=="disabled");
+  return {copilotModelCount:models.length,
+    lunaExactAdvertised:usable.some(x=>x?.id==="gpt-6-luna"),
+    lunaNamedInPicker:usable.some(x=>typeof x?.name==="string"&&
+      /GPT.?6.*Luna/i.test(x.name)),
+    autoModelAdvertised:usable.some(x=>x?.id==="auto"),
+    hasDisabledModels:models.some(x=>x?.policyState==="disabled"),
+    protectedResourceCount:Array.isArray(copilot?.protectedResources)?
+      copilot.protectedResources.length:0};
+}
 function selfTest() {
   const good=pluginEvidence({customizations:[{type:"plugin",uri:"file:///public",
     load:{kind:"loaded"},children:ROLES.map(name=>({type:"agent",name}))}]},"file:///public");
@@ -45,6 +59,16 @@ function selfTest() {
      coarseChatErrorCategory("modelUnavailable")!=="MODEL_OR_PROVIDER"||
      coarseChatErrorCategory("arbitrary-user-string")!=="OTHER_UNCLASSIFIED")
     throw Error("error_category_policy");
+  const catalog=catalogEvidence({agents:[{provider:"copilotcli",
+    models:[{id:"gpt-6-luna",name:"GPT-6 Luna",policyState:"enabled"},
+            {id:"auto",name:"Auto",policyState:"unconfigured"}],
+    protectedResources:[{}]}]});
+  if(!catalog.lunaExactAdvertised||!catalog.autoModelAdvertised||
+     catalog.protectedResourceCount!==1)throw Error("catalog_projection_failed");
+  if(catalogEvidence({agents:[]}).lunaExactAdvertised||
+     catalogEvidence({agents:[{provider:"copilotcli",
+       models:[{id:"gpt-6-luna",policyState:"disabled"}]}]}).lunaExactAdvertised)
+    throw Error("model_policy_leak");
   console.log("P16_NATIVE_PLUGIN_PREFLIGHT_PASS");
 }
 async function endpoint(dir) {
@@ -222,6 +246,9 @@ async function main() {
     pluginPublished:false,pluginObserved:false,loadState:"ABSENT",
     roleCount:0,exactRoles:false,architectFound:false,mainFound:false,
     receivedCustomizationActions:0,sessionLifecycle:"UNKNOWN",
+    catalog:{copilotModelCount:0,lunaExactAdvertised:false,
+      lunaNamedInPicker:false,autoModelAdvertised:false,
+      hasDisabledModels:false,protectedResourceCount:0},
     verdict:"INCONCLUSIVE"};
   try {
     const init=await c.rpc("initialize",{channel:ROOT,clientId:CLIENT,
@@ -231,6 +258,17 @@ async function main() {
     const root=init.snapshots?.find(x=>x.resource===ROOT)?.state;
     metrics.copilotAdvertised=root?.agents?.some(x=>x.provider==="copilotcli")===true;
     if(!metrics.copilotAdvertised)throw Error("copilot_not_advertised");
+    if(process.env.P18_MODEL_PREFLIGHT_ONLY==="true") {
+      metrics.catalog=catalogEvidence(root);
+      for(let i=0;i<10;i++) {
+        if(metrics.catalog.lunaExactAdvertised)break;
+        await wait(1000);
+        const sub=await c.rpc("subscribe",{channel:ROOT},15000);
+        metrics.catalog=catalogEvidence(sub?.snapshot?.state);
+      }
+      metrics.verdict=metrics.catalog.lunaExactAdvertised?
+        "HOST_ADVERTISES_EXACT_LUNA":"HOST_DOES_NOT_ADVERTISE_EXACT_LUNA";
+    } else {
     await c.rpc("createSession",{channel:session,provider:"copilotcli",
       workingDirectories:[pathToFileURL(process.cwd()).href]},60000);
     metrics.sessionCreated=true;
@@ -265,6 +303,7 @@ async function main() {
       metrics.verdict=metrics.delegation.status;
     }
     await c.rpc("disposeSession",{channel:session},10000);
+    }
   }catch(e){
     const message=String(e.message||"");
     metrics.verdict=/^rpc_code_-?\d+$/.test(message)?message:
@@ -273,7 +312,9 @@ async function main() {
   if(process.env.P16_RESULT_PATH)fs.writeFileSync(process.env.P16_RESULT_PATH,
     JSON.stringify(metrics,null,2)+"\n",{mode:0o600});
   console.log("P16_NATIVE_PLUGIN_OBSERVATION",JSON.stringify(metrics));
-  if(!metrics.exactRoles||
+  if(process.env.P18_MODEL_PREFLIGHT_ONLY==="true") {
+    if(!metrics.ahpInitialized||!metrics.copilotAdvertised)process.exitCode=1;
+  }else if(!metrics.exactRoles||
       (process.env.P17_DELEGATE_ONCE==="true"&&
        metrics.delegation?.status!=="NAMED_ARCHITECT_COMPLETED_WITH_SOURCE_EVIDENCE"))
     process.exitCode=1;
