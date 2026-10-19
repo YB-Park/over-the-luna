@@ -23,6 +23,8 @@ jobs:
           node --check scripts/p12_direct_pair.mjs
           node --check scripts/p14_host_ahp_probe.mjs
           node --check scripts/p15_host_session_probe.mjs
+          node --check scripts/p16_host_plugin_probe.mjs
+          node scripts/p16_host_plugin_probe.mjs --self-test
           node scripts/p15_host_session_probe.mjs --self-test
           node scripts/p14_host_ahp_probe.mjs --self-test
           python scripts/p12_direct_grader.py --self-test
