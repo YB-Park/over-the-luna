@@ -83,6 +83,110 @@ async function client(entry) {
   }
   return {s,rpc,observed};
 }
+async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
+  const root=state?.customizations?.find(x=>x.type==="plugin"&&x.uri===pluginUri);
+  const main=root?.children?.find(x=>x.type==="agent"&&x.name==="Over the Luna Next");
+  const architect=root?.children?.find(x=>x.type==="agent"&&x.name==="Next Architect");
+  const chat=state?.defaultChat;
+  const result={attempt:"REAL_HOST_NAMED_ARCHITECT_SINGLE_TURN",
+    modelRequested:"gpt-6-luna",turnSubmitted:false,
+    namedTaskArgObserved:false,taskStarted:false,taskCompleted:false,
+    taskSucceeded:false,returnedSourcePacket:false,mainTurnCompleted:false,
+    copilotAuthChallengeObserved:false,chatErrorObserved:false,
+    roleAgentUriVerified:!!main?.uri&&!!architect?.uri,
+    status:"INCONCLUSIVE"};
+  if(!main?.uri||!architect?.uri||typeof chat!=="string"||
+     !chat.startsWith("ahp-chat:")) {
+    result.status="MISSING_NATIVE_AGENT_OR_DEFAULT_CHAT";
+    return result;
+  }
+  const turnId=randomUUID();
+  await c.rpc("subscribe",{channel:chat},15000);
+  const startedIds=new Set();
+  const completeIds=new Set();
+  const rolePattern=/next.architect|next-architect|over-the-luna-next:next-architect/i;
+  let mainText="";
+  let finish;
+  const stop=new Promise(resolve=>{finish=resolve});
+  let ended=false;
+  function resolveStop(reason) {if(!ended){ended=true;finish(reason)}}
+  function onMessage(e) {
+    let m;try{m=JSON.parse(String(e.data))}catch{return}
+    if(m.method==="auth/required") {
+      result.copilotAuthChallengeObserved=true;
+      resolveStop("AUTH_REQUIRED");
+      return;
+    }
+    if(m.method!=="action")return;
+    const a=m.params?.action;
+    if(m.params?.channel===c.observed.session&&a?.type==="session/creationFailed") {
+      resolveStop("SESSION_CREATION_FAILED");return;
+    }
+    if(m.params?.channel!==chat||!a)return;
+    const type=a.type;
+    if(type==="chat/toolCallStart"&&a.toolName==="task") {
+      result.taskStarted=true;
+      if(typeof a.toolCallId==="string")startedIds.add(a.toolCallId);
+    }
+    if((type==="chat/toolCallDelta"||type==="chat/toolCallReady")
+       &&startedIds.has(a.toolCallId)) {
+      const brief=String(a.content||"")+" "+JSON.stringify(a.input??a.arguments??a.parameters??{});
+      if(rolePattern.test(brief))result.namedTaskArgObserved=true;
+    }
+    if(type==="chat/toolCallComplete"&&startedIds.has(a.toolCallId)) {
+      completeIds.add(a.toolCallId);
+      result.taskCompleted=true;
+      result.taskSucceeded=a.result?.success===true;
+      const output=JSON.stringify(a.result?.content??a.result??{});
+      result.returnedSourcePacket=result.taskSucceeded&&
+        output.includes("scripts/validate_release.py")&&
+        output.includes("scripts/package_release.py");
+    }
+    if(type==="chat/responsePart") {
+      const part=a.part?.content;
+      if(typeof part==="string")mainText=(mainText+part).slice(-18000);
+    }
+    if(type==="chat/delta"&&typeof a.content==="string")
+      mainText=(mainText+a.content).slice(-18000);
+    if(type==="chat/error"){result.chatErrorObserved=true;resolveStop("CHAT_ERROR")}
+    if(type==="chat/turnComplete"&&a.turnId===turnId) {
+      result.mainTurnCompleted=true;resolveStop("TURN_COMPLETE");
+    }
+  }
+  c.s.addEventListener("message",onMessage);
+  try {
+    const prompt=[
+      "Read-only investigation of the PUBLIC over-the-luna repo.",
+      "As Over the Luna Next Main, invoke the named Next Architect leaf ONCE",
+      "to determine the relationships between scripts/validate_release.py,",
+      "scripts/package_release.py, and the release ZIP allowlist.",
+      "Return the leaf's separate DECISION, EVIDENCE, RELATIONSHIPS,",
+      "WORK_SET and UNCERTAINTIES with real public source paths.",
+      "No file edits, shell, network, extra leaves, provider changes or push.",
+      "If named delegation is blocked, say INCONCLUSIVE; never fabricate handback."
+    ].join(" ");
+    await c.rpc("dispatchAction",{channel:chat,clientSeq:2,
+      action:{type:"chat/turnStarted",turnId,startedAt:new Date().toISOString(),
+        message:{text:prompt,origin:{kind:"user"},
+          agent:{uri:main.uri},model:{id:"gpt-6-luna"}}}},25000);
+    result.turnSubmitted=true;
+    metrics.modelTurns=1;
+    const outcome=await Promise.race([stop,wait(100000).then(()=> "OBSERVATION_TIMEOUT")]);
+    const hasPacket=result.returnedSourcePacket||
+      (mainText.includes("scripts/validate_release.py")&&
+       mainText.includes("scripts/package_release.py")&&
+       mainText.includes("WORK_SET")&&mainText.includes("EVIDENCE"));
+    result.returnedSourcePacket=hasPacket;
+    result.status=outcome;
+    if(result.taskCompleted&&result.taskSucceeded&&result.namedTaskArgObserved&&
+       result.returnedSourcePacket&&result.mainTurnCompleted)
+      result.status="NAMED_ARCHITECT_COMPLETED_WITH_SOURCE_EVIDENCE";
+  }catch(e) {
+    const msg=String(e.message||"");
+    result.status=/^rpc_code_-?\d+$/.test(msg)?msg:"TURN_RUNTIME_OR_POLICY_FAILURE";
+  }finally{c.s.removeEventListener("message",onMessage)}
+  return result;
+}
 async function main() {
   if(process.argv.includes("--self-test"))return selfTest();
   const userData=process.env.P16_USER_DATA_DIR;
@@ -119,8 +223,10 @@ async function main() {
         clientId:CLIENT,displayName:"P16 Public Probe",tools:[],
         customizations:[plugin]}}},20000);
     metrics.pluginPublished=true;
+    let mostRecentState=first?.snapshot?.state;
     for(let i=0;i<50;i++){
       const s=await c.rpc("subscribe",{channel:session},15000);
+      mostRecentState=s?.snapshot?.state;
       const e=pluginEvidence(s?.snapshot?.state,pluginUri);
       Object.assign(metrics,e);
       if(metrics.exactRoles||metrics.loadState==="error"||
@@ -130,6 +236,11 @@ async function main() {
     metrics.receivedCustomizationActions=c.observed.length;
     metrics.verdict=metrics.exactRoles?"HOST_PLUGIN_EIGHT_ROLES_REGISTERED":
       "PLUGIN_ROLES_NOT_VERIFIED";
+    if(metrics.exactRoles&&process.env.P17_DELEGATE_ONCE==="true") {
+      metrics.delegation=await oneAuthenticArchitectTurn(c,mostRecentState,
+        pluginUri,metrics);
+      metrics.verdict=metrics.delegation.status;
+    }
     await c.rpc("disposeSession",{channel:session},10000);
   }catch(e){
     const message=String(e.message||"");
@@ -139,7 +250,10 @@ async function main() {
   if(process.env.P16_RESULT_PATH)fs.writeFileSync(process.env.P16_RESULT_PATH,
     JSON.stringify(metrics,null,2)+"\n",{mode:0o600});
   console.log("P16_NATIVE_PLUGIN_OBSERVATION",JSON.stringify(metrics));
-  if(!metrics.exactRoles)process.exitCode=1;
+  if(!metrics.exactRoles||
+      (process.env.P17_DELEGATE_ONCE==="true"&&
+       metrics.delegation?.status!=="NAMED_ARCHITECT_COMPLETED_WITH_SOURCE_EVIDENCE"))
+    process.exitCode=1;
 }
 try{await main()}catch(e){
   console.error("P16_NATIVE_PLUGIN_INCONCLUSIVE",
