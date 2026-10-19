@@ -24,3 +24,7 @@ and AHP lifecycle by https://microsoft.github.io/agent-host-protocol/guide/getti
 One-shot trigger: docs/P15_HOST_SESSION_SENTINEL.md with commit message
 [p15-host-session-once]. Do not retry a blocked provider by running the
 previous unsupported standalone SDK plugin-agent test. No merge/release.
+
+## P15 verified initialization boundary (2026-10-19)
+
+First [no-token P15 run](https://github.com/YB-Park/over-the-luna/actions/runs/39187067070) negotiated AHP 1.0.0, observed `copilotcli`, had `createSession` accepted and a real session subscribed, but **did not observe Ready** in the observation window (SESSION_NOT_READY). This is not a named-agent success or model failure. Source shows the Copilot agent uses SDK credentials, potentially inherited from approved runtime context. The next **zero-turn** run passes the job-scoped GitHub Actions `GITHUB_TOKEN` and `copilot-requests: write` only to the official local VS Code Host process and captures an allowlisted lifecycle scalar and error code. No role calls or chat turns; no external BYOK or corporate code.

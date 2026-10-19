@@ -116,7 +116,13 @@ async function main() {
     const subscribed=checkReply(await client.rpc("subscribe",{channel:session},16000));
     summary.sessionSubscribed=!!subscribed?.snapshot;
     const lifecycle=subscribed?.snapshot?.state?.lifecycle;
+    summary.initialLifecycle=["creating","ready","failed"].includes(lifecycle)?
+      lifecycle:"UNKNOWN";
     if(lifecycle==="ready")summary.sessionReady=true;
+    if(lifecycle==="failed"){
+      const code=subscribed?.snapshot?.state?.creationError?.code;
+      summary.failureCode=Number.isInteger(code)?code:null;
+    }
     else if(lifecycle==="failed")summary.disposition="SESSION_FAILED";
     if(!summary.sessionReady&&!summary.disposition.startsWith("SESSION_FAILED")){
       for(let i=0;i<32;i++){

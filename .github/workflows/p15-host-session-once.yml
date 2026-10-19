@@ -5,6 +5,7 @@ on:
     paths: [docs/P15_HOST_SESSION_SENTINEL.md]
 permissions:
   contents: read
+  copilot-requests: write
 jobs:
   copilot-native-session:
     if: contains(github.event.head_commit.message, '[p15-host-session-once]')
@@ -30,6 +31,9 @@ jobs:
           "$RUNNER_TEMP/vscode-cli/code" --version
       - name: Boot isolated authenticated localhost Host
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/otl-p15-user" "$RUNNER_TEMP/otl-p15-server"
