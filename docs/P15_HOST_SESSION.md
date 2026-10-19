@@ -64,4 +64,6 @@ root cause of the pending session.
 Host bootstrap retries. The next product-value gate needs an actual
 authorized Host session that reaches `ready`, plus an observed named
 Architect handback; only then should we spend on genuine complex Council
-collaboration. Until then, status is `HOST_SESSION_READY_UNVERIFIED`.
+collaboration. Superseded status: the no-turn session was PROVISIONAL,
+not a proven login failure; P17 later submitted a first turn but received
+`chat/error` before any named task started.
