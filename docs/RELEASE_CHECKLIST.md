@@ -79,9 +79,9 @@ as Council handback. There is no grounds for main/stable release.
 
 - [x] **Pilot package READY**: allowlisted ZIP containing 8 agents plus
       `docs/PILOT_GUIDE.md`, and a stdlib-only ZIP auditor; built on
-      [CI #39201643865](https://github.com/YB-Park/over-the-luna/actions/runs/39201552015),
-      SHA-256 `3a3943c6ce9ffcf981fb3f909e39eae28d4fcebffd0d57b62e2adf3939ebec18`.
-      14 static role tests, 13 accounting tests, 6 negative ZIP tests PASS.
+      [CI #39203115287](https://github.com/YB-Park/over-the-luna/actions/runs/39201552015),
+      SHA-256 `72a648eba87b9c802288d962e0174e6d7f7af3ae98f72280b8633dbc41fd36f6`.
+      14 static role tests, 13 accounting tests, 8 negative ZIP tests PASS.
 - [x] **Evidence-calibrated runtime instructions**: safe direct work may
       produce `PILOT_DIRECT_OK` without pretending Council ran. A blocked
       named leaf must produce `NAMED_DELEGATION_UNAVAILABLE`; high-impact
@@ -120,6 +120,11 @@ A repacked archive with `Next Architect` changed from
 pass the old structural check despite breaking the intended role policy.
 This is a **real review finding about the downloaded package**, not proof
 that VS Code enforces an agent's declared tool restrictions.
+
+**Observed fixed CI:** [#39203115287](https://github.com/YB-Park/over-the-luna/actions/runs/39203115287)
+passed 14 release tests, **8** ZIP/negative tests and 13
+role-accounting tests; published the 15-member RC2 ZIP with SHA-256
+`72a648eba87b9c802288d962e0174e6d7f7af3ae98f72280b8633dbc41fd36f6` (36,577 bytes). No live Copilot or subagent ran.
 
 **Fix:** pilot verifier CLI now **requires** `--expected-sha256`,
 which must come from this PR's successful Actions package digest, not
