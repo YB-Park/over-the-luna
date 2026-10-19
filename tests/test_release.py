@@ -102,6 +102,30 @@ class RoleTopologyCandidateTests(unittest.TestCase):
         main_file.write_text(main_text)
         self.assertEqual(validate(self.root),[])
 
+    def test_consequential_work_cannot_be_simplified_to_direct_only(self):
+        main_file=self.root/"agents"/MAIN
+        original=main_file.read_text()
+        for statement in (
+            "DIRECT means no separate specialist, not shallow investigation.",
+            "Green focused tests do not automatically close",
+            "not a reason to skip necessary correctness work"
+        ):
+            with self.subTest(statement=statement):
+                main_file.write_text(original.replace(statement,"policy omitted"))
+                self.assertTrue(validate(self.root))
+        main_file.write_text(original)
+        for filename,statement in (
+            ("next-reviewer.agent.md","partial failure"),
+            ("next-skeptic.agent.md","negative-authority"),
+        ):
+            leaf=self.root/"agents"/filename
+            body=leaf.read_text()
+            with self.subTest(leaf=filename):
+                leaf.write_text(body.replace(statement,"ordinary-case"))
+                self.assertTrue(validate(self.root))
+            leaf.write_text(body)
+        self.assertEqual(validate(self.root),[])
+
     def test_missing_and_extra_roles(self):
         target=self.root/"agents/next-reviewer.agent.md"
         source=target.read_text()

@@ -98,7 +98,11 @@ def validate(root:Path=ROOT) -> list[str]:
                 "Investigation and assurance are separate decisions",
                 "Premium substitution, not accumulation",
                 "MAY REPLACE Next Reviewer",
-                "provider approval")):
+                "provider approval",
+                "DIRECT means no separate specialist, not shallow investigation.",
+                "cost is a",
+                "not a reason to skip necessary correctness work",
+                "Green focused tests do not automatically close")):
                 errors.append("Main missing independent routing / premium substitution gate")
         else:
             expectedName,expectedModel,expectedTools=MODELS[filename]
@@ -109,6 +113,12 @@ def validate(root:Path=ROOT) -> list[str]:
             if meta.get("tools")!=expectedTools:errors.append(f"{filename}: tools mismatch")
             if meta.get("agents")!=[]:errors.append(f"{filename}: recursion declaration mismatch")
             if not body.strip():errors.append(f"{filename}: empty instructions")
+            if filename == "next-reviewer.agent.md":
+                if not all(term in body for term in ("partial failure", "backward compatibility")):
+                    errors.append("Reviewer missing consequence-aware challenge")
+            if filename == "next-skeptic.agent.md":
+                if not all(term in body for term in ("failure/rollback", "negative-authority")):
+                    errors.append("Skeptic missing consequential pre-edit challenge")
             if filename in ("next-sol-specialist.agent.md","next-sonnet-specialist.agent.md"):
                 if not all(term in body for term in (
                     "When substituting for Next Reviewer",

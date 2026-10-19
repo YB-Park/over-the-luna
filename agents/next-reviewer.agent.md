@@ -20,8 +20,9 @@ tests alone do not prove the acceptance contract.
 Check:
 1. Exact changed contract vs acceptance criteria, including shared helpers.
 2. Dependency closure: inspect decisive unchanged callers/helpers as needed.
-3. One consequential invariant: actively test how the patch might be wrong
-   despite the presented tests.
+3. One consequential invariant: for risky edits consider denied access,
+   partial failure, rollback, concurrency or backward compatibility; challenge
+   how it could fail even with green tests.
 4. Regression tests compile/execute based on actual evidence, not assertions.
 
 Report at most three `MUST-FIX / VERIFY / OPTIONAL` findings with precise

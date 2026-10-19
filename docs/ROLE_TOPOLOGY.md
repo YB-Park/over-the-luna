@@ -75,14 +75,14 @@ role is declared unnecessary forever.
 - Actual unexplained failure: **Main → diagnostic Recovery → Main**.
 - Specific high-stakes residual uncertainty or user request: **one of Sol / Sonnet** for ONE bounded independent opinion; *do not call both by default*.
 
-**Budget:** default 0 leaves for trivial work, about 1 for meaningful
-discovery or review, up to 2 cheap leaves for a combined risky
-cross-file change. A premium independent opinion needs a named
-decision it can change and an approved provider/data policy.
-Do not impose an arbitrary numerical limit where missing correctness
-would be dangerous; seek user approval for materially increasing
-cost/scope. Count total credits plus any separate OpenAI USD,
-elapsed time, rework and user approvals.
+**Budget:** typically 0 leaves when direct evidence closes a mechanical task,
+and 1 for bounded discovery or independent review. This is an expectation,
+**not a cap**. A consequential unknown may justify *separate* Architect,
+Skeptic and post-edit Reviewer questions when each closes a different
+gap; a premium alternative may replace a duplicate Reviewer rather than
+adding another layer. Missing correctness evidence outweighs a target
+agent count. Seek approval for materially greater cost/scope; track
+credits and separate API cost, latency, rework and developer attention.
 
 ## Routing policy P9 — separate evidence and assurance decisions (2026-10-19)
 
@@ -184,6 +184,44 @@ complete under Host policy, merge its capability into Main or another role.
 Re-add Planner/Tool Worker only after their distinct utility and effective
 permissions have been shown. Neither file count nor model reputation wins
 without task evidence.
+
+## P13 — calibrated depth, not automatic simplicity (2026-10-19)
+
+A DIRECT route is only a decision about **who** executes; it does not
+decide **how much engineering assurance** the request needs. Assess
+uncertainty and the worst credible impact *separately* from file count.
+Use an intelligent model's judgment, not a brittle count-of-files
+classifier or a fixed agent invocation checklist.
+
+| Real work pattern | Investigation | Assurance before declaring success |
+| --- | --- | --- |
+| 100 mechanical rename locations with a deterministic compiler and caller check | Main direct | Exhaustive changed-reference and build checks; no ceremonial reviewer |
+| One-line authorization bypass or tenant-scoping bug | Main direct if contract known; otherwise Skeptic | Denied-access negative tests, other callers, real-diff independent Reviewer; rollback/fail-closed |
+| Multi-service migration with uncertain source-of-truth, replay and partial failure | Architect for contract, Skeptic for one dangerous assumption | Main plans migration/rollback, relevant integration/negative tests and independent diff Reviewer; approved stronger model if materially useful |
+| Reproducible complex algorithm with explicit mathematical invariants | Main direct if dependencies known | Property, boundary and regression tests; reviewer when semantic risk requires independent view |
+| Third-party API contract change with data residency constraints | Researcher for public spec only under approved boundary | Compatibility/error handling and provider-policy check; no secret transfer |
+| Host delegation unavailable on a consequential patch | Main may continue safe local validation | Explicitly **UNVERIFIED** independent review; no false sign-off or policy bypass |
+
+**Depth escalation:** when uncertainty is high, expand discovery; when
+consequence is high, expand negative-case testing, dependency coverage,
+authorization checks and independent assurance. Both high can warrant
+multiple *different* cheap leaves, even if that costs more. Do not
+remove a necessary review because an approximate two-leaf budget was
+reached. Conversely, do not send a large but fully deterministic change
+through automatic Council stages.
+
+**Stop criteria:** Known acceptance and its consequential failure cases
+are checked with concrete evidence; actual diff and all affected contracts
+are examined; independent review is verified or explicitly unverified;
+tool, model and data boundaries were respected. If a critical question is
+unresolved, limit scope or report the block, not an invented full PASS.
+
+**Evidence scope:** This is a policy/packaging contract, not behavioral
+proof that the Copilot Host will follow the policy. P12 only proved that
+one simple DIRECT code change could pass in both SDK arms. It cannot
+justify shallow treatment of migrations, security or concurrency. One
+authentic Host-native high-consequence collaboration still requires
+runtime evidence before any role-removal or release decision.
 
 ## Permissions and actual deployment caveats
 
