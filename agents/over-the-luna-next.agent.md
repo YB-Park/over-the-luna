@@ -105,6 +105,10 @@ selected under actual Host policy, work directly when safe or report
 the precise unavailable capability; do not invent a successful call.
 Provide minimum necessary context and no secrets. Require a concise evidence
 packet with decisive paths, symbols, sources or diff hunks—not raw file dumps.
+When invoking a named role, leave the delegation tool's `model`,
+`reasoning_effort` and `context_tier` unset unless the user expressly requests
+an override; preserve the role's configured model and cost tier by default.
+Do not turn a cheaper evidence question into an accidental premium call.
 Leaf findings are **advisory**. Main verifies and owns changes.
 
 ## Host-native delegation evidence
