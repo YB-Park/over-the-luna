@@ -47,6 +47,20 @@ function catalogEvidence(root) {
     protectedResourceCount:Array.isArray(copilot?.protectedResources)?
       copilot.protectedResources.length:0};
 }
+function taskNamesArchitect(action) {
+  // AHP task arguments arrive in toolCallReady.toolInput; Delta is partial.
+  const value=action?.toolInput??action?.input??action?.arguments??
+    action?.parameters??action?.content;
+  const text=typeof value==="string"?value:JSON.stringify(value??{});
+  return /next[-_ .]architect|over-the-luna-next:next-architect/i.test(text);
+}
+function taskReturnedPublicEvidence(result) {
+  if(result?.success!==true)return false;
+  const text=JSON.stringify(result?.content??[]);
+  return text.includes("scripts/validate_release.py")&&
+    text.includes("scripts/package_release.py")&&
+    /EVIDENCE|RELATIONSHIPS|WORK_SET/.test(text);
+}
 function selfTest() {
   const good=pluginEvidence({customizations:[{type:"plugin",uri:"file:///public",
     load:{kind:"loaded"},children:ROLES.map(name=>({type:"agent",name}))}]},"file:///public");
@@ -69,6 +83,15 @@ function selfTest() {
      catalogEvidence({agents:[{provider:"copilotcli",
        models:[{id:"gpt-6-luna",policyState:"disabled"}]}]}).lunaExactAdvertised)
     throw Error("model_policy_leak");
+  if(!taskNamesArchitect({toolInput:{agent_type:"over-the-luna-next:next-architect"}})||
+      taskNamesArchitect({toolInput:{agent_type:"next-reviewer"}}))
+    throw Error("task_selection_contract");
+  const publicPacket={success:true,content:[
+    "EVIDENCE: scripts/validate_release.py; scripts/package_release.py"]};
+  if(!taskReturnedPublicEvidence(publicPacket)||
+      taskReturnedPublicEvidence({success:false,content:publicPacket.content})||
+      taskReturnedPublicEvidence({success:true,content:["Fake Main said all tests pass"]}))
+    throw Error("independent_packet_contract");
   console.log("P16_NATIVE_PLUGIN_PREFLIGHT_PASS");
 }
 async function endpoint(dir) {
@@ -145,7 +168,6 @@ async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
   await c.rpc("subscribe",{channel:chat},15000);
   const startedIds=new Set();
   const completeIds=new Set();
-  const rolePattern=/next.architect|next-architect|over-the-luna-next:next-architect/i;
   let mainText="";
   let finish;
   const stop=new Promise(resolve=>{finish=resolve});
@@ -173,17 +195,13 @@ async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
     }
     if((type==="chat/toolCallDelta"||type==="chat/toolCallReady")
        &&startedIds.has(a.toolCallId)) {
-      const brief=String(a.content||"")+" "+JSON.stringify(a.input??a.arguments??a.parameters??{});
-      if(rolePattern.test(brief))result.namedTaskArgObserved=true;
+      if(taskNamesArchitect(a))result.namedTaskArgObserved=true;
     }
     if(type==="chat/toolCallComplete"&&startedIds.has(a.toolCallId)) {
       completeIds.add(a.toolCallId);
       result.taskCompleted=true;
       result.taskSucceeded=a.result?.success===true;
-      const output=JSON.stringify(a.result?.content??a.result??{});
-      result.returnedSourcePacket=result.taskSucceeded&&
-        output.includes("scripts/validate_release.py")&&
-        output.includes("scripts/package_release.py");
+      result.returnedSourcePacket=taskReturnedPublicEvidence(a.result);
     }
     if(type==="chat/responsePart") {
       const part=a.part?.content;
@@ -219,11 +237,10 @@ async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
     result.turnSubmitted=true;
     metrics.modelTurns=1;
     const outcome=await Promise.race([stop,wait(100000).then(()=> "OBSERVATION_TIMEOUT")]);
-    const hasPacket=result.returnedSourcePacket||
-      (mainText.includes("scripts/validate_release.py")&&
-       mainText.includes("scripts/package_release.py")&&
-       mainText.includes("WORK_SET")&&mainText.includes("EVIDENCE"));
-    result.returnedSourcePacket=hasPacket;
+    // Main's own summary cannot prove that an independent task returned evidence.
+    // Only the actual successful task result can satisfy this gate.
+    result.mainMentionedPublicPaths=mainText.includes("scripts/validate_release.py")&&
+       mainText.includes("scripts/package_release.py");
     result.status=outcome;
     if(result.taskStartedCount===1&&result.taskCompleted&&result.taskSucceeded&&result.namedTaskArgObserved&&
        result.returnedSourcePacket&&result.mainTurnCompleted)
@@ -298,9 +315,20 @@ async function main() {
     metrics.verdict=metrics.exactRoles?"HOST_PLUGIN_EIGHT_ROLES_REGISTERED":
       "PLUGIN_ROLES_NOT_VERIFIED";
     if(metrics.exactRoles&&process.env.P17_DELEGATE_ONCE==="true") {
-      metrics.delegation=await oneAuthenticArchitectTurn(c,mostRecentState,
-        pluginUri,metrics);
-      metrics.verdict=metrics.delegation.status;
+      // Fail closed: selected user model must be advertised by the real Host.
+      // Plugin registration alone cannot authorize a paid model turn.
+      const listing=await c.rpc("subscribe",{channel:ROOT},15000);
+      metrics.catalog=catalogEvidence(listing?.snapshot?.state);
+      if(!metrics.catalog.lunaExactAdvertised) {
+        metrics.delegation={attempt:"REAL_HOST_NAMED_ARCHITECT_SINGLE_TURN",
+          modelRequested:"gpt-6-luna",turnSubmitted:false,
+          status:"BLOCKED_MODEL_NOT_ADVERTISED"};
+        metrics.verdict="BLOCKED_MODEL_NOT_ADVERTISED";
+      } else {
+        metrics.delegation=await oneAuthenticArchitectTurn(c,mostRecentState,
+          pluginUri,metrics);
+        metrics.verdict=metrics.delegation.status;
+      }
     }
     await c.rpc("disposeSession",{channel:session},10000);
     }
