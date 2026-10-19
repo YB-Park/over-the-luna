@@ -22,6 +22,8 @@ jobs:
           node --check scripts/role_pipeline_pair.mjs
           node --check scripts/p12_direct_pair.mjs
           node --check scripts/p14_host_ahp_probe.mjs
+          node --check scripts/p15_host_session_probe.mjs
+          node scripts/p15_host_session_probe.mjs --self-test
           node scripts/p14_host_ahp_probe.mjs --self-test
           python scripts/p12_direct_grader.py --self-test
           python -m py_compile scripts/role_pipeline_grader.py
