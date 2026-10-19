@@ -94,6 +94,12 @@ def validate(root:Path=ROOT) -> list[str]:
                 "Next Sol Specialist","Next Sonnet Specialist",
                 "actual diff","security sandbox")):
                 errors.append("Main missing orchestration/evidence language")
+            if not all(k in body for k in (
+                "Investigation and assurance are separate decisions",
+                "Premium substitution, not accumulation",
+                "MAY REPLACE Next Reviewer",
+                "provider approval")):
+                errors.append("Main missing independent routing / premium substitution gate")
         else:
             expectedName,expectedModel,expectedTools=MODELS[filename]
             if name!=expectedName:errors.append(f"{filename}: incorrect role name")
@@ -103,6 +109,11 @@ def validate(root:Path=ROOT) -> list[str]:
             if meta.get("tools")!=expectedTools:errors.append(f"{filename}: tools mismatch")
             if meta.get("agents")!=[]:errors.append(f"{filename}: recursion declaration mismatch")
             if not body.strip():errors.append(f"{filename}: empty instructions")
+            if filename in ("next-sol-specialist.agent.md","next-sonnet-specialist.agent.md"):
+                if not all(term in body for term in (
+                    "When substituting for Next Reviewer",
+                    "actual current diff", "VERIFY: patch evidence absent")):
+                    errors.append(f"{filename}: premium patch-review precondition missing")
     for ext in BLOCK_EXTENSIONS:
         if (root/ext).exists():errors.append(f"bundled extension forbidden: {ext}")
     if any(root.rglob("SKILL.md")):errors.append("SKILL.md bundles forbidden")

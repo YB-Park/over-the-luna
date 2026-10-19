@@ -84,6 +84,107 @@ would be dangerous; seek user approval for materially increasing
 cost/scope. Count total credits plus any separate OpenAI USD,
 elapsed time, rework and user approvals.
 
+## Routing policy P9 — separate evidence and assurance decisions (2026-10-19)
+
+This is a **model-facing judgment policy**, not a rigid keyword classifier, a new
+agent, or a claim that a larger Council is inherently better. A model can
+infer intent from loose user requests; forcing an exhaustive checklist on
+every turn wastes context. Instead make two quiet decisions:
+
+1. **Investigation:** Can Main resolve the missing fact with bounded local
+   reads or existing tests? If yes, **DIRECT**. If the unknown is broad
+   repository structure, choose one **Architect**; an untestable consequential
+   pre-edit assumption, **Skeptic**; current external vendor facts,
+   **Researcher**; evidenced unresolved implementation failure after
+   basic tool/policy triage, **Recovery**. No duplicate lens for the same fact.
+2. **Assurance:** When the patch is mechanical and an exact assertion closes
+   the contract, no review. When a semantic or high-risk edit needs independent
+   assurance, send real current diff + test evidence to **Reviewer** or one
+   authorized **Sol/Sonnet** specialist for the *same post-edit question*.
+   A strong review can **replace**, not automatically follow, a Luna review.
+   Its prompt must have real hunks, acceptance, changed paths and test results.
+   For distinct pre- and post-edit risks, Skeptic and a reviewer can both help.
+
+| Authentic task shape | Investigation | Post-edit assurance | Reason |
+| --- | --- | --- | --- |
+| Named one-line default plus exact assertion | Main direct | None | No missing decision |
+| Unknown caller/serializer contract across modules | Architect once | Reviewer only if final edit warrants | Broad search is disposable |
+| Reproducible validation failure with known cause | Main direct repair | According to actual diff risk | Recovery would repeat facts |
+| Consequential migration assumption without deterministic oracle | Skeptic before edit | Independent real-diff review after | Two different questions/times |
+| Vendor API changed upstream since pinned integration | Researcher once | Only if edit warrants | Dated public fact isolated |
+| Security-sensitive patch with materially hard post-edit invariant | No leaf unless missing contract | Reviewer OR authorized Sol/Sonnet with real diff | Premium replaces duplicate judgment |
+| Host policy blocks named subagent | Do not bypass; report limitation | No fabricated review | Authorization outweighs orchestration |
+
+### Boundary and measurement
+
+- **No extra agent solely for task length, token count, or an abstract risk
+  score.** A delegated question must be self-contained, decision-changing,
+  and economical after child setup + returned-packet + Main reread costs.
+  If one narrow local check settles the question, do that instead.
+- **Evidence handback is required:** named completion, returned findings,
+  changed paths/source pointers; for cross-model claims verify executed
+  provider/model. Prompt declarations and registry discovery are insufficient.
+- **Premium escalation is substitution where equivalent**, not a ritual
+  third stage. Do not claim a pre-edit consult has independently reviewed
+  an unseen patch. Respect company provider/tool/data policy.
+- **Provider/model defaults stay pinned per leaf**; Copilot Host guidance
+  says do not override delegation `model`, `reasoning_effort`, or
+  `context_tier` unless explicitly requested.
+- **Value per task** = accepted requirement/invariant coverage, severity of
+  discovered defects, avoided rework/duplicated reads, elapsed time,
+  Copilot usage counters and tokens, plus developer interruptions. Report
+  SDK/Copilot usage independently from any OpenAI API USD; do not infer
+  monetary savings from prompt character counts.
+
+### External patterns actually checked (not imported benchmarks)
+
+- [Claude Code subagents](https://code.claude.com/docs/en/sub-agents):
+  independent self-contained work and concise descriptions; direct Main
+  for short/iterative tasks. Subagents still spend tokens and child handbacks
+  consume context. We borrow its **route-by-description** lesson, not its
+  runtime tool/permission semantics.
+- [Codex subagents](https://developers.openai.com/codex/agent-configuration/subagents):
+  independent parallel workstreams, and explicitly higher token usage.
+  We retain one mutation owner; no parallel fan-out by default.
+- [OpenCode agents](https://dev.opencode.ai/v2/docs/agents/):
+  primary vs subordinate modes and explicit subagent permissions.
+  Host-native Copilot security must be checked separately.
+- [Aider architect/editor](https://aider.chat/docs/usage/modes.html):
+  optional reasoning/editing separation costs two requests. We do not
+  force an Architect pass before every Luna code edit.
+- [Oh My OpenAgent / Oh My OpenCode](https://github.com/code-yeongyu/oh-my-openagent):
+  model selection by role/task and provider options; helpful as a routing
+  idea, not evidence that automatic fallback or a large always-on DAG is
+  appropriate for the enterprise Copilot Host.
+- [VS Code subagents by harness](https://code.visualstudio.com/docs/agents/run/subagents):
+  short edits generally stay direct, and the Copilot native delegation
+  differs from the Local `agent/runSubagent` path.
+
+### Experiment stop/go (no fabricated success)
+
+**Offline structural gate first:** check product prompt's independent
+investigation/assurance contract, premium post-edit artifact precondition,
+provider protection, allowed role set and existing release/security invariants
+in the public repository CI. This validates **packaged instructions only**,
+not LLM routing performance or actual Host permissions.
+
+**One decision-relevant paid evaluation once Host-native delegation can
+actually complete**: use an authentic public cross-module change where a real
+diff and hidden deterministic acceptance oracle exist. Record explicit named
+handbacks, the decision each role changed, detected regressions, end-to-end
+Copilot meter/tokens/latency, compared with an appropriate direct path.
+Cap the paid attempts prospectively; permit a further trial only if a
+distinct product choice remains unresolved. If Host task invocation fails or
+telemetry is missing, classify **INCONCLUSIVE**, don't rerun standalone SDK
+plugin subagents: P5 already isolated the `custom_agent_prompt` failure.
+
+**Role-retirement triggers:** when repeated *authentic* cases show a role
+returns already-known facts, creates no independent correction, or cannot
+complete under Host policy, merge its capability into Main or another role.
+Re-add Planner/Tool Worker only after their distinct utility and effective
+permissions have been shown. Neither file count nor model reputation wins
+without task evidence.
+
 ## Permissions and actual deployment caveats
 
 - All leaves explicitly name nonempty read/search(/web) tool sets and

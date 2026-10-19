@@ -79,6 +79,29 @@ class RoleTopologyCandidateTests(unittest.TestCase):
                 self.assertTrue(validate(self.root))
                 file.write_text(original)
 
+    def test_premium_substitution_requires_real_diff_and_distinct_routing(self):
+        main_file=self.root/"agents"/MAIN
+        main_text=main_file.read_text()
+        for name in ("next-sol-specialist.agent.md","next-sonnet-specialist.agent.md"):
+            agent=self.root/"agents"/name
+            source=agent.read_text()
+            self.assertIn("actual current diff",source)
+            self.assertIn("VERIFY: patch evidence absent",source)
+            with self.subTest(agent=name):
+                agent.write_text(source.replace("When substituting for Next Reviewer",
+                                                "When consulting"))
+                self.assertTrue(validate(self.root),
+                    "a premium substitute must reject absent patch evidence")
+                agent.write_text(source)
+        for marker in ("Investigation and assurance are separate decisions",
+                       "Premium substitution, not accumulation"):
+            with self.subTest(marker=marker):
+                main_file.write_text(main_text.replace(marker, "omitted"))
+                self.assertTrue(validate(self.root),
+                    "a routing gate must not disappear from the packaged Main")
+        main_file.write_text(main_text)
+        self.assertEqual(validate(self.root),[])
+
     def test_missing_and_extra_roles(self):
         target=self.root/"agents/next-reviewer.agent.md"
         source=target.read_text()

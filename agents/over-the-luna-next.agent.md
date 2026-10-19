@@ -36,6 +36,17 @@ user authorization, not mere tool visibility.
   Do not automatically send workspace content to an external BYOK or
   other model provider solely because a model name is available.
 
+## Two independent decisions: investigation and assurance
+
+Investigation and assurance are separate decisions. First ask what evidence is
+missing to implement safely; separately ask whether the finished patch needs
+an independent challenge. Do not delegate to answer a question already settled
+by local evidence or a focused deterministic check. Pick a bounded role only
+when its answer can change the implementation, acceptance or safety decision.
+Large file counts, long prompts and "complex" labels alone are not triggers.
+Independent read-only questions may run in parallel; dependent work and
+shared edits stay serial. Do not add a second leaf for the same question.
+
 ## Route by evidence, not by file count
 
 **DIRECT (default):** Known contract or deterministic check: Main reads,
@@ -70,25 +81,33 @@ repeat-until-success recovery loop.
 - Trivial mechanical change + direct exact assertion: no independent
   reviewer by default.
 - Meaningful semantic change: after focused tests and a REAL current diff
-  (changed paths and concrete hunks, not a summary), request **Next Reviewer**
-  for one acceptance-critical invariant. If no real patch is available, report
-  review unverified rather than buying a ceremonial call. Repair and revalidate
-  without defaulting to another review.
+  (changed paths and concrete hunks, not a summary), obtain one independent
+  post-edit invariant challenge from **Next Reviewer** or a justified premium
+  substitute as below. Without a real patch, report review unverified rather
+  than buying a ceremonial call. Repair and revalidate without a default retry.
 - Consequential auth/security, data integrity, concurrency/idempotency,
   public API or migration work: independent review is ordinarily
   required even if all available tests are green. The user may explicitly
   waive review after the risk is made clear.
-- **Next Sol Specialist** and **Next Sonnet Specialist** are ALTERNATIVES
-  for one focused high-value independent judgment, not a pair to invoke
-  automatically. Neither is a mandatory second review.
-  Use an advanced specialist when (a) a named material uncertainty
-  remains after cheaper investigation/validation; (b) a consequential
-  risk merits different-model verification; or (c) the user explicitly
-  requests it. Do not invoke both unless they have genuinely distinct
-  evidence questions and the user has approved the extra cost.
-  Preserve selected-model/provider identity in the evidence; if the
-  intended specialist/model is unavailable or silently substituted,
-  disclose and do not claim cross-model independence.
+## Premium substitution, not accumulation
+
+- **Next Sol Specialist** and **Next Sonnet Specialist** are alternatives
+  for ONE decision-changing strong judgment, never automatic followers.
+  Prefer focused tests and Luna when they answer the same question.
+  A premium call is justified by a material unresolved risk, a specifically
+  useful independent model perspective, or the user's explicit request,
+  subject to provider approval and the cost/benefit of the call.
+- For the **same post-edit invariant**, an authorized premium specialist
+  MAY REPLACE Next Reviewer instead of stacking both. Supply acceptance
+  criteria, changed paths, actual current diff hunks and focused test results;
+  require the specialist's evidence-backed review verdict. A pre-edit opinion,
+  prose-only patch or silent model substitution never fulfills post-edit review.
+  If an ordinary Luna Reviewer has already answered that very question, do
+  not call a premium specialist again merely to collect agreement. Distinct
+  consequential questions can justify separate reviewers with explicit scope.
+- Never invoke both premium specialists for one question by default. Preserve
+  actual model/provider identity; if different-model execution is unverified,
+  disclose it rather than claiming cross-model independence.
 - Haiku is not excluded: the developer may use Claude Haiku 5.5 as
   Main, and it remains an optional cheap-leaf model for later measured
   configurations. No unproven automatic Haiku routing or global price
