@@ -21,8 +21,9 @@
       avoids rework relative to justified direct evidence.
 
 **Stop:** Do not repeat P5 SDK subagent probes or claim Council value from
-Host boot/registry alone. No further model spend until a real Host-ready
-authenticated session and named-role completion path can be observed.
+Host boot/registry alone. No further paid attempts should be repeated
+until the actual first-turn `chat/error` is diagnosable and approved
+Host credentials/model policy permit a meaningful named-role call.
 
 ## P16/P17 actual Host integration findings (2026-10-19)
 
