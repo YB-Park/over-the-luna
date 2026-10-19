@@ -1,0 +1,55 @@
+name: P18 native Host model catalog and policy observation (no inference)
+on:
+  push:
+    branches: [research/next-role-topology]
+    paths: [docs/P18_MODEL_CATALOG_SENTINEL.md]
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  catalog:
+    if: contains(github.event.head_commit.message, '[p18-model-catalog-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline model policy projection and source syntax
+        run: |
+          node --check scripts/p16_host_plugin_probe.mjs
+          node scripts/p16_host_plugin_probe.mjs --self-test
+      - name: Install official VS Code CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p18-cli"
+          curl --fail --location --silent --show-error --max-time 130 --retry 2 https://update.code.visualstudio.com/latest/cli-linux-x64/stable -o "$RUNNER_TEMP/p18-cli.tgz"
+          tar -xzf "$RUNNER_TEMP/p18-cli.tgz" -C "$RUNNER_TEMP/p18-cli"
+          test -x "$RUNNER_TEMP/p18-cli/code"
+      - name: Launch genuine isolated Host, official job-scoped Copilot credential
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p18-user" "$RUNNER_TEMP/p18-server"
+          chmod 700 "$RUNNER_TEMP/p18-user"
+          nohup "$RUNNER_TEMP/p18-cli/code" agent host --foreground --new-instance --host 127.0.0.1 --port 0 --user-data-dir "$RUNNER_TEMP/p18-user" --server-data-dir "$RUNNER_TEMP/p18-server" >"$RUNNER_TEMP/p18-private.log" 2>&1 < /dev/null &
+      - name: Read AHP advertised model catalog metadata without session or model turn
+        env:
+          P16_USER_DATA_DIR: ${{ runner.temp }}/p18-user
+          P16_RESULT_PATH: ${{ runner.temp }}/p18-metadata.json
+          P18_MODEL_PREFLIGHT_ONLY: 'true'
+        run: node scripts/p16_host_plugin_probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p18-public-host-model-policy-metadata
+          path: ${{ runner.temp }}/p18-metadata.json
+          if-no-files-found: ignore
+          retention-days: 14
