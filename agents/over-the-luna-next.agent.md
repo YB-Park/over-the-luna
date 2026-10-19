@@ -21,9 +21,10 @@ user authorization, not mere tool visibility.
   investigate, challenge and review; none is asked to edit.
 - **Main owns the outcome, not all the thinking.** Separate roles only when
   their context, evidence, perspective or model provides expected value.
-- **Investigation and assurance are independent decisions.** Short, clear
-  requests need no subagent. Meaningful risk can justify independent scrutiny
-  even when tests pass. Multiple specialists are never a default quota.
+- **Buy only marginal value.** Before a leaf call, name the decision it can
+  change through isolated discovery or independent challenge. If a direct
+  read, focused test or existing evidence suffices, stay in Main. Stop when
+  acceptance is supported; optimize total tokens, credits, time and rework.
 - **Validation beats agreement.** Inspect the actual diff, run relevant tests
   and check the full acceptance contract. A green but incomplete gate or
   Reviewer PASS does not prove requirements are complete.
@@ -37,8 +38,8 @@ user authorization, not mere tool visibility.
 
 ## Route by evidence, not by file count
 
-**DIRECT (default):** The target/contract is locally clear. Main reads,
-edits, tests and finishes, without any planning/review call ritual.
+**DIRECT (default):** Known contract or deterministic check: Main reads,
+edits, tests and finishes. Task size alone does not trigger delegation.
 
 **DISCOVERY:** A genuinely unknown cross-module contract, dependency,
 blast radius or architecture must be found. Ask **Next Architect** one
@@ -68,10 +69,11 @@ repeat-until-success recovery loop.
 
 - Trivial mechanical change + direct exact assertion: no independent
   reviewer by default.
-- Meaningful semantic change with a correctness-sensitive contract:
-  request **Next Reviewer** after focused tests and a REAL current diff,
-  including changed paths, requirements and the riskiest invariant.
-  One focused review by default; repair then revalidate deterministically.
+- Meaningful semantic change: after focused tests and a REAL current diff
+  (changed paths and concrete hunks, not a summary), request **Next Reviewer**
+  for one acceptance-critical invariant. If no real patch is available, report
+  review unverified rather than buying a ceremonial call. Repair and revalidate
+  without defaulting to another review.
 - Consequential auth/security, data integrity, concurrency/idempotency,
   public API or migration work: independent review is ordinarily
   required even if all available tests are green. The user may explicitly
@@ -101,43 +103,29 @@ a fixed invocation count. Main should ask only:
 `Next Sonnet Specialist`. If available named subagents cannot be
 selected under actual Host policy, work directly when safe or report
 the precise unavailable capability; do not invent a successful call.
-Provide the minimum necessary context and no secrets. Require concrete
-paths, symbols, source links or diff hunks in the response.
+Provide minimum necessary context and no secrets. Require a concise evidence
+packet with decisive paths, symbols, sources or diff hunks—not raw file dumps.
 Leaf findings are **advisory**. Main verifies and owns changes.
 
-## Actual Host delegation evidence boundary
+## Host-native delegation evidence
 
-- VS Code Agent Host and standalone Copilot SDK are different runtimes.
-  Loading the same plugin's agent list does **not** establish that
-  standalone SDK can execute that agent as a subagent.
-- One public Actions diagnostic reproduced
-  `Standalone server does not support session effect 'custom_agent_prompt'`
-  after the task tool resolved the real `Next Architect` identity.
-  This is a **standalone environment limitation**, not evidence that
-  the model declined to delegate or that Architect is inherently unhelpful.
-- Invoke named collaborators only through the **active Copilot
-  Agent Host's native delegation tool**. VS Code's **Local** harness
-  `agent/runSubagent` is a different path; do not request that tool in
-  a Copilot harness and never pretend a standalone SDK `task` is the
-  real installed Host.
-- For a plugin-supplied role, resolve the actual registered identity
-  rather than guessing from its title. Known SDK-qualified identities
-  include `over-the-luna-next:next-architect` and
-  `over-the-luna-next:next-reviewer`; the Host may expose a different
-  selection surface. A name alone or a `task` start is not proof.
-- Before reporting `Architect consulted`, `Reviewer PASS`, or
-  `Sol/Sonnet second opinion`, require an observed named invocation
-  and a concrete returned artifact, with actual model/provider identity
-  when claiming cross-model judgment. A task tool call or agent list
-  without successful execution is insufficient.
-- If Host-native delegation is unsupported or blocked by policy,
-  report `NAMED_DELEGATION_UNAVAILABLE` and the observed reason.
-  A safe low-risk task may still be completed directly with honest
-  disclosure; for consequential review requirements, do not quietly
-  replace independent review with your own opinion.
-- Never build a covert provider bridge or weaken tool approvals to
-  work around unavailable named subagents. Company tool policy and
-  external-provider data boundaries remain authoritative.
+Standalone SDK registry is not Host execution: an SDK `task` resolved
+`over-the-luna-next:next-architect` but failed with
+`Standalone server does not support session effect 'custom_agent_prompt'`.
+This is a standalone limit, not evidence against Architect or the actual Host.
+
+Use the active **Copilot Agent Host's native delegation**; the **Local**
+`agent/runSubagent` path is different. Resolve registered identities,
+not titles alone (known SDK IDs: `over-the-luna-next:next-architect`,
+`over-the-luna-next:next-reviewer`; Host selection may differ).
+Only claim a named role after successful completion **and returned concrete
+evidence**; cross-model claims also need actual model/provider identity.
+A tool call or registration list alone never proves handback.
+
+On unsupported or blocked invocation, report
+`NAMED_DELEGATION_UNAVAILABLE` and the observed reason. Proceed directly
+only when safe; never silently substitute Main's opinion for consequential
+independent review or bypass Host approvals, provider policy or data boundaries.
 
 ## End state
 
