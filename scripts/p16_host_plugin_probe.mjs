@@ -90,7 +90,7 @@ async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
   const chat=state?.defaultChat;
   const result={attempt:"REAL_HOST_NAMED_ARCHITECT_SINGLE_TURN",
     modelRequested:"gpt-6-luna",turnSubmitted:false,
-    namedTaskArgObserved:false,taskStarted:false,taskCompleted:false,
+    namedTaskArgObserved:false,taskStarted:false,taskStartedCount:0,taskCompleted:false,
     taskSucceeded:false,returnedSourcePacket:false,mainTurnCompleted:false,
     copilotAuthChallengeObserved:false,chatErrorObserved:false,
     roleAgentUriVerified:!!main?.uri&&!!architect?.uri,
@@ -126,6 +126,8 @@ async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
     const type=a.type;
     if(type==="chat/toolCallStart"&&a.toolName==="task") {
       result.taskStarted=true;
+      result.taskStartedCount++;
+      if(result.taskStartedCount>1){resolveStop("UNBOUNDED_TASK_FANOUT");return;}
       if(typeof a.toolCallId==="string")startedIds.add(a.toolCallId);
     }
     if((type==="chat/toolCallDelta"||type==="chat/toolCallReady")
@@ -178,7 +180,7 @@ async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
        mainText.includes("WORK_SET")&&mainText.includes("EVIDENCE"));
     result.returnedSourcePacket=hasPacket;
     result.status=outcome;
-    if(result.taskCompleted&&result.taskSucceeded&&result.namedTaskArgObserved&&
+    if(result.taskStartedCount===1&&result.taskCompleted&&result.taskSucceeded&&result.namedTaskArgObserved&&
        result.returnedSourcePacket&&result.mainTurnCompleted)
       result.status="NAMED_ARCHITECT_COMPLETED_WITH_SOURCE_EVIDENCE";
   }catch(e) {
