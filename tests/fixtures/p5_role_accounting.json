@@ -1,0 +1,152 @@
+{
+  "schema": 1,
+  "sdk": "@github/copilot-sdk@1.0.19",
+  "arms": [
+    {
+      "mode": "sdk_default",
+      "acceptance": true,
+      "grading": {
+        "pass": true
+      },
+      "durationMs": 18725,
+      "subagentStarts": [],
+      "subagentCompleted": [],
+      "events": [
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "apply_patch"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "apply_patch"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        }
+      ],
+      "usage": [
+        {
+          "inputTokens": 6169,
+          "outputTokens": 116,
+          "copilotNanoAiu": 82905000
+        },
+        {
+          "inputTokens": 8882,
+          "outputTokens": 387,
+          "copilotNanoAiu": 59458500
+        },
+        {
+          "inputTokens": 9302,
+          "outputTokens": 335,
+          "copilotNanoAiu": 30909000
+        },
+        {
+          "inputTokens": 9669,
+          "outputTokens": 198,
+          "copilotNanoAiu": 23816500
+        },
+        {
+          "inputTokens": 10376,
+          "outputTokens": 93,
+          "copilotNanoAiu": 23183500
+        }
+      ]
+    },
+    {
+      "mode": "rc2_actual_plugin",
+      "acceptance": true,
+      "grading": {
+        "pass": true
+      },
+      "durationMs": 31075,
+      "roleChain": false,
+      "architectObserved": false,
+      "reviewerObserved": false,
+      "subagentStarts": [],
+      "subagentCompleted": [],
+      "events": [
+        {
+          "type": "tool.execution_start",
+          "name": "task"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "apply_patch"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "task"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        }
+      ],
+      "usage": [
+        {
+          "inputTokens": 7827,
+          "outputTokens": 160,
+          "copilotNanoAiu": 105830000
+        },
+        {
+          "inputTokens": 8015,
+          "outputTokens": 164,
+          "copilotNanoAiu": 18404000
+        },
+        {
+          "inputTokens": 10776,
+          "outputTokens": 938,
+          "copilotNanoAiu": 89454500
+        },
+        {
+          "inputTokens": 11797,
+          "outputTokens": 327,
+          "copilotNanoAiu": 39915500
+        },
+        {
+          "inputTokens": 12152,
+          "outputTokens": 357,
+          "copilotNanoAiu": 34111500
+        },
+        {
+          "inputTokens": 14520,
+          "outputTokens": 320,
+          "copilotNanoAiu": 57779000
+        }
+      ]
+    }
+  ]
+}
