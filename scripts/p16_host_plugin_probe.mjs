@@ -88,7 +88,8 @@ async function main() {
   const userData=process.env.P16_USER_DATA_DIR;
   if(!userData||!path.isAbsolute(userData))throw Error("missing_public_runner");
   const c=await client(await endpoint(userData)),session="ahp-session:/"+randomUUID();
-  const pluginUri=pathToFileURL(process.cwd()).href;
+  // VS Code contract: file: is CLIENT-owned; this public checkout is HOST-local.
+  const pluginUri=pathToFileURL(process.cwd()).href.replace(/^file:/,"vscode-agent-host-file:");
   const metrics={schema:1,realHost:true,modelTurns:0,ahpInitialized:false,
     copilotAdvertised:false,sessionCreated:false,sessionSubscribed:false,
     pluginPublished:false,pluginObserved:false,loadState:"ABSENT",
