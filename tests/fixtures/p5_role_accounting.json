@@ -1,0 +1,201 @@
+{
+  "schema": 1,
+  "sdk": "@github/copilot-sdk@1.0.19",
+  "arms": [
+    {
+      "mode": "sdk_default",
+      "acceptance": true,
+      "grading": {
+        "checks": {
+          "all_authored_tests_run": true,
+          "compile_package_release.py": true,
+          "compile_test_release.py": true,
+          "compile_validate_release.py": true,
+          "deny_symlink_LICENSE": true,
+          "deny_symlink_README.md": true,
+          "deny_symlink_agents_over-the-luna-next.agent.md": true,
+          "deny_symlink_docs_ROLE_TOPOLOGY.md": true,
+          "normal_sources_preserved": true,
+          "package_allowlist_only": true,
+          "package_valid_root": true,
+          "valid_candidate": true
+        },
+        "failed_checks": [],
+        "num_user_tests": 11,
+        "pass": true
+      },
+      "durationMs": 18725,
+      "modelObserved": true,
+      "unexpectedPaths": [],
+      "error": null,
+      "subagentStarts": [],
+      "subagentCompleted": [],
+      "events": [
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "apply_patch"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "apply_patch"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        }
+      ],
+      "usage": [
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 6169,
+          "outputTokens": 116,
+          "copilotNanoAiu": 82905000
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 8882,
+          "outputTokens": 387,
+          "copilotNanoAiu": 59458500
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 9302,
+          "outputTokens": 335,
+          "copilotNanoAiu": 30909000
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 9669,
+          "outputTokens": 198,
+          "copilotNanoAiu": 23816500
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 10376,
+          "outputTokens": 93,
+          "copilotNanoAiu": 23183500
+        }
+      ]
+    },
+    {
+      "mode": "rc2_actual_plugin",
+      "acceptance": true,
+      "grading": {
+        "checks": {
+          "all_authored_tests_run": true,
+          "compile_package_release.py": true,
+          "compile_test_release.py": true,
+          "compile_validate_release.py": true,
+          "deny_symlink_LICENSE": true,
+          "deny_symlink_README.md": true,
+          "deny_symlink_agents_over-the-luna-next.agent.md": true,
+          "deny_symlink_docs_ROLE_TOPOLOGY.md": true,
+          "normal_sources_preserved": true,
+          "package_allowlist_only": true,
+          "package_valid_root": true,
+          "valid_candidate": true
+        },
+        "failed_checks": [],
+        "num_user_tests": 11,
+        "pass": true
+      },
+      "durationMs": 31075,
+      "roleChain": false,
+      "architectObserved": false,
+      "reviewerObserved": false,
+      "modelObserved": true,
+      "unexpectedPaths": [],
+      "error": null,
+      "subagentStarts": [],
+      "subagentCompleted": [],
+      "events": [
+        {
+          "type": "tool.execution_start",
+          "name": "task"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "apply_patch"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "task"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        },
+        {
+          "type": "tool.execution_start",
+          "name": "view"
+        }
+      ],
+      "usage": [
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 7827,
+          "outputTokens": 160,
+          "copilotNanoAiu": 105830000
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 8015,
+          "outputTokens": 164,
+          "copilotNanoAiu": 18404000
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 10776,
+          "outputTokens": 938,
+          "copilotNanoAiu": 89454500
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 11797,
+          "outputTokens": 327,
+          "copilotNanoAiu": 39915500
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 12152,
+          "outputTokens": 357,
+          "copilotNanoAiu": 34111500
+        },
+        {
+          "model": "gpt-6-luna",
+          "inputTokens": 14520,
+          "outputTokens": 320,
+          "copilotNanoAiu": 57779000
+        }
+      ]
+    }
+  ]
+}

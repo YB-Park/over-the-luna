@@ -1,0 +1,50 @@
+name: P16 native Host public RC2 plugin discovery (zero inference)
+on:
+  push:
+    branches: [research/next-role-topology]
+    paths: [docs/P16_HOST_PLUGIN_SENTINEL.md]
+permissions:
+  contents: read
+jobs:
+  native-plugin:
+    if: contains(github.event.head_commit.message, '[p16-host-plugin-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify role evidence guard before starting Host
+        run: |
+          node --check scripts/p16_host_plugin_probe.mjs
+          node scripts/p16_host_plugin_probe.mjs --self-test
+      - name: Install official stable VS Code CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p16-code"
+          curl --fail --location --silent --show-error --max-time 130 --retry 2 https://update.code.visualstudio.com/latest/cli-linux-x64/stable -o "$RUNNER_TEMP/p16-code.tar.gz"
+          tar -xzf "$RUNNER_TEMP/p16-code.tar.gz" -C "$RUNNER_TEMP/p16-code"
+          test -x "$RUNNER_TEMP/p16-code/code"
+      - name: Start isolated real Host
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p16-user" "$RUNNER_TEMP/p16-server"
+          chmod 700 "$RUNNER_TEMP/p16-user"
+          nohup "$RUNNER_TEMP/p16-code/code" agent host --foreground --new-instance --host 127.0.0.1 --port 0 --user-data-dir "$RUNNER_TEMP/p16-user" --server-data-dir "$RUNNER_TEMP/p16-server" >"$RUNNER_TEMP/p16-private.log" 2>&1 < /dev/null &
+      - name: AHP publish plugin and inspect discovered role children without turns
+        env:
+          P16_USER_DATA_DIR: ${{ runner.temp }}/p16-user
+          P16_RESULT_PATH: ${{ runner.temp }}/p16-result.json
+        run: node scripts/p16_host_plugin_probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p16-real-host-public-plugin-observation
+          path: ${{ runner.temp }}/p16-result.json
+          if-no-files-found: ignore
+          retention-days: 14

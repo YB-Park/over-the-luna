@@ -1,0 +1,49 @@
+name: P14 actual VS Code Host AHP connectivity (zero model calls)
+on:
+  push:
+    branches: [research/next-role-topology]
+    paths: [docs/P14_HOST_AHP_SENTINEL.md]
+permissions:
+  contents: read
+jobs:
+  host-ahp:
+    if: contains(github.event.head_commit.message, '[p14-host-probe-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline safe parser self-test
+        run: node scripts/p14_host_ahp_probe.mjs --self-test
+      - name: Download official VS Code stable Linux CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vscode-cli"
+          curl --fail --location --silent --show-error --max-time 130 --retry 2 https://update.code.visualstudio.com/latest/cli-linux-x64/stable --output "$RUNNER_TEMP/vscode-cli.tar.gz"
+          tar -xzf "$RUNNER_TEMP/vscode-cli.tar.gz" -C "$RUNNER_TEMP/vscode-cli"
+          test -x "$RUNNER_TEMP/vscode-cli/code"
+          "$RUNNER_TEMP/vscode-cli/code" --version
+      - name: Launch isolated localhost AHP Host
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/otl-p14-user" "$RUNNER_TEMP/otl-p14-server"
+          chmod 700 "$RUNNER_TEMP/otl-p14-user"
+          nohup "$RUNNER_TEMP/vscode-cli/code" agent host --foreground --new-instance --host 127.0.0.1 --port 0 --user-data-dir "$RUNNER_TEMP/otl-p14-user" --server-data-dir "$RUNNER_TEMP/otl-p14-server" >"$RUNNER_TEMP/p14-private.log" 2>&1 < /dev/null &
+      - name: Negotiate AHP root state with zero inference
+        env:
+          P14_USER_DATA_DIR: ${{ runner.temp }}/otl-p14-user
+          P14_RESULT_PATH: ${{ runner.temp }}/p14-observation.json
+        run: node scripts/p14_host_ahp_probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p14-host-ahp-no-model-observation
+          path: ${{ runner.temp }}/p14-observation.json
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,35 +1,80 @@
-# Over the Luna Next 🌙 — v2.0.0-rc.1
+# Over the Luna Next — RC2 role-topology research 🌙
 
-**English** · [한국어](README.ko.md)
+[한국어](README.ko.md)
 
-> One Main. Real verification. Additional judgment only when it earns its place.
+**NOT A STABLE RELEASE.** This is a research branch for designing
+efficient collaborator placement, **not an indiscriminate return to a
+large Council**. The [stable v1.1.1](https://github.com/YB-Park/over-the-luna/tree/main)
+and [one-Main RC1](https://github.com/YB-Park/over-the-luna/pull/19)
+remain separate and intact.
 
-**Release candidate, not stable.** One visible **Over the Luna Next** Agent. No mandatory Council, Premium Review, forced router, API bridge, provider keys, MCP/hook/skill bundles or paid-model automation. The **VS Code Host** chooses the model, tools, approvals and workspace permissions.
+The user was correct: the original v1.1 Council resulted from extensive
+experiments. We restore **its functional breakthroughs**, not just its
+agent count. Read [role allocation and other harness research](docs/ROLE_TOPOLOGY.md).
 
-## Install beside stable v1.1.1
+## Actual role set
 
-The default repository branch `main` is still the **stable v1.1.1**. Do not install the default GitHub URL and assume it points to Next.
+One visible **Over the Luna Next** Main, plus seven hidden, **conditional** roles:
+**Architect** (repository evidence), **Reviewer** (real patch),
+**Skeptic** (pre-change contradiction), **Researcher** (public changing docs),
+**Recovery** (actual failing attempts), and **Sol/Sonnet Specialists** as
+two interchangeable high-end, selected-model independent opinions.
 
-1. From the passing [release-candidate CI](https://github.com/YB-Park/over-the-luna/actions/workflows/validate.yml?query=branch%3Arelease%2Fnext-v2.0.0-rc1), download the `over-the-luna-next-v2.0.0-rc.1` artifact and extract the inner ZIP into a local directory. Or check out branch `release/next-v2.0.0-rc1` separately and use its root as the plugin directory.
-2. In VS Code **User** settings, keep existing settings and add your extracted folder's absolute path to `chat.pluginLocations`. Ensure `chat.plugins.enabled` is allowed by company policy:
+Architect/Reviewer/Skeptic/Researcher/Recovery initially use GPT-6 Luna;
+Sol and Sonnet are pinned to their respective Host model names. **Claude
+Haiku 5.5 is not excluded**: choose it as Main in the model picker;
+automatic Haiku routing is deliberately not asserted as economical.
+No compulsory Sol/Sonnet calls, no automated BYOK integration, no custom
+MCP credentials. No more than one strong specialist for the same
+question by default.
 
-   ```json
-   {"chat.pluginLocations": {"/ABSOLUTE/PATH/over-the-luna-next-rc": true}}
-   ```
+The files are **role capabilities at rest**, not eight models called
+on every task. For local work Main runs alone; complex work selects
+only the roles relevant to its uncertainty. Main retains repository
+mutation, tests, decisions and final response.
 
-3. Disable the earlier *research* `over-the-luna-next` plugin location during this RC trial, so duplicate plugin IDs don't collide. **Do not remove stable v1.1.1.**
-4. Reload VS Code if necessary, choose **Over the Luna Next**, and select the model directly in the Host. GPT-6 Luna is a sensible starting hypothesis, **not pinned**.
+## Practical opt-in pilot (not a stable release)
 
-## Safe use and rollback
+**Start with [the in-package Korean pilot guide](docs/PILOT_GUIDE.md).**
+This is a usable limited preview for approved, low-risk tasks with an
+easy opt-out. A successful DIRECT task can be useful without pretending
+a named Council review happened. Host role parsing **8/8** was observed
+in [P16](https://github.com/YB-Park/over-the-luna/actions/runs/39189246326),
+but the genuine first Host turn in
+[P17](https://github.com/YB-Park/over-the-luna/actions/runs/39189500097)
+emitted `chat/error` before any Architect task started. In an isolated
+Actions runner, [P18](https://github.com/YB-Park/over-the-luna/actions/runs/39197886981)
+advertised zero available Copilot models; that does NOT describe a
+signed-in developer's VS Code environment. Council handback and actual
+Host leaf policy enforcement remain UNVERIFIED. No public stable release,
+branch merge or mandatory company telemetry is authorized.
 
-Clear changes proceed directly; verify meaningful changes using real diffs and tests, not only LLM claims. Important auth, concurrency, data-integrity and public-contract risks may justify host-native independent scrutiny. **Prompts are not security sandboxes**. Effective read/write rights and MCP policies remain host-owned. This RC never automatically calls Sol, other external providers or extra subagents.
+## Standalone trial (no company data export)
 
-Breaking change: the previous v1.1.1 Council, forced Reviewer, Premium UI and routing contracts **are intentionally removed**. Existing users dependent on those workflows should remain on stable.
+After no-credit CI passes, obtain the **branch-specific allowlisted ZIP**
+from GitHub Actions or clone this branch separately. Extract and register
+its absolute path in VS Code **User** `chat.pluginLocations`,
+with `chat.plugins.enabled` as organizationally approved. Disable the
+earlier `over-the-luna-next` RC1 or research *duplicate plugin identity*
+while trialing, but **never remove stable v1.1.1**. Select
+`Over the Luna Next` in Copilot Agent Host, model selected by user.
 
-**Rollback:** disable the RC entry in `chat.pluginLocations`, then select the unchanged stable **Over the Luna** or native Copilot Agent. No corporate artifacts/logs need to leave the company environment.
+**This is a candidate, not proven real Host behavior.** The company
+environment's role permissions, leaf model routing and external provider
+policies have not been demonstrated for this topology. Frontmatter
+`tools: ['read','search']` is a request, not proof of enforced
+read-only execution. `agents: []` is similarly a declaration.
+**Do not delegate secrets or sensitive code to an alternative provider
+without company and user authorization.**
 
-## Evidence and readiness
+Rollback: disable this local plugin path, switch to stable v1.1.1 or RC1
+or native Copilot. Do not change enterprise permissions merely to make
+the agent work. No user internal worktree diff/chat logs need uploading.
 
-The [research branch](https://github.com/YB-Park/over-the-luna/tree/research/next-harness-foundation) and [research Draft PR #18](https://github.com/YB-Park/over-the-luna/pull/18) contain bounded SDK studies and an independent audit. The SDK successfully loaded the actual research Next package, but **no general improvement over native VS Code Copilot in accuracy or cost is proven**, and this separately packaged RC hasn't yet been installed in the user's company Host. [Release checklist](docs/RELEASE_CHECKLIST.md).
+**Pilot stop rule:** validate the allowlisted package and attempt low-risk direct work in an approved signed-in Host. Do not pay for another SDK-only baseline or claim named Council handback without an actual returned leaf packet. Keep `main` untouched and use the [pilot rollback guide](docs/PILOT_GUIDE.md).
 
-**CI is static and packaging only: zero paid model requests.**
+## Delegation acceptance — current blocker
+
+The RC2 plugin roles are registered, but the standalone Copilot SDK task runner **cannot** prove subagent handback: it returned `Standalone server does not support session effect 'custom_agent_prompt'`. This is an unsupported standalone session interaction, not a model benchmark result. **Never infer Main → Architect → Reviewer success from registration alone.**
+
+[Host-only role acceptance and privacy-preserving trial](docs/HOST_DELEGATION_GATE.md) defines exactly one OPTIONAL, public-repo native Copilot Host check and a yes/no outcome. The owner should not export internal work files, logs or chat transcripts. No paid Actions role-repeat is planned. Stable main and RC1 are unchanged.

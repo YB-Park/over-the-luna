@@ -1,27 +1,74 @@
-# Over the Luna Next 🌙 — v2.0.0-rc.1
+# Over the Luna Next — RC2 역할 배치 연구 🌙
 
-[English](README.md) · **한국어**
+[English](README.md)
 
-**출시 후보(RC)이지 안정 버전은 아니야.** 이번 패키지는 **Over the Luna Next Main 하나**만 제공해. 의무 Council, Premium Review UI, 모델별 에이전트, 별도 API 브리지, MCP 번들, 유료 모델 자동 호출은 없어. **모델·도구·승인 권한은 VS Code Host가 관리**해.
+**안정 버전이 아니야.** 기존 v1.1.1에서 수많은 실험으로
+도출한 Council의 가치를 다시 중심에 놓고, 역할과 모델을
+**언제 배치하는 게 실제로 이득인지** 개선하는 연구 후보야.
+[전체 설계 및 타 하네스 조사](docs/ROLE_TOPOLOGY.md).
 
-## 안정판을 그대로 둔 채 설치하기
+**Main 1개 + 조건부 보조 에이전트 7개**를 정의했어.
 
-기본 `main`은 계속 **v1.1.1 안정판**이야. 저장소 기본 URL로 설치하면 RC가 아니라 안정판일 수 있어.
+- **Architect (Luna):** 넓은 저장소 탐색과 컨텍스트 격리
+- **Reviewer (Luna):** 실제 코드 diff와 테스트를 바탕으로 독립 검토
+- **Skeptic (Luna):** 구현 전에 중요한 가정을 반박
+- **Researcher (Luna):** 공식 문서/최신 API 조사
+- **Recovery (Luna):** 실제 오류 발생 이후에만 진단
+- **Sol Specialist (GPT-6.1 Sol):** 필요할 때 강한 독립 판단
+- **Sonnet Specialist (Claude Sonnet 5.5):** 강한 판단의 대체 모델
 
-1. `release/next-v2.0.0-rc1` 브랜치의 성공한 [RC Actions](https://github.com/YB-Park/over-the-luna/actions/workflows/validate.yml?query=branch%3Arelease%2Fnext-v2.0.0-rc1)에서 `over-the-luna-next-v2.0.0-rc.1` artifact를 받아 내부 ZIP을 풀어 줘. 또는 해당 브랜치를 별도로 체크아웃하고 그 루트를 플러그인 폴더로 사용해.
-2. VS Code **사용자 설정(JSON)**에서 `chat.plugins.enabled`가 허용되었는지 확인하고, 기존 설정을 지우지 말고 `chat.pluginLocations`에 RC 디렉터리의 절대 경로를 추가해.
+**일반 작업은 Main 혼자 처리해.** 어려운 작업에서 필요한
+역할만 호출하는 구조이므로, 파일이 8개라고 매번 8번 호출하는
+것은 아니야. **Claude Haiku 5.5도 Main 모델로 직접 선택 가능**해.
+단, Haiku 자동 라우팅의 경제성을 아직 입증하지 않았기 때문에
+근거 없이 고정하지는 않았어.
 
-   ```json
-   {"chat.pluginLocations": {"/RC/압축을/푼/절대/경로": true}}
-   ```
+**Planner와 Tool Worker를 보류한 이유:** 전자의 `tools: []`
+도구 권한 변환 위험과 후자의 광범위한 MCP 도구 상속 문제는
+정식으로 해소되지 않았어. 이 역할들의 가치까지 부정한 게
+아니고, 안전하게 운영하는 방식을 먼저 결정한다는 뜻이야.
 
-3. 같은 플러그인 ID가 중복되지 않도록 기존 연구용 `over-the-luna-next` 플러그인 경로는 잠시 비활성화해. **안정판 v1.1.1은 삭제하지 마.**
-4. 필요한 경우 VS Code를 다시 열고 **Over the Luna Next**를 선택해. 모델은 선택기에서 고르면 돼. GPT-6 Luna는 기본 가설일 뿐 고정하지 않았어.
+## 현재 VS Code에서 위임이 보이지 않는 경우
 
-작업 중 실제 diff와 테스트를 검증하고, 중요한 위험에만 독립 검토를 고려해. **프롬프트 자체는 보안 샌드박스가 아니며**, 조직의 도구·MCP·권한 정책을 우회하지 않아. 사내 코드와 채팅 기록을 여기로 옮길 필요도 없어.
+**[Local/Copilot 하네스별 실제 위임 진단 가이드](docs/HARNESS_DIAGNOSTIC.md)**에서
+지금 선택한 실행 하네스, 설치된 에이전트의 출처, Main 지침 적용 여부,
+하위 에이전트 호출 기록을 구분해 확인해. **현재 Local의
+`agent/runSubagent`와 Copilot Host의 native `task`는 다른 실행 경로**야.
+단순히 호출 표시가 안 뜬다고 무조건 모델이 무시했다고 판정하지 않아.
+옛 stable v1.1.1 Main에는 Local `agent/runSubagent`가 명시돼 있지만
+보호된 `main`은 변경하지 않았어. Next에서는 하네스 혼동을 피하고
+사용자가 별도 위임 확인을 요구했는데 실제 호출을 생략하는 경우를
+`NAMED_DELEGATION_UNAVAILABLE`로 표시하도록 연구 브랜치에서 보완했어.
 
-## 업데이트 및 롤백
+## 실사용 가능한 제한적 파일럿
 
-v1.1.1의 Council·의무 Reviewer·Premium UI를 제거한 **호환성이 크게 바뀌는 버전**이야. 문제가 생기면 `chat.pluginLocations`에서 RC 경로만 비활성화하고 기존 **Over the Luna** 또는 기본 Copilot Agent를 선택하면 돼.
+**[파일럿 설치·합격·원복 가이드](docs/PILOT_GUIDE.md)**를 먼저 읽어 줘.
+RC2를 기존 안정판과 별도 선택형 플러그인으로 써 볼 수 있고,
+`PILOT_DIRECT_OK`는 직접 처리에 대한 합격일 뿐 Council 협업 성공은
+아니야. 실제 VS Code Host에서 역할 8/8 등록은 확인했지만,
+첫 실제 Architect 위임 턴은 오류로 끝나 실행은 미검증이야.
+사내 정책에 따라 허용된 낮은 위험 작업으로 시작하고,
+실제 diff·테스트·독립 검증 없이 고위험 작업을 완료 처리하지 않아.
+완벽한 모든 경우를 검증할 때까지 기다리는 게 아니라,
+**무리하지 않는 opt-in 파일럿을 먼저 운영하고 증거에 따라 확대**해.
 
-실험 근거는 [연구 브랜치](https://github.com/YB-Park/over-the-luna/tree/research/next-harness-foundation)와 [Draft PR #18](https://github.com/YB-Park/over-the-luna/pull/18)에 있어. **Next가 native Agent보다 우월하다는 증거는 아직 없어.** [출시 체크리스트](docs/RELEASE_CHECKLIST.md)를 확인해. CI는 **정적 검증과 패키징만** 실행하며 유료 모델을 호출하지 않아.
+## 설치·원복
+
+무과금 Actions를 통과한 브랜치의 ZIP을 사용하거나,
+`research/next-role-topology`를 별도 복제하여 그 루트를
+`chat.pluginLocations`에 등록하면 돼. 중복된 Next 플러그인
+경로는 비활성화하되 안정판 v1.1.1은 그대로 둬.
+
+**사내 코드나 로그를 외부로 옮길 필요 없어.** 새 보조 에이전트의
+실제 모델, 권한, 서브에이전트 실행 경로는 별도의 통합 검증이
+필요하고, 현재 정적 검사만으로는 증명되지 않아.
+외부 공급자 전송은 회사 정책과 사용자 허용을 따르고,
+프롬프트 자체를 샌드박스로 여기지 마.
+
+문제가 있으면 RC2의 `chat.pluginLocations` 항목만 끄고
+기존 안정판/RC1/native Copilot을 선택해.
+**`main`·RC1은 변경하지 않았어.**
+
+## 실제 역할 위임 확인은 Host에서만
+
+독립 Copilot SDK 서버에서는 등록된 Architect를 실행하려다가 `custom_agent_prompt` Host 상호작용 미지원으로 실패했어. 이건 모델이나 Council의 실패를 뜻하지 않아. [공개 코드 기반 최소 Host 확인 절차](docs/HOST_DELEGATION_GATE.md)를 마련했지만, **반복적인 사내 테스트나 코드·로그 반출은 요구하지 않아.** 실제 Host에서 이름이 확인된 보조 에이전트의 **완료된 반환 증거**가 있어야 협업이 검증됐다고 인정할 거야.

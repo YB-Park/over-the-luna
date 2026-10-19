@@ -1,0 +1,57 @@
+name: P17 one bounded REAL VS Code Host Architect delegation (paid)
+on:
+  push:
+    branches: [research/next-role-topology]
+    paths: [docs/P17_HOST_ARCHITECT_SENTINEL.md]
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  native-architect:
+    if: contains(github.event.head_commit.message, '[p17-native-architect-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pre-inference safety and role proof test
+        run: |
+          node --check scripts/p16_host_plugin_probe.mjs
+          node scripts/p16_host_plugin_probe.mjs --self-test
+          test -f agents/next-architect.agent.md
+          test -f agents/over-the-luna-next.agent.md
+      - name: Download official VS Code stable Linux CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p17-cli"
+          curl --fail --location --silent --show-error --max-time 130 --retry 2 https://update.code.visualstudio.com/latest/cli-linux-x64/stable -o "$RUNNER_TEMP/p17-cli.tar.gz"
+          tar -xzf "$RUNNER_TEMP/p17-cli.tar.gz" -C "$RUNNER_TEMP/p17-cli"
+          test -x "$RUNNER_TEMP/p17-cli/code"
+      - name: Start isolated authenticated Host (official GitHub Copilot job authorization)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p17-user" "$RUNNER_TEMP/p17-server"
+          chmod 700 "$RUNNER_TEMP/p17-user"
+          nohup "$RUNNER_TEMP/p17-cli/code" agent host --foreground --new-instance --host 127.0.0.1 --port 0 --user-data-dir "$RUNNER_TEMP/p17-user" --server-data-dir "$RUNNER_TEMP/p17-server" >"$RUNNER_TEMP/p17-private-host.log" 2>&1 < /dev/null &
+      - name: One Luna Main to one Luna Architect public read-only Host turn
+        env:
+          P16_USER_DATA_DIR: ${{ runner.temp }}/p17-user
+          P16_RESULT_PATH: ${{ runner.temp }}/p17-result.json
+          P17_DELEGATE_ONCE: 'true'
+        run: node scripts/p16_host_plugin_probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p17-native-host-single-public-architect-result
+          path: ${{ runner.temp }}/p17-result.json
+          if-no-files-found: ignore
+          retention-days: 14

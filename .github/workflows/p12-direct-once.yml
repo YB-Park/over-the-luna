@@ -1,0 +1,44 @@
+name: P12 one-shot public DIRECT Main paired comparison
+on:
+  push:
+    branches: [research/next-role-topology]
+    paths: [docs/P12_DIRECT_SENTINEL.md]
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  direct-main-pair:
+    if: contains(github.event.head_commit.message, '[run-p12-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static self-test before any inference
+        run: |
+          node --check scripts/p12_direct_pair.mjs
+          python scripts/p12_direct_grader.py --self-test
+      - name: Install pinned Copilot CLI and SDK
+        run: |
+          npm install -g @github/copilot@1.0.88
+          npm install --prefix scripts --no-save --no-package-lock @github/copilot-sdk@1.0.19
+      - name: Bounded two-Luna public direct-code trial
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          ARTIFACT_DIR: ${{ runner.temp }}/otl-p12
+        run: node scripts/p12_direct_pair.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p12-direct-main-public-pair
+          path: ${{ runner.temp }}/otl-p12
+          if-no-files-found: ignore
+          retention-days: 30

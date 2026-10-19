@@ -1,0 +1,53 @@
+name: P15 actual VS Code Copilot session no-inference gate
+on:
+  push:
+    branches: [research/next-role-topology]
+    paths: [docs/P15_HOST_SESSION_SENTINEL.md]
+permissions:
+  contents: read
+  copilot-requests: write
+jobs:
+  copilot-native-session:
+    if: contains(github.event.head_commit.message, '[p15-host-session-once]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline AHP client safety test
+        run: node scripts/p15_host_session_probe.mjs --self-test
+      - name: Download official VS Code stable Linux CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vscode-cli"
+          curl --fail --location --silent --show-error --max-time 130 --retry 2 https://update.code.visualstudio.com/latest/cli-linux-x64/stable --output "$RUNNER_TEMP/vscode-cli.tar.gz"
+          tar -xzf "$RUNNER_TEMP/vscode-cli.tar.gz" -C "$RUNNER_TEMP/vscode-cli"
+          test -x "$RUNNER_TEMP/vscode-cli/code"
+          "$RUNNER_TEMP/vscode-cli/code" --version
+      - name: Boot isolated authenticated localhost Host
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/otl-p15-user" "$RUNNER_TEMP/otl-p15-server"
+          chmod 700 "$RUNNER_TEMP/otl-p15-user"
+          nohup "$RUNNER_TEMP/vscode-cli/code" agent host --foreground --new-instance --host 127.0.0.1 --port 0 --user-data-dir "$RUNNER_TEMP/otl-p15-user" --server-data-dir "$RUNNER_TEMP/otl-p15-server" >"$RUNNER_TEMP/p15-private.log" 2>&1 < /dev/null &
+      - name: Create and dispose native Copilot session without sending any turn
+        env:
+          P15_USER_DATA_DIR: ${{ runner.temp }}/otl-p15-user
+          P15_RESULT_PATH: ${{ runner.temp }}/p15-observation.json
+        run: node scripts/p15_host_session_probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p15-real-host-session-no-model-result
+          path: ${{ runner.temp }}/p15-observation.json
+          if-no-files-found: ignore
+          retention-days: 14

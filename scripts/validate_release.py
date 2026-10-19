@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static shape validation for the minimal RC, NOT a runtime security sandbox."""
+"""Static RC2 role-topology checks: declaration only, NOT effective Host security."""
 from __future__ import annotations
 import argparse
 import json
@@ -7,64 +7,144 @@ import sys
 from pathlib import Path
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT=Path(__file__).resolve().parents[1]
+MAIN="over-the-luna-next.agent.md"
+MODELS={
+ "next-architect.agent.md":("Next Architect","GPT-6 Luna",["read","search"]),
+ "next-reviewer.agent.md":("Next Reviewer","GPT-6 Luna",["read","search"]),
+ "next-skeptic.agent.md":("Next Skeptic","GPT-6 Luna",["read","search"]),
+ "next-researcher.agent.md":("Next Researcher","GPT-6 Luna",["read","search","web"]),
+ "next-recovery.agent.md":("Next Recovery","GPT-6 Luna",["read","search"]),
+ "next-sol-specialist.agent.md":("Next Sol Specialist","GPT-6.1 Sol",["read","search"]),
+ "next-sonnet-specialist.agent.md":("Next Sonnet Specialist","Claude Sonnet 5.5",["read","search"]),
+}
+EXPECTED={MAIN,*MODELS}
+PACKAGE_FILES=tuple(sorted((
+ "plugin.json",
+ *("agents/"+p for p in (MAIN,*MODELS)),
+ "README.md","README.ko.md","LICENSE","docs/ROLE_TOPOLOGY.md",
+ "docs/HOST_DELEGATION_GATE.md", "docs/PILOT_GUIDE.md"
+)))
+FORBIDDEN_KEYS={"handoffs","infer","mcp-servers","hooks"}
+BLOCK_EXTENSIONS=("mcp.json",".mcp.json","hooks.json",".copilot-plugin",".claude-plugin",
+                  "skills","hooks","lsp","mcp")
 
-def validate(root: Path = ROOT) -> list[str]:
-    root = Path(root)
-    failures = []
-    try:
-        manifest = json.loads((root / "plugin.json").read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError) as error:
-        return ["invalid or missing plugin.json: " + type(error).__name__]
-    if not isinstance(manifest, dict):
-        return ["plugin.json must contain a JSON object"]
-    for key, value in (("name", "over-the-luna-next"),
-                       ("version", "2.0.0-rc.1"), ("agents", "agents/")):
-        if manifest.get(key) != value:
-            failures.append(f"plugin.json {key} must be {value}")
-    if "$schema" in manifest:
-        failures.append("unexpected schema for legacy Copilot-format plugin")
-    agents_dir = root / "agents"
-    names = sorted(p.name for p in agents_dir.iterdir()) if agents_dir.is_dir() else []
-    if names != ["over-the-luna-next.agent.md"]:
-        return failures + ["agents/ must contain exactly one approved Main and no other files"]
-    file = agents_dir / "over-the-luna-next.agent.md"
-    text = file.read_text(encoding="utf-8")
+
+def parse_agent(file:Path, errors:list[str]) -> tuple[dict,str]:
+    try: text=file.read_text(encoding="utf-8")
+    except OSError as ex:
+        errors.append(f"{file.name}: missing: {type(ex).__name__}")
+        return {}, ""
     if not text.startswith("---\n") or "\n---\n" not in text[4:]:
-        return failures + ["agent frontmatter missing"]
-    split = text.find("\n---\n", 4)
-    try:
-        fm = yaml.safe_load(text[4:split])
+        errors.append(f"{file.name}: invalid frontmatter")
+        return {}, ""
+    stop=text.index("\n---\n",4)
+    try: data=yaml.safe_load(text[4:stop])
     except yaml.YAMLError:
-        return failures + ["invalid agent YAML"]
-    if not isinstance(fm, dict):
-        return failures + ["agent frontmatter must be a mapping"]
-    for key, value in (("name","Over the Luna Next"), ("target","vscode"),
-                       ("user-invocable",True), ("disable-model-invocation",True)):
-        if fm.get(key) != value:
-            failures.append(f"agent frontmatter {key} mismatch")
-    for name in ("tools","agents","model","handoffs","infer","mcp-servers","hooks"):
-        if name in fm:
-            failures.append(f"Main must omit {name}; effective permissions belong to Host")
-    body = text[split+len("\n---\n"):]
-    for phrase in ("Run the tests you claim passed","actual diff","security sandbox",
-                   "Explicit user authorization"):
-        if phrase not in body:
-            failures.append("required evidence/permission language missing: "+phrase)
-    for rel in ("mcp.json",".mcp.json","hooks.json",".copilot-plugin",".claude-plugin",
-                "skills","hooks","lsp","mcp"):
-        if (root / rel).exists():
-            failures.append("unexpected plugin extension: "+rel)
-    if any(root.rglob("SKILL.md")):
-        failures.append("unexpected bundled SKILL.md")
-    return failures
+        errors.append(f"{file.name}: invalid YAML")
+        return {}, ""
+    if not isinstance(data,dict):
+        errors.append(f"{file.name}: frontmatter not mapping")
+        return {}, ""
+    return data,text[stop+len("\n---\n"):]
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+
+def validate(root:Path=ROOT) -> list[str]:
+    root=Path(root)
+    errors=[]
+    # A single package manifest is shared with the ZIP builder, so the
+    # validator and packager cannot silently disagree about published files.
+    # Check *every path component*; Path.is_file() follows symlinks.
+    for name in PACKAGE_FILES:
+        current=root
+        for part in Path(name).parts:
+            current=current/part
+            if current.is_symlink():
+                errors.append("symlinked release source: "+name)
+                break
+    try: manifest=json.loads((root/"plugin.json").read_text(encoding="utf-8"))
+    except (OSError,UnicodeError,ValueError) as ex:
+        return [f"invalid plugin.json: {type(ex).__name__}"]
+    if not isinstance(manifest,dict):return ["plugin.json must be object"]
+    for key,wanted in (("name","over-the-luna-next"),("version","2.0.0-rc.2"),
+                       ("agents","agents/")):
+        if manifest.get(key)!=wanted: errors.append(f"plugin {key} mismatch")
+    if "$schema" in manifest: errors.append("unexpected schema entry")
+
+    folder=root/"agents"
+    actual={p.name for p in folder.iterdir()} if folder.is_dir() else set()
+    if actual!=EXPECTED: errors.append(f"agent file set mismatch missing={sorted(EXPECTED-actual)} extra={sorted(actual-EXPECTED)}")
+    roles=set()
+    for filename in sorted(EXPECTED&actual):
+        meta,body=parse_agent(folder/filename,errors)
+        if not meta:continue
+        name=meta.get("name")
+        if not isinstance(name,str) or name in roles:errors.append(f"{filename}: duplicate/invalid name")
+        roles.add(name)
+        if meta.get("target")!="vscode": errors.append(f"{filename}: target != vscode")
+        if FORBIDDEN_KEYS.intersection(meta):
+            errors.append(f"{filename}: forbidden control keys {sorted(FORBIDDEN_KEYS.intersection(meta))}")
+        if filename==MAIN:
+            if name!="Over the Luna Next": errors.append("Main name mismatch")
+            if meta.get("user-invocable") is not True:errors.append("Main hidden")
+            if meta.get("disable-model-invocation") is not True:errors.append("Main subagent callable")
+            for key in ("model","tools","agents"):
+                if key in meta:errors.append(f"Main {key} must be host-owned")
+            if not all(k in body for k in ("Next Architect","Next Reviewer",
+                "Next Sol Specialist","Next Sonnet Specialist",
+                "actual diff","security sandbox")):
+                errors.append("Main missing orchestration/evidence language")
+            if not all(k in body for k in (
+                "Investigation and assurance are separate decisions",
+                "Premium substitution, not accumulation",
+                "MAY REPLACE Next Reviewer",
+                "provider approval",
+                "DIRECT means no separate specialist, not shallow investigation.",
+                "cost is a",
+                "not a reason to skip necessary correctness work",
+                "Green focused tests do not automatically close",
+                "PILOT_DIRECT_OK", "NAMED_DELEGATION_UNAVAILABLE",
+                "Harness compatibility and observable delegation",
+                "Copilot harness", "Local harness",
+                "A user-requested delegation diagnostic",
+                "DELEGATION_ATTEMPT_FAILED",
+                "Post-edit assurance decision",
+                "Decide twice, not once.",
+                "DIRECT investigation (default)",
+                "After focused tests and a current diff",
+                "Then invoke `Next Reviewer`",
+                "No diff or mutation means no fabricated post-edit review")):
+                errors.append("Main missing independent routing / premium substitution gate")
+        else:
+            expectedName,expectedModel,expectedTools=MODELS[filename]
+            if name!=expectedName:errors.append(f"{filename}: incorrect role name")
+            if meta.get("user-invocable") is not False:errors.append(f"{filename}: visible leaf")
+            if meta.get("disable-model-invocation") is True:errors.append(f"{filename}: cannot be invoked")
+            if meta.get("model")!=expectedModel:errors.append(f"{filename}: model mismatch")
+            if meta.get("tools")!=expectedTools:errors.append(f"{filename}: tools mismatch")
+            if meta.get("agents")!=[]:errors.append(f"{filename}: recursion declaration mismatch")
+            if not body.strip():errors.append(f"{filename}: empty instructions")
+            if filename == "next-reviewer.agent.md":
+                if not all(term in body for term in ("partial failure", "backward compatibility")):
+                    errors.append("Reviewer missing consequence-aware challenge")
+            if filename == "next-skeptic.agent.md":
+                if not all(term in body for term in ("failure/rollback", "negative-authority")):
+                    errors.append("Skeptic missing consequential pre-edit challenge")
+            if filename in ("next-sol-specialist.agent.md","next-sonnet-specialist.agent.md"):
+                if not all(term in body for term in (
+                    "When substituting for Next Reviewer",
+                    "actual current diff", "VERIFY: patch evidence absent")):
+                    errors.append(f"{filename}: premium patch-review precondition missing")
+    for ext in BLOCK_EXTENSIONS:
+        if (root/ext).exists():errors.append(f"bundled extension forbidden: {ext}")
+    if any(root.rglob("SKILL.md")):errors.append("SKILL.md bundles forbidden")
+    return errors
+
+if __name__=="__main__":
+    parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root",type=Path,default=ROOT)
-    args = parser.parse_args()
-    errs = validate(args.root)
-    for err in errs:
-        print("RELEASE_CANDIDATE_INVALID:",err)
-    if errs: sys.exit(1)
-    print("RELEASE_CANDIDATE_STATIC_PASS: one Main, host-owned model/tools, no bundled extensions")
+    a=parser.parse_args()
+    problems=validate(a.root)
+    for problem in problems:print("RC2_INVALID:",problem)
+    if problems:sys.exit(1)
+    print("RC2_STATIC_PASS: one Main, seven distinct leaves, pinned role models, nonempty leaf read lists; Host enforcement NOT verified")
