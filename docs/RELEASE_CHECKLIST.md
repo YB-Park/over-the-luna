@@ -110,6 +110,33 @@ limited pilot candidate. Productization is **staged**: direct usefulness
 can be trialed now; never market Council assurance before actual
 leaf-return evidence. Existing `main` v1.1.1 and RC1 untouched.
 
+## P20 — offline source-based review: independently pin published ZIP
+
+The P19 `scripts/pilot_archive.py` only validated path allowlist, basic
+frontmatter envelopes, CRC and plugin identity; it returned its own
+SHA-256 but did **not compare against a separately published trusted digest**.
+A repacked archive with `Next Architect` changed from
+`tools: ['read', 'search']` to `tools: ['edit', 'search']` could therefore
+pass the old structural check despite breaking the intended role policy.
+This is a **real review finding about the downloaded package**, not proof
+that VS Code enforces an agent's declared tool restrictions.
+
+**Fix:** pilot verifier CLI now **requires** `--expected-sha256`,
+which must come from this PR's successful Actions package digest, not
+from the ZIP itself. Offline negative test builds a structurally valid,
+CRC-valid, repacked ZIP with widened Architect tool declaration and
+checks that the pinned digest rejects it. Missing/malformed digests fail.
+Low-level `verify(archive)` remains available for structural diagnostic
+tests and **is not authenticated package approval**. CI uses the
+freshly built in-job digest to test this contract, which cannot replace
+the user's out-of-band digest check when downloading.
+
+**Scope/evidence:** source diff inspection and deterministic regression,
+not a completed native Host `Next Reviewer` invocation. This closes one
+packaging-integrity defect, **not** Council handback, subagent read-only
+enforcement, or signed-in Host readiness. No other authorized branches
+are modified. This audit does not demand another paid model turn.
+
 ## Go / no-go
 Retain roles by marginal evidence, not by a 'smallest agents' ideology.
 Do not equate user-visible VS Code model availability with the separate ephemeral Actions Host model catalog. P18 observed zero Copilot model entries in the latter; fail closed before requesting Luna there.

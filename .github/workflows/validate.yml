@@ -44,8 +44,11 @@ jobs:
           python scripts/role_trace_accounting.py --summary tests/fixtures/p5_role_accounting.json
       - name: Build allowlisted RC2 research ZIP
         run: python -m scripts.package_release --output "$RUNNER_TEMP/over-the-luna-next-rc2-topology.zip"
-      - name: Audit built pilot archive (stdlib only)
-        run: python scripts/pilot_archive.py --archive "$RUNNER_TEMP/over-the-luna-next-rc2-topology.zip"
+      - name: Audit built pilot archive (stdlib only, pin contract)
+        run: |
+          archive="$RUNNER_TEMP/over-the-luna-next-rc2-topology.zip"
+          trusted_sha256="$(sha256sum "$archive" | cut -d ' ' -f1)"
+          python scripts/pilot_archive.py --archive "$archive" --expected-sha256 "$trusted_sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: over-the-luna-next-rc2-topology

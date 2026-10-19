@@ -12,7 +12,13 @@
 ## 설치 (사용자가 직접, 원복 가능)
 
 1. 공개 저장소 `YB-Park/over-the-luna`의 **research/next-role-topology** 브랜치에서 최신 성공한 **Validate Next role topology (no model calls)** GitHub Actions를 열어 `over-the-luna-next-rc2-topology` 아티팩트를 받습니다. 아티팩트 안의 `over-the-luna-next-rc2-topology.zip`을 별도 폴더에 풉니다. 압축 해제 폴더의 **루트**에 `plugin.json`과 `agents/`가 있어야 합니다. 이 배포는 공개 안정 릴리스가 아닙니다.
-2. 가능하면 같은 연구 커밋의 `scripts/pilot_archive.py`로 ZIP을 사전 검사합니다: `python scripts/pilot_archive.py --archive /path/to/over-the-luna-next-rc2-topology.zip`. 성공은 **패키지 무결성·범위**만 뜻하며, 실제 모델 사용 권한까지 보장하지 않습니다.
+2. 같은 연구 커밋의 `scripts/pilot_archive.py`로 ZIP을 **필수 검증**합니다. `--expected-sha256`에는 다운로드한 ZIP 안의 값이 아니라, **[Draft PR #20에 별도로 기록한 최신 성공한 CI의 ZIP SHA-256](https://github.com/YB-Park/over-the-luna/pull/20)**을 복사합니다. 어떤 성공한 CI 아티팩트를 다운로드했는지 먼저 확인하고 그 아티팩트와 일치하는 SHA-256을 사용하세요.
+
+```bash
+python scripts/pilot_archive.py --archive /path/to/over-the-luna-next-rc2-topology.zip --expected-sha256 TRUSTED_64_CHAR_SHA256_FROM_PR
+```
+
+해시가 다르거나 비교할 신뢰 가능한 기준 해시가 없으면 **설치를 중단**합니다. ZIP에서 계산한 해시를 스스로 `--expected-sha256`에 다시 넣는 것은 변조 여부를 검증하지 못하므로 하지 마세요. 성공은 패키지 파일·형식과 **게시된 해시의 일치**만 뜻하며, 실제 Host 모델 실행이나 서브에이전트 성공을 보장하지 않습니다.
 3. VS Code의 **User settings.json**에서 플러그인 지원이 허용된 경우 아래처럼 등록합니다. 경로는 압축을 푼 폴더의 **절대 경로**로 바꿉니다. 기존 설정값을 보존하고 객체 키만 추가하세요.
 
 ```json

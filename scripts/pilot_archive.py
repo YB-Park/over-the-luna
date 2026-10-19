@@ -3,7 +3,9 @@
 from __future__ import annotations
 import argparse
 import hashlib
+import hmac
 import json
+import re
 import stat
 import sys
 import zipfile
@@ -23,7 +25,12 @@ AGENTS=frozenset(p for p in EXPECTED if p.startswith("agents/"))
 MAX_MEMBER=512_000
 MAX_TOTAL=1_500_000
 
-def verify(archive:Path)->dict[str,object]:
+def verify(archive:Path, *, expected_sha256:str|None=None)->dict[str,object]:
+    # Archive-structure validation alone cannot authenticate a repacked ZIP.
+    # A trusted digest MUST be supplied by the user-facing CLI.
+    if expected_sha256 is not None and not re.fullmatch(
+            r"[0-9a-fA-F]{64}",expected_sha256):
+        raise ValueError("invalid expected SHA-256 format")
     try:
         if not archive.is_file():
             raise ValueError("archive not a regular file")
@@ -63,7 +70,11 @@ def verify(archive:Path)->dict[str,object]:
     except (OSError,zipfile.BadZipFile,zipfile.LargeZipFile,
             UnicodeError,json.JSONDecodeError) as e:
         raise ValueError("invalid archive: "+type(e).__name__) from e
-    return {"sha256":hashlib.sha256(archive.read_bytes()).hexdigest(),
+    actual_sha256=hashlib.sha256(archive.read_bytes()).hexdigest()
+    if expected_sha256 is not None and not hmac.compare_digest(
+            actual_sha256,expected_sha256.lower()):
+        raise ValueError("ZIP SHA-256 differs from trusted release checksum")
+    return {"sha256":actual_sha256,
             "files":len(EXPECTED),"agents":len(AGENTS),
             "identity":"over-the-luna-next@2.0.0-rc.2",
             "hostHandbackProven":False}
@@ -71,9 +82,11 @@ def verify(archive:Path)->dict[str,object]:
 def main()->int:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive",required=True,type=Path)
+    parser.add_argument("--expected-sha256",required=True,
+                        help="Trusted digest published separately from the downloaded ZIP")
     args=parser.parse_args()
     try:
-        result=verify(args.archive)
+        result=verify(args.archive,expected_sha256=args.expected_sha256)
     except ValueError as exc:
         print("PILOT_ARCHIVE_BLOCKED:",exc)
         return 1
