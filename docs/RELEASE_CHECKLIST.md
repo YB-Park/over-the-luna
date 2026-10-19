@@ -79,8 +79,8 @@ as Council handback. There is no grounds for main/stable release.
 
 - [x] **Pilot package READY**: allowlisted ZIP containing 8 agents plus
       `docs/PILOT_GUIDE.md`, and a stdlib-only ZIP auditor; built on
-      [CI #39201552015](https://github.com/YB-Park/over-the-luna/actions/runs/39201552015),
-      SHA-256 `46c7138136180a256360bf6eaa9d1ba14f676587568b5e1f85bcf8730122c7b1`.
+      [CI #39201643865](https://github.com/YB-Park/over-the-luna/actions/runs/39201552015),
+      SHA-256 `3a3943c6ce9ffcf981fb3f909e39eae28d4fcebffd0d57b62e2adf3939ebec18`.
       14 static role tests, 13 accounting tests, 6 negative ZIP tests PASS.
 - [x] **Evidence-calibrated runtime instructions**: safe direct work may
       produce `PILOT_DIRECT_OK` without pretending Council ran. A blocked
