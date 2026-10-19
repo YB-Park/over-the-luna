@@ -149,7 +149,7 @@ class RoleTopologyCandidateTests(unittest.TestCase):
             "DIRECT investigation (default)",
             "After focused tests and a current diff",
             "Then invoke `Next Reviewer`",
-            "REVIEW_UNVERIFIED",
+            "No diff or mutation means no fabricated post-edit review",
         ):
             with self.subTest(marker=marker):
                 main_file.write_text(original.replace(marker,"policy lost"))

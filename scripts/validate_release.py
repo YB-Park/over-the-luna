@@ -113,7 +113,7 @@ def validate(root:Path=ROOT) -> list[str]:
                 "DIRECT investigation (default)",
                 "After focused tests and a current diff",
                 "Then invoke `Next Reviewer`",
-                "REVIEW_UNVERIFIED")):
+                "No diff or mutation means no fabricated post-edit review")):
                 errors.append("Main missing independent routing / premium substitution gate")
         else:
             expectedName,expectedModel,expectedTools=MODELS[filename]
