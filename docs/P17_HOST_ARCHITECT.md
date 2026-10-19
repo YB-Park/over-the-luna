@@ -38,13 +38,13 @@ One shot only: docs/P17_HOST_ARCHITECT_SENTINEL.md and a push marked
 
 [Real GitHub Actions #39189500097](https://github.com/YB-Park/over-the-luna/actions/runs/39189500097):
 
-- Official Host and AHP initialized; Copilot \`copilotcli\` advertised;
+- Official Host and AHP initialized; Copilot `copilotcli` advertised;
   real session created and subscribed.
-- Corrected host-local RC2 plugin \`loaded\`; **8/8 role names**, including
+- Corrected host-local RC2 plugin `loaded`; **8/8 role names**, including
   Main and Next Architect, verified in the authoritative session state.
-- One real AHP \`chat/turnStarted\` submitted with selected Main's native
-  agent URI and explicit \`gpt-6-luna\` request, using public files only.
-- **\`chat/error\` received**. No \`task\` start, completed task,
+- One real AHP `chat/turnStarted` submitted with selected Main's native
+  agent URI and explicit `gpt-6-luna` request, using public files only.
+- **`chat/error` received**. No `task` start, completed task,
   independent returned Architect packet, or normal main turn completion.
 - This is **INCONCLUSIVE/BLOCKED**, not native delegation success and
   not evidence of model quality. The event has not been causally
@@ -56,8 +56,30 @@ One shot only: docs/P17_HOST_ARCHITECT_SENTINEL.md and a push marked
 **Product decision:** Do not add more agents, remove Skeptic/Recovery,
 revise all model assignments, or release RC2 based on this. The next
 genuine Host verification must observe a completed named leaf and
-returned source-backed packet. A coarse \`chat/error\` classifier was
+returned source-backed packet. A coarse `chat/error` classifier was
 added to the repo after P17 to improve future diagnostics without
 reprinting error messages; it was not retroactively available for this
 run. Respect signed-in Copilot provider and organization policy.
+
+
+## P18 no-inference diagnosis and stricter future proof
+
+[Official Host model catalog run #39197886981](https://github.com/YB-Park/over-the-luna/actions/runs/39197886981):
+`copilotcli` was registered, but its root catalog had **zero models**
+after bounded observation, and two protected resources. This is
+consistent with P17's missing model-inference path, but not proof of
+the precise chat error cause. A user account in VS Code may differ
+from the isolated CI runner authorization.
+
+The future trial is now **fail-closed**: no `gpt-6-luna` in the
+real Host's advertised and non-disabled catalog means
+`BLOCKED_MODEL_NOT_ADVERTISED` with no model turn.
+Also, the verifier no longer treats Main's own prose as proof of an
+independent Architect packet; it requires evidence from the actual
+`task` tool result, and parses tool input from the documented
+`chat/toolCallReady.toolInput`.
+
+This is an instrument and product-validity correction, not a new
+paid Architect test. Actual Council routing and billable usage are
+still **not demonstrated**.
 

@@ -47,6 +47,22 @@ Never count a plugin registry, chat-start action or \`task\` **attempt**
 as Council handback. There is no grounds for main/stable release.
 
 
+## P18 — verified zero-model catalog in ephemeral real Host
+
+- [x] AHP returned `copilotcli` and **two protected resources**.
+- [x] AHP root advertised **zero Copilot models** within a bounded
+      observation, including no `gpt-6-luna` or `auto`
+      ([P18 #39197886981](https://github.com/YB-Park/over-the-luna/actions/runs/39197886981)).
+- [x] Future genuine Architect-turn harness now requires exact
+      advertised Luna ID before submitting any model turn.
+- [x] A named leaf must be identified in actual
+      `chat/toolCallReady.toolInput`; its independent source evidence
+      must come from a successful **task result**, not Main's summary.
+- [ ] Actual cause of P17 `chat/error` still unknown. No model or
+      authorization claim can be inferred solely from a zero catalog.
+- [ ] Genuine Council completion remains unverified; no paid repeats
+      until the real Host catalog and approved identity permit a turn.
+
 ## Product behavior (NOT established by static tests)
 - [x] Earlier single-Main research plugin package loaded and ran in SDK.
 - [x] All RC2 roles recognized as separate identities by real Copilot SDK.
@@ -61,7 +77,7 @@ as Council handback. There is no grounds for main/stable release.
 
 ## Go / no-go
 Retain roles by marginal evidence, not by a 'smallest agents' ideology.
-No further model catalogue checks; the user confirmed all models available.
+Do not equate user-visible VS Code model availability with the separate ephemeral Actions Host model catalog. P18 observed zero Copilot model entries in the latter; fail closed before requesting Luna there.
 No automatic API bridge, mandatory premium opinion, main merge or stable tag.
 Research and release remain separated; **RC1 and v1.1.1 stay intact**.
 

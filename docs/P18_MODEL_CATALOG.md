@@ -32,3 +32,18 @@ Relevant upstream:
 
 One-shot trigger: docs/P18_MODEL_CATALOG_SENTINEL.md with commit marker
 `[p18-model-catalog-once]`. Keep main/RC1/PR unmerged.
+## Actual P18 result — 2026-10-19
+
+[Workflow #39197886981](https://github.com/YB-Park/over-the-luna/actions/runs/39197886981)
+**SUCCESS** on a real localhost-only VS Code Host:
+`ahpInitialized: true`, `copilotAdvertised: true`,
+`copilotModelCount: 0`, `lunaExactAdvertised: false`,
+`autoModelAdvertised: false`, `protectedResourceCount: 2`.
+No session created, no plugin published and **zero model turns**.
+
+The same CI runner type and official job-scoped GitHub Copilot
+permission were used, but one cannot assert that the precise
+P17 `chat/error` originated from a model mismatch: that P17
+error type was not recorded. Do not blindly select Auto when the
+catalog also lacks Auto. Do not relay private user tokens.
+New code now checks advertised Luna before sending any turn.

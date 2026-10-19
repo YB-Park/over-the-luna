@@ -88,6 +88,38 @@ enterprise settings, or ask for private workspace exports. The real
 Host plugin integration already passed; no more Main-only benchmarks.
 
 
+## P18 actual Host model catalog — absence is a stop condition
+
+[P18 real Host #39197886981](https://github.com/YB-Park/over-the-luna/actions/runs/39197886981)
+reused an isolated public GitHub Actions host and the official
+job-scoped Copilot permission, without **any** chat/model turns.
+AHP 1.0.0, provider `copilotcli` **PASS**. Over the bounded root
+observation, the provider advertised **0 model entries**, including no
+`gpt-6-luna` and no `auto`; it advertised **2 protected resource
+entries**. Those are metadata counts, not a credential/auth error or a
+model-billing measurement.
+
+**Correct inference:** P17 selected `gpt-6-luna` without first
+verifying the Host-advertised available model catalog. P17 `chat/error`
+is compatible with absent model authorization/catalog, but its exact
+cause remains **UNKNOWN**. A model available to a signed-in user's VS
+Code picker does not imply availability to an ephemeral Actions job
+token. Zero models at this point in this runner is not proof that Copilot
+is broken, that Luna is unsupported globally, or that credentials must
+be exported. Another blind paid P17 retry would not answer the routing
+question.
+
+**Fail-closed test gate implemented:** the native Architect trial
+now reads the actual root `AgentInfo.models` catalog again before the
+first turn. When the exact `gpt-6-luna` model is absent or disabled,
+record `BLOCKED_MODEL_NOT_ADVERTISED` and submit **zero turns**.
+On a future authenticated Host where it is advertised, a completed
+named `task` and a source-grounded **tool return** (not Main's prose)
+are both required before calling it a real handback. The AHP
+`chat/toolCallReady.toolInput` field now carries the named-agent
+selection proof, per upstream protocol. These guards are tested offline
+and **were not used to replay a paid model turn**.
+
 ## Acceptance flow: Main → Architect → Main
 
 For this narrow read-only check, Main requests one Architect observation, Architect returns the packet, and Main assesses it. Reviewer is excluded until a real diff exists.
