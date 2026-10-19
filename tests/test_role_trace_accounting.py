@@ -56,6 +56,27 @@ class TraceAccountingTests(unittest.TestCase):
         arm["subagentCompleted"] = [{"name": "Next Architect", "toolCallId": "id2"}]
         self.assertEqual(account(data)["arms"][1]["pairedNamedLifecycleEvents"], 0)
 
+    def test_missing_or_invalid_lifecycle_id_is_not_proof(self):
+        cases = (
+            (None, None), ("", ""), (0, 0), ([], []),
+            (None, "id1"), ("id1", None)
+        )
+        for started_id, completed_id in cases:
+            with self.subTest(started_id=started_id, completed_id=completed_id):
+                data = copy.deepcopy(self.data)
+                arm = data["arms"][1]
+                started = {"name": "Next Architect"}
+                completed = {"name": "Next Architect"}
+                if started_id is not None:
+                    started["toolCallId"] = started_id
+                if completed_id is not None:
+                    completed["toolCallId"] = completed_id
+                arm["subagentStarts"] = [started]
+                arm["subagentCompleted"] = [completed]
+                result = account(data)["arms"][1]
+                self.assertEqual(result["pairedNamedLifecycleEvents"], 0)
+                self.assertFalse(result["hostHandbackProven"])
+
     def test_missing_meter_is_unknown_not_zero(self):
         data = copy.deepcopy(self.data)
         data["arms"][1]["usage"][0]["copilotNanoAiu"] = None

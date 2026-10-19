@@ -26,7 +26,9 @@ def _pair_lifecycle(starts: list, completions: list) -> int:
         if not isinstance(name, str) or not name.strip():
             return None
         ident = event.get("toolCallId")
-        return name.strip(), ident if isinstance(ident, str) and ident else None
+        if not isinstance(ident, str) or not ident:
+            return None
+        return name.strip(), ident
 
     left = Counter(key(e) for e in starts if isinstance(e, dict))
     right = Counter(key(e) for e in completions if isinstance(e, dict))

@@ -38,7 +38,8 @@ def grade(work,changed):
     }
     return {"pass":all(checks.values()),"checks":checks}
 def self_test():
-    if hidden_pass(ROOT):raise ValueError("seeded defect vanished: abort spend")
+    # Test a vulnerable and repaired TEMP copy, even after the public
+    # research branch has legitimately fixed its original seeded defect.
     with tempfile.TemporaryDirectory(prefix="otl-p12-") as temp:
         work=Path(temp)
         for rel in (IMPL,TEST,"tests/fixtures/p5_role_accounting.json",
@@ -49,13 +50,22 @@ def self_test():
         path=work/IMPL
         src=path.read_text(encoding="utf-8")
         marker="        return name.strip(), ident if isinstance(ident, str) and ident else None"
-        if src.count(marker)!=1:raise ValueError("seed source mismatch")
-        path.write_text(src.replace(marker,
-            "        if not isinstance(ident,str) or not ident:\n"
-            "            return None\n"
-            "        return name.strip(),ident"),encoding="utf-8")
-        if not hidden_pass(work):raise ValueError("positive oracle control failed")
-        print("P12_ORACLE_PASS: public defect detected and temp repair verified")
+        fixed=("        if not isinstance(ident, str) or not ident:\n"
+               "            return None\n"
+               "        return name.strip(), ident")
+        if src.count(marker)==1:
+            vulnerable=src
+        elif src.count(fixed)==1:
+            vulnerable=src.replace(fixed,marker)
+        else:
+            raise ValueError("unexpected P12 source contract")
+        path.write_text(vulnerable,encoding="utf-8")
+        if hidden_pass(work):
+            raise ValueError("negative oracle control failed")
+        path.write_text(vulnerable.replace(marker,fixed),encoding="utf-8")
+        if not hidden_pass(work):
+            raise ValueError("positive oracle control failed")
+        print("P12_ORACLE_PASS: temp vulnerable and fixed controls agree")
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--self-test",action="store_true")
