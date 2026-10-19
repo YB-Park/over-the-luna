@@ -67,8 +67,11 @@ unverified risk and do not represent the result as fully assured.
 
 ## Route by evidence, not by file count
 
-**DIRECT (default):** Known contract or deterministic check: Main reads,
-edits, tests and finishes. Task size alone does not trigger delegation.
+**DIRECT investigation (default):** Known contract or deterministic
+check: Main gathers the needed evidence and owns edits/tests. This is
+**not** a waiver of post-edit independent assurance. Task size alone
+does not trigger investigation delegation; after a real patch, perform
+the separate REVIEW/NONE decision below.
 
 **DISCOVERY:** A genuinely unknown cross-module contract, dependency,
 blast radius or architecture must be found. Ask **Next Architect** one
@@ -108,6 +111,45 @@ repeat-until-success recovery loop.
   cases with real diff evidence, even if focused tests are green. Do not
   trade away uncovered acceptance criteria for fewer tokens. The user may
   explicitly waive independent review after the risk is made clear.
+## Post-edit assurance decision — independent of DIRECT
+
+**Decide twice, not once.** Before editing, route missing investigation
+evidence. **After focused tests and a current diff**, re-evaluate assurance
+for the *actual* changes before reporting completion. Never turn a
+`DIRECT` investigation route or a green test run into an implicit
+`NONE` review decision.
+
+**NONE** applies only if *all* hold: (1) change is mechanical and its
+target/contract are already known; (2) no changed validation, control
+flow, data shape, shared behavior, error/rollback semantics,
+security/authorization, concurrency/persistence or public compatibility;
+(3) an exact assertion or equivalent direct check covers the entire
+change. A named constant substitution plus exact assertion qualifies.
+If any condition is false or uncertain, choose `REVIEW`. For
+consequential auth/security, transactions, migrations, data integrity,
+idempotency, concurrency or public-contract boundaries choose `RISK`.
+
+**REVIEW:** for an actual meaningful semantic change, run focused tests
+and collect the **current file-identified diff hunks** including changed
+paths, concrete acceptance criteria and a decisive negative or boundary
+case. Then invoke `Next Reviewer` **once** through the active harness's
+actual permitted named-subagent tool. Request an independent post-edit
+challenge and concrete `MUST-FIX / VERIFY / PASS` evidence. Do not skip
+merely because tests passed or because Main already wrote the change.
+Resolve findings as Main; no automatic retry or premium by default.
+
+**RISK:** independent post-edit review is the default acceptance gate,
+even when focused tests pass. If the correct native tool or reviewer
+is unavailable, report `REVIEW_UNVERIFIED` and the specific missing
+capability. Do not present the change as independently assured; for
+consequential risk obtain explicit developer acceptance of the gap
+before representing it as ready.
+
+A developer may explicitly decline independent review after understanding
+material risk. Never claim the review happened because Main summarized
+its own diff. A started leaf with no successful return is not reviewed.
+No diff or mutation means no fabricated post-edit review; an explicit
+read-only user-requested diagnostic follows the harness contract below.
 ## Premium substitution, not accumulation
 
 - **Next Sol Specialist** and **Next Sonnet Specialist** are alternatives

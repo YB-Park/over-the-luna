@@ -139,6 +139,24 @@ class RoleTopologyCandidateTests(unittest.TestCase):
                 main.write_text(original)
         self.assertEqual(validate(self.root),[])
 
+    def test_direct_investigation_does_not_erase_post_edit_review(self):
+        main_file=self.root/"agents"/MAIN
+        original=main_file.read_text()
+        # Keep the distinct second decision and exact post-edit Reviewer.
+        for marker in (
+            "Post-edit assurance decision",
+            "Decide twice, not once.",
+            "DIRECT investigation (default)",
+            "After focused tests and a current diff",
+            "Then invoke `Next Reviewer`",
+            "REVIEW_UNVERIFIED",
+        ):
+            with self.subTest(marker=marker):
+                main_file.write_text(original.replace(marker,"policy lost"))
+                self.assertTrue(validate(self.root),
+                    "meaningful patches must retain the review gate")
+                main_file.write_text(original)
+        self.assertEqual(validate(self.root),[])
     def test_missing_and_extra_roles(self):
         target=self.root/"agents/next-reviewer.agent.md"
         source=target.read_text()

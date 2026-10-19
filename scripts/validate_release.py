@@ -107,7 +107,13 @@ def validate(root:Path=ROOT) -> list[str]:
                 "Harness compatibility and observable delegation",
                 "Copilot harness", "Local harness",
                 "A user-requested delegation diagnostic",
-                "DELEGATION_ATTEMPT_FAILED")):
+                "DELEGATION_ATTEMPT_FAILED",
+                "Post-edit assurance decision",
+                "Decide twice, not once.",
+                "DIRECT investigation (default)",
+                "After focused tests and a current diff",
+                "Then invoke `Next Reviewer`",
+                "REVIEW_UNVERIFIED")):
                 errors.append("Main missing independent routing / premium substitution gate")
         else:
             expectedName,expectedModel,expectedTools=MODELS[filename]
