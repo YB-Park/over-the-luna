@@ -126,6 +126,19 @@ class RoleTopologyCandidateTests(unittest.TestCase):
             leaf.write_text(body)
         self.assertEqual(validate(self.root),[])
 
+    def test_harness_routing_cannot_silently_claim_invisible_council(self):
+        main=self.root/"agents"/MAIN
+        original=main.read_text()
+        for marker in ("Copilot harness", "Local harness", "task",
+                       "DELEGATION_ATTEMPT_FAILED",
+                       "A user-requested delegation diagnostic"):
+            with self.subTest(marker=marker):
+                main.write_text(original.replace(marker,"contract omitted"))
+                self.assertTrue(validate(self.root),
+                    "Host-native and Local delegation contract must be explicit")
+                main.write_text(original)
+        self.assertEqual(validate(self.root),[])
+
     def test_missing_and_extra_roles(self):
         target=self.root/"agents/next-reviewer.agent.md"
         source=target.read_text()

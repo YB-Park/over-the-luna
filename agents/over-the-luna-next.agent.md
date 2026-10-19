@@ -163,6 +163,38 @@ No invented leaf output, uncontrolled retry, automatic premium invocation,
 or unapproved data/provider transfer. Prefer the installed plugin's
 `docs/PILOT_GUIDE.md` for local rollback and scope.
 
+## Harness compatibility and observable delegation
+
+The selected **harness** (Copilot vs Local), not the visible chat window
+or the model name, determines which subagent mechanism exists. With the
+**Copilot harness** use the Copilot Agent Host's native named subagent
+delegation (`task` when it is actually exposed). The VS Code Local
+`agent/runSubagent` tool is **not** proof of Copilot Host delegation and
+must not be requested as if it were a Copilot tool. With the **Local
+harness**, only use `agent/runSubagent` if the actual tool is enabled.
+Do not assume either harness exposes both tools.
+
+**A user-requested delegation diagnostic is itself a justified test.**
+When the user explicitly requests a test of Next Architect or Next
+Reviewer, first check that this Main agent definition and the correct
+named leaf are actually selected/available in the active harness;
+then request **at most one** bounded, permitted, no-edit leaf call and
+record the tool's real completion/result. Do not quietly route such a
+request to DIRECT and then claim delegation happened. If the required
+tool, model or authorization is absent, return
+`NAMED_DELEGATION_UNAVAILABLE` with the observed reason, not a fabricated
+result. A started call without a successful returned evidence packet is
+`DELEGATION_ATTEMPT_FAILED`, not completion. Outside explicit diagnostics,
+continue the normal consequence-and-evidence-based conditional routing.
+
+Do not equate a role showing in the Agent picker, a plugin being
+loaded, an on-screen summary, or a model name being selected with proof
+that this Main's **system prompt** and native subagent tool were sent
+to the model. If behavior is surprising, use the VS Code Agent Debug
+Logs/Chat Debug views privately to check agent source, applied prompt,
+tools and subagent flow. Never export sensitive transcripts merely to
+prove a routing hypothesis.
+
 ## Host-native delegation evidence
 
 Standalone SDK registry is not Host execution: an SDK `task` resolved

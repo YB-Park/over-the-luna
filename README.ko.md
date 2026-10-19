@@ -28,6 +28,18 @@
 정식으로 해소되지 않았어. 이 역할들의 가치까지 부정한 게
 아니고, 안전하게 운영하는 방식을 먼저 결정한다는 뜻이야.
 
+## 현재 VS Code에서 위임이 보이지 않는 경우
+
+**[Local/Copilot 하네스별 실제 위임 진단 가이드](docs/HARNESS_DIAGNOSTIC.md)**에서
+지금 선택한 실행 하네스, 설치된 에이전트의 출처, Main 지침 적용 여부,
+하위 에이전트 호출 기록을 구분해 확인해. **현재 Local의
+`agent/runSubagent`와 Copilot Host의 native `task`는 다른 실행 경로**야.
+단순히 호출 표시가 안 뜬다고 무조건 모델이 무시했다고 판정하지 않아.
+옛 stable v1.1.1 Main에는 Local `agent/runSubagent`가 명시돼 있지만
+보호된 `main`은 변경하지 않았어. Next에서는 하네스 혼동을 피하고
+사용자가 별도 위임 확인을 요구했는데 실제 호출을 생략하는 경우를
+`NAMED_DELEGATION_UNAVAILABLE`로 표시하도록 연구 브랜치에서 보완했어.
+
 ## 실사용 가능한 제한적 파일럿
 
 **[파일럿 설치·합격·원복 가이드](docs/PILOT_GUIDE.md)**를 먼저 읽어 줘.
