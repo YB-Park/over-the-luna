@@ -1,14 +1,14 @@
 # Role-topology RC2 — decision gate (not a public release)
 
 ## Free, static test (automated)
-- [ ] Exactly one user-visible Main and seven hidden role-specific leaves.
-- [ ] Main inherits Host-selected model/tools. No `tools: []` anywhere.
-- [ ] Explicit nonempty leaf read/search lists, `agents: []` and pinned
+- [x] Exactly one user-visible Main and seven hidden role-specific leaves.
+- [x] Main inherits Host-selected model/tools. No `tools: []` anywhere.
+- [x] Explicit nonempty leaf read/search lists, `agents: []` and pinned
       initial leaf model labels; this checks DECLARATION ONLY.
-- [ ] Negative tests for hidden/visible roles, unknown agents, model mismatch,
+- [x] Negative tests for hidden/visible roles, unknown agents, model mismatch,
       accidental MCP/hook/skill bundles, malformed manifest and ZIP integrity.
-- [ ] Reproducible allowlisted ZIP + no-cost GitHub Actions success.
-- [ ] Clear role→trigger→evidence→owner and rollback docs.
+- [x] Reproducible allowlisted ZIP + no-cost GitHub Actions success.
+- [x] Clear role→trigger→evidence→owner and rollback docs.
 
 ## Native Agent Host integration stages (public Actions, no inference)
 - [x] VS Code `code agent host` starts, authenticates AHP transport and
@@ -74,6 +74,41 @@ as Council handback. There is no grounds for main/stable release.
       data transmission.
 - [ ] Role specialization improves actual user work or avoids rework/attention
       cost relative to default Main/native; not an automatic assumption.
+
+## P19 — pragmatic opt-in pilot shipment decision (2026-10-19)
+
+- [x] **Pilot package READY**: allowlisted ZIP containing 8 agents plus
+      `docs/PILOT_GUIDE.md`, and a stdlib-only ZIP auditor; built on
+      [CI #39201552015](https://github.com/YB-Park/over-the-luna/actions/runs/39201552015),
+      SHA-256 `46c7138136180a256360bf6eaa9d1ba14f676587568b5e1f85bcf8730122c7b1`.
+      14 static role tests, 13 accounting tests, 6 negative ZIP tests PASS.
+- [x] **Evidence-calibrated runtime instructions**: safe direct work may
+      produce `PILOT_DIRECT_OK` without pretending Council ran. A blocked
+      named leaf must produce `NAMED_DELEGATION_UNAVAILABLE`; high-impact
+      changes without a real independent check must retain
+      `REVIEW_UNVERIFIED`. A declaration is not Host enforcement.
+- [x] **Reversible installation path**:
+      `chat.plugins.enabled` and local `chat.pluginLocations` in *user*
+      settings, approved Copilot harness, no duplicate Next identity and
+      immediate disable/rollback. No automatic settings edits, provider
+      relays, enterprise policy bypass or corporate artifact exports.
+- [ ] **Personal/limited alpha ACTIVE**: requires a signed-in developer
+      actually selecting the plugin and confirming one low-risk direct
+      outcome; this has **not been observed in this session**. Safe
+      package alone never implies a working session.
+- [ ] **Council beta**: require one genuine named Architect return and
+      one independent post-edit Reviewer on real diff/test evidence,
+      across at least three decision-relevant tasks, with **zero severe
+      tool/policy/data boundary incidents**. Document minor defects;
+      no 100%-perfection or exhaustive model matrix required.
+- [ ] **Public stable release**: separate owner authorization after
+      pilot incidents, upgrade/rollback and effective Host permissions
+      are reviewed. Do not merge research PR or tag a release here.
+
+**Decision:** publishable *inside this research branch* as an opt-in
+limited pilot candidate. Productization is **staged**: direct usefulness
+can be trialed now; never market Council assurance before actual
+leaf-return evidence. Existing `main` v1.1.1 and RC1 untouched.
 
 ## Go / no-go
 Retain roles by marginal evidence, not by a 'smallest agents' ideology.

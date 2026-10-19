@@ -71,9 +71,7 @@ Rollback: disable this local plugin path, switch to stable v1.1.1 or RC1
 or native Copilot. Do not change enterprise permissions merely to make
 the agent work. No user internal worktree diff/chat logs need uploading.
 
-**Research stop rule:** one static role/packaging gate, then only a
-decision-relevant SDK integration check if needed. Do not add endless
-fixture families or run every model by habit. `main` is untouched.
+**Pilot stop rule:** validate the allowlisted package and attempt low-risk direct work in an approved signed-in Host. Do not pay for another SDK-only baseline or claim named Council handback without an actual returned leaf packet. Keep `main` untouched and use the [pilot rollback guide](docs/PILOT_GUIDE.md).
 
 ## Delegation acceptance — current blocker
 
