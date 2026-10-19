@@ -80,7 +80,7 @@ as Council handback. There is no grounds for main/stable release.
 - [x] **Pilot package READY**: allowlisted ZIP containing 8 agents plus
       `docs/PILOT_GUIDE.md`, and a stdlib-only ZIP auditor; built on
       [CI #39219481908](https://github.com/YB-Park/over-the-luna/actions/runs/39201552015),
-      SHA-256 `dcb49af6379b27bbf745f9bc188e578765f784a7b47a45587c8237b6c656c383`.
+      SHA-256 `32e43951f768d66ba2f02134c70201ff24c241d381a2ee21e3744720e575aa18`.
       15 static role tests, 13 accounting tests, 8 negative ZIP tests PASS.
 - [x] **Evidence-calibrated runtime instructions**: safe direct work may
       produce `PILOT_DIRECT_OK` without pretending Council ran. A blocked
@@ -161,8 +161,8 @@ are modified. This audit does not demand another paid model turn.
       actual tool definitions and observable Agent Flow Chart. No private
       transcripts exported, no new paid Host runs.
 - [x] [No-model CI #39219481908](https://github.com/YB-Park/over-the-luna/actions/runs/39219481908)
-      **PASS**: 15 release + 8 ZIP negative + 13 accounting = **36**
-      tests, independent package grader, ZIP SHA-256 `dcb49af6379b27bbf745f9bc188e578765f784a7b47a45587c8237b6c656c383` and 15
+      **PASS** before P22: 15 release + 8 ZIP negative + 13 accounting = **36**
+      tests, independent package grader, ZIP SHA-256 `32e43951f768d66ba2f02134c70201ff24c241d381a2ee21e3744720e575aa18` and 15
       allowlisted members. The static green gate is not live Host
       named-subagent proof.
 - [ ] The user-side signed-in VS Code session still needs one
@@ -203,3 +203,5 @@ Research and release remain separated; **RC1 and v1.1.1 stay intact**.
 - [ ] Later, where a genuine **public** patch exists, the named Next Reviewer receives real diff/test evidence and returns an independent specific finding or grounded PASS. No fake second stage on an empty diff.
 - [ ] Effective read/write approvals, denied write attempts and provider boundaries remain separate Host-policy checks; a self-reported yes/no is not enforcement telemetry.
 - [ ] Do not promote the new Council as operationally verified merely because the standalone SDK registers agents. No more standalone `custom_agent_prompt` retry experiments.
+
+  Latest P22 [CI #39220584169](https://github.com/YB-Park/over-the-luna/actions/runs/39220584169) **PASS**: 16 release/role + 8 ZIP negative + 13 accounting = **37** tests; no model calls, ZIP SHA-256 `32e43951f768d66ba2f02134c70201ff24c241d381a2ee21e3744720e575aa18`, size 38,487 bytes.
