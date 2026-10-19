@@ -20,6 +20,8 @@ jobs:
       - name: Syntax-check future role-pipeline scripts (zero model inference)
         run: |
           node --check scripts/role_pipeline_pair.mjs
+          node --check scripts/p12_direct_pair.mjs
+          python scripts/p12_direct_grader.py --self-test
           python -m py_compile scripts/role_pipeline_grader.py
       - name: Independently regrade the fixed public release package boundary
         run: python scripts/role_pipeline_grader.py --work .
