@@ -21,6 +21,18 @@ function pluginEvidence(state,uri) {
     architectFound:found.includes("Next Architect"),
     mainFound:found.includes("Over the Luna Next")};
 }
+function coarseChatErrorCategory(errorType) {
+  if(typeof errorType!=="string"||errorType.length>128)return "UNKNOWN";
+  if(/auth|login|credential|unauthoriz|forbidden/i.test(errorType))
+    return "AUTH_OR_CREDENTIAL";
+  if(/quota|rate.?limit|usage.?limit/i.test(errorType))
+    return "QUOTA_OR_RATE";
+  if(/model|provider/i.test(errorType))
+    return "MODEL_OR_PROVIDER";
+  if(/permission|policy|denied/i.test(errorType))
+    return "PERMISSION_POLICY";
+  return "OTHER_UNCLASSIFIED";
+}
 function selfTest() {
   const good=pluginEvidence({customizations:[{type:"plugin",uri:"file:///public",
     load:{kind:"loaded"},children:ROLES.map(name=>({type:"agent",name}))}]},"file:///public");
@@ -29,6 +41,10 @@ function selfTest() {
   if(pluginEvidence({customizations:[{type:"plugin",uri:"file:///public",
     children:ROLES.slice(1).map(name=>({type:"agent",name}))}]},"file:///public").exactRoles)
     throw Error("incomplete_roles_accepted");
+  if(coarseChatErrorCategory("AUTH_REQUIRED")!=="AUTH_OR_CREDENTIAL"||
+     coarseChatErrorCategory("modelUnavailable")!=="MODEL_OR_PROVIDER"||
+     coarseChatErrorCategory("arbitrary-user-string")!=="OTHER_UNCLASSIFIED")
+    throw Error("error_category_policy");
   console.log("P16_NATIVE_PLUGIN_PREFLIGHT_PASS");
 }
 async function endpoint(dir) {
@@ -93,6 +109,7 @@ async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
     namedTaskArgObserved:false,taskStarted:false,taskStartedCount:0,taskCompleted:false,
     taskSucceeded:false,returnedSourcePacket:false,mainTurnCompleted:false,
     copilotAuthChallengeObserved:false,chatErrorObserved:false,
+    chatErrorCategory:"NONE",
     roleAgentUriVerified:!!main?.uri&&!!architect?.uri,
     status:"INCONCLUSIVE"};
   if(!main?.uri||!architect?.uri||typeof chat!=="string"||
@@ -150,7 +167,11 @@ async function oneAuthenticArchitectTurn(c,state,pluginUri,metrics) {
     }
     if(type==="chat/delta"&&typeof a.content==="string")
       mainText=(mainText+a.content).slice(-18000);
-    if(type==="chat/error"){result.chatErrorObserved=true;resolveStop("CHAT_ERROR")}
+    if(type==="chat/error"){
+      result.chatErrorObserved=true;
+      result.chatErrorCategory=coarseChatErrorCategory(a.part?.error?.errorType);
+      resolveStop("CHAT_ERROR");
+    }
     if(type==="chat/turnComplete"&&a.turnId===turnId) {
       result.mainTurnCompleted=true;resolveStop("TURN_COMPLETE");
     }
