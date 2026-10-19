@@ -10,6 +10,20 @@
 - [ ] Reproducible allowlisted ZIP + no-cost GitHub Actions success.
 - [ ] Clear role→trigger→evidence→owner and rollback docs.
 
+## Native Agent Host integration stages (public Actions, no inference)
+- [x] VS Code `code agent host` starts, authenticates AHP transport and
+      negotiates 1.0.0; native provider `copilotcli` advertised.
+- [x] Copilot `createSession` accepted and session channel subscribed.
+- [ ] Real Copilot session reaches `ready` (P15 remained `creating`).
+- [ ] RC2 plugin registered with actual Host session; named task finishes
+      and returns independent evidence.
+- [ ] Host-native complex-task role selection improves accepted quality or
+      avoids rework relative to justified direct evidence.
+
+**Stop:** Do not repeat P5 SDK subagent probes or claim Council value from
+Host boot/registry alone. No further model spend until a real Host-ready
+authenticated session and named-role completion path can be observed.
+
 ## Product behavior (NOT established by static tests)
 - [x] Earlier single-Main research plugin package loaded and ran in SDK.
 - [x] All RC2 roles recognized as separate identities by real Copilot SDK.

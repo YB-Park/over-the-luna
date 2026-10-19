@@ -30,3 +30,14 @@ ONLY after adapter authentication and named plugin discovery work.
 
 One-time workflow trigger: create docs/P14_HOST_AHP_SENTINEL.md with
 commit marker [p14-host-probe-once]. No automatic repetitions, merge or release.
+
+## Observed outcome
+
+[P14 #39186857999](https://github.com/YB-Park/over-the-luna/actions/runs/39186857999)
+**PASS** on the actual official VS Code Host: AHP `initialize` negotiated
+`1.0.0`, root snapshot supplied two provider records, no model calls.
+The first observation projected `copilotAdvertised:false` because its
+parser incorrectly expected `copilot`; source code defines the real
+provider ID [`copilotcli`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/agentHost/common/agent.ts).
+The parser and offline preflight were corrected. Do not mistake that
+instrumentation error for absence of the Copilot adapter.
