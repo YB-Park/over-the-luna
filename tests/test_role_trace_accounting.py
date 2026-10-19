@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import unittest
 from scripts.role_trace_accounting import account
+from scripts.p5_fixture_provenance import compact, verify, P5_SUMMARY_SHA256
 
 FIXTURE = Path(__file__).parent / "fixtures" / "p5_role_accounting.json"
 
@@ -64,6 +65,43 @@ class TraceAccountingTests(unittest.TestCase):
         data = copy.deepcopy(self.data)
         data["arms"][1]["grading"] = {}
         self.assertFalse(account(data)["arms"][1]["qualityAccepted"])
+
+    def test_inconsistent_grader_flag_cannot_claim_accepted_quality(self):
+        data = copy.deepcopy(self.data)
+        arm = data["arms"][1]
+        arm["grading"]["checks"]["package_valid_root"] = False
+        self.assertFalse(account(data)["arms"][1]["qualityAccepted"])
+
+    def test_failed_check_list_cannot_claim_accepted_quality(self):
+        data = copy.deepcopy(self.data)
+        data["arms"][1]["grading"]["failed_checks"] = ["deny_symlink_LICENSE"]
+        self.assertFalse(account(data)["arms"][1]["qualityAccepted"])
+
+    def test_unexpected_change_or_missing_model_cannot_claim_accepted_quality(self):
+        for key, value in (
+            ("unexpectedPaths", ["internal.txt"]), ("modelObserved", False),
+            ("error", "runtime_error")
+        ):
+            data = copy.deepcopy(self.data)
+            data["arms"][1][key] = value
+            with self.subTest(key=key):
+                self.assertFalse(account(data)["arms"][1]["qualityAccepted"])
+
+    def test_fixture_compaction_strips_any_extra_fields(self):
+        noisy = copy.deepcopy(self.data)
+        noisy["untrustedPrivatePrompt"] = "DO NOT INCLUDE"
+        for arm in noisy["arms"]:
+            arm["secretToolArguments"] = {"token": "DO NOT INCLUDE"}
+            arm["events"].append({"type": "tool.execution_complete",
+                                  "name": "", "rawPrompt": "DO NOT INCLUDE"})
+            arm["usage"][0]["secret"] = "DO NOT INCLUDE"
+        self.assertEqual(compact(noisy), self.data)
+
+    def test_wrong_source_hash_refuses_fixture_verification(self):
+        raw = json.dumps(self.data).encode()
+        self.assertEqual(len(P5_SUMMARY_SHA256), 64)
+        with self.assertRaisesRegex(ValueError, "not pinned"):
+            verify(raw, self.data)
 
     def test_invalid_events_are_rejected(self):
         data = copy.deepcopy(self.data)

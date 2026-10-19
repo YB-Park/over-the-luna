@@ -60,7 +60,19 @@ def account_arm(arm: dict, runtime: str) -> dict:
         role_status = "NO_NAMED_DELEGATION_OBSERVED"
 
     grading = arm.get("grading") if isinstance(arm.get("grading"), dict) else {}
-    accepted = arm.get("acceptance") is True and grading.get("pass") is True
+    checks = grading.get("checks")
+    accepted = all((
+        arm.get("acceptance") is True,
+        grading.get("pass") is True,
+        isinstance(checks, dict) and bool(checks) and
+            all(value is True for value in checks.values()),
+        grading.get("failed_checks") == [],
+        type(grading.get("num_user_tests")) is int and
+            grading["num_user_tests"] > 0,
+        arm.get("modelObserved") is True,
+        "error" in arm and arm["error"] is None,
+        arm.get("unexpectedPaths") == [],
+    ))
     return {
         "mode": arm.get("mode"),
         "runtime": runtime,
