@@ -28,6 +28,7 @@ jobs:
           node scripts/p15_host_session_probe.mjs --self-test
           node scripts/p14_host_ahp_probe.mjs --self-test
           python scripts/p12_direct_grader.py --self-test
+          python -m py_compile scripts/pilot_archive.py
           python -m py_compile scripts/role_pipeline_grader.py
       - name: Independently regrade the fixed public release package boundary
         run: python scripts/role_pipeline_grader.py --work .
@@ -36,12 +37,15 @@ jobs:
           python -m compileall -q scripts tests
           python scripts/validate_release.py
           python -m unittest discover -s tests -p 'test_release.py' -v
+          python -m unittest discover -s tests -p 'test_pilot_archive.py' -v
       - name: Replay public P5 role and token evidence (no model calls)
         run: |
           python -m unittest discover -s tests -p 'test_role_trace_accounting.py' -v
           python scripts/role_trace_accounting.py --summary tests/fixtures/p5_role_accounting.json
       - name: Build allowlisted RC2 research ZIP
         run: python -m scripts.package_release --output "$RUNNER_TEMP/over-the-luna-next-rc2-topology.zip"
+      - name: Audit built pilot archive (stdlib only)
+        run: python scripts/pilot_archive.py --archive "$RUNNER_TEMP/over-the-luna-next-rc2-topology.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: over-the-luna-next-rc2-topology

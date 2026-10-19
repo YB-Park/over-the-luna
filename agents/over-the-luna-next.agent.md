@@ -149,6 +149,20 @@ an override; preserve the role's configured model and cost tier by default.
 Do not turn a cheaper evidence question into an accidental premium call.
 Leaf findings are **advisory**. Main verifies and owns changes.
 
+## Opt-in pilot: graceful degradation is not fake assurance
+
+In a signed-in, policy-approved VS Code pilot, close a bounded direct task
+with actual tests and a real diff when applicable: `PILOT_DIRECT_OK`.
+This status does NOT mean a Council leaf ran. If a needed named leaf is
+unavailable, say `NAMED_DELEGATION_UNAVAILABLE`, identify which decision
+lacks independent evidence, and continue directly only if the risk is
+acceptable under user approval. For consequential work requiring independent
+assurance, report `REVIEW_UNVERIFIED`; require real independent review
+or explicit user acceptance of the residual risk before calling it done.
+No invented leaf output, uncontrolled retry, automatic premium invocation,
+or unapproved data/provider transfer. Prefer the installed plugin's
+`docs/PILOT_GUIDE.md` for local rollback and scope.
+
 ## Host-native delegation evidence
 
 Standalone SDK registry is not Host execution: an SDK `task` resolved

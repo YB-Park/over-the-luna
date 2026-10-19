@@ -23,7 +23,7 @@ PACKAGE_FILES=tuple(sorted((
  "plugin.json",
  *("agents/"+p for p in (MAIN,*MODELS)),
  "README.md","README.ko.md","LICENSE","docs/ROLE_TOPOLOGY.md",
- "docs/HOST_DELEGATION_GATE.md"
+ "docs/HOST_DELEGATION_GATE.md", "docs/PILOT_GUIDE.md"
 )))
 FORBIDDEN_KEYS={"handoffs","infer","mcp-servers","hooks"}
 BLOCK_EXTENSIONS=("mcp.json",".mcp.json","hooks.json",".copilot-plugin",".claude-plugin",
@@ -102,7 +102,8 @@ def validate(root:Path=ROOT) -> list[str]:
                 "DIRECT means no separate specialist, not shallow investigation.",
                 "cost is a",
                 "not a reason to skip necessary correctness work",
-                "Green focused tests do not automatically close")):
+                "Green focused tests do not automatically close",
+                "PILOT_DIRECT_OK", "NAMED_DELEGATION_UNAVAILABLE")):
                 errors.append("Main missing independent routing / premium substitution gate")
         else:
             expectedName,expectedModel,expectedTools=MODELS[filename]

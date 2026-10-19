@@ -33,6 +33,22 @@ on every task. For local work Main runs alone; complex work selects
 only the roles relevant to its uncertainty. Main retains repository
 mutation, tests, decisions and final response.
 
+## Practical opt-in pilot (not a stable release)
+
+**Start with [the in-package Korean pilot guide](docs/PILOT_GUIDE.md).**
+This is a usable limited preview for approved, low-risk tasks with an
+easy opt-out. A successful DIRECT task can be useful without pretending
+a named Council review happened. Host role parsing **8/8** was observed
+in [P16](https://github.com/YB-Park/over-the-luna/actions/runs/39189246326),
+but the genuine first Host turn in
+[P17](https://github.com/YB-Park/over-the-luna/actions/runs/39189500097)
+emitted `chat/error` before any Architect task started. In an isolated
+Actions runner, [P18](https://github.com/YB-Park/over-the-luna/actions/runs/39197886981)
+advertised zero available Copilot models; that does NOT describe a
+signed-in developer's VS Code environment. Council handback and actual
+Host leaf policy enforcement remain UNVERIFIED. No public stable release,
+branch merge or mandatory company telemetry is authorized.
+
 ## Standalone trial (no company data export)
 
 After no-credit CI passes, obtain the **branch-specific allowlisted ZIP**
